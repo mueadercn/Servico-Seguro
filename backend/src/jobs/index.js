@@ -1,5 +1,5 @@
 const cron = require('node-cron');
-const supabase = require('../services/supabase');
+const supabase = require('./services/supabase');
 const { enviarMensagem, templates } = require('../services/whatsapp');
 
 // ── INICIAR TODOS OS JOBS ─────────────────────────────────────
