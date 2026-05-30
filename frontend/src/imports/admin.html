@@ -1,0 +1,1871 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Serviço Seguro — Admin</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap');
+
+:root {
+  --azul: #1B2F6E;
+  --azul-l: #2a4499;
+  --verde: #1A7A4A;
+  --verde-l: #22a362;
+  --verde-n: #2ECC71;
+  --amber: #E8A020;
+  --coral: #D85A30;
+  --bg: #F0F4F8;
+  --bg2: #E8EDF4;
+  --card: #ffffff;
+  --txt: #1a1a2e;
+  --txt2: #5a6070;
+  --border: #D8E0EC;
+  --shadow: 0 2px 16px rgba(27,47,110,0.08);
+  --shadow-hover: 0 8px 32px rgba(27,47,110,0.15);
+  --radius: 12px;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'DM Sans',sans-serif; background:var(--bg); color:var(--txt); min-height:100vh; }
+
+/* ── LOGIN ── */
+#login-screen {
+  min-height:100vh; display:flex; align-items:center; justify-content:center;
+  background: linear-gradient(135deg, var(--azul) 0%, #0f1d45 50%, var(--verde) 100%);
+}
+.login-box {
+  background:white; border-radius:20px; padding:48px 40px;
+  width:100%; max-width:400px; box-shadow:0 24px 80px rgba(0,0,0,0.3);
+}
+.login-brand { text-align:center; margin-bottom:32px; }
+.login-brand .b1 { font-family:'Syne',sans-serif; font-size:2rem; font-weight:800; color:var(--azul); }
+.login-brand .b2 { font-family:'Syne',sans-serif; font-size:2rem; font-weight:800; color:var(--verde); }
+.login-brand p { font-size:0.78rem; color:#999; letter-spacing:2px; text-transform:uppercase; margin-top:4px; }
+.login-box h2 { font-family:'Syne',sans-serif; font-size:1.1rem; color:var(--azul); margin-bottom:24px; }
+.login-box input {
+  width:100%; padding:12px 16px; border:1.5px solid var(--border);
+  border-radius:8px; font-size:0.9rem; font-family:'DM Sans',sans-serif;
+  margin-bottom:12px; outline:none; transition:border-color 0.2s;
+}
+.login-box input:focus { border-color:var(--azul); }
+.btn-login {
+  width:100%; padding:14px; background:var(--azul); color:white;
+  border:none; border-radius:8px; font-family:'Syne',sans-serif;
+  font-size:0.95rem; font-weight:700; cursor:pointer; transition:background 0.2s;
+}
+.btn-login:hover { background:var(--azul-l); }
+.login-err { color:var(--coral); font-size:0.82rem; margin-top:8px; text-align:center; }
+
+/* ── APP SHELL ── */
+#app { display:none; min-height:100vh; }
+
+/* SIDEBAR */
+.sidebar {
+  position:fixed; left:0; top:0; bottom:0; width:240px;
+  background:var(--azul); display:flex; flex-direction:column;
+  padding:0; z-index:100; overflow-y:auto;
+}
+.sidebar-brand {
+  padding:24px 20px; border-bottom:1px solid rgba(255,255,255,0.1);
+}
+.sidebar-brand .b1 { font-family:'Syne',sans-serif; font-size:1.3rem; font-weight:800; color:white; }
+.sidebar-brand .b2 { font-family:'Syne',sans-serif; font-size:1.3rem; font-weight:800; color:var(--verde-n); }
+.sidebar-brand p { font-size:0.65rem; color:rgba(255,255,255,0.5); letter-spacing:2px; text-transform:uppercase; margin-top:2px; }
+
+.sidebar-menu { flex:1; padding:16px 0; }
+.menu-section { padding:8px 20px 4px; font-size:0.6rem; color:rgba(255,255,255,0.35); letter-spacing:2px; text-transform:uppercase; font-weight:600; }
+.menu-item {
+  display:flex; align-items:center; gap:10px; padding:10px 20px;
+  color:rgba(255,255,255,0.7); font-size:0.87rem; cursor:pointer;
+  transition:all 0.15s; border-left:3px solid transparent;
+  text-decoration:none;
+}
+.menu-item:hover { color:white; background:rgba(255,255,255,0.08); }
+.menu-item.active { color:white; background:rgba(255,255,255,0.12); border-left-color:var(--verde-n); }
+.menu-item .icon { font-size:1rem; width:20px; text-align:center; }
+
+.sidebar-footer { padding:16px 20px; border-top:1px solid rgba(255,255,255,0.1); }
+.btn-logout {
+  width:100%; padding:10px; background:rgba(255,255,255,0.08);
+  color:rgba(255,255,255,0.7); border:1px solid rgba(255,255,255,0.15);
+  border-radius:8px; font-family:'DM Sans',sans-serif; font-size:0.82rem;
+  cursor:pointer; transition:all 0.15s;
+}
+.btn-logout:hover { background:rgba(255,255,255,0.15); color:white; }
+
+/* MAIN */
+.main { margin-left:240px; min-height:100vh; }
+.topbar {
+  background:white; border-bottom:1px solid var(--border);
+  padding:16px 32px; display:flex; align-items:center; justify-content:space-between;
+  position:sticky; top:0; z-index:50;
+}
+.topbar h1 { font-family:'Syne',sans-serif; font-size:1.2rem; font-weight:700; color:var(--azul); }
+.topbar-right { display:flex; align-items:center; gap:12px; }
+.badge-admin {
+  background:var(--azul); color:white; font-size:0.7rem; font-weight:600;
+  padding:4px 10px; border-radius:20px; letter-spacing:0.5px;
+}
+
+.content { padding:32px; }
+
+/* CARDS DASHBOARD */
+.stats-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:32px; }
+.stat-card {
+  background:white; border-radius:var(--radius); padding:20px 24px;
+  box-shadow:var(--shadow); border-left:4px solid transparent;
+}
+.stat-card.azul { border-left-color:var(--azul); }
+.stat-card.verde { border-left-color:var(--verde); }
+.stat-card.amber { border-left-color:var(--amber); }
+.stat-card.coral { border-left-color:var(--coral); }
+.stat-label { font-size:0.75rem; color:var(--txt2); text-transform:uppercase; letter-spacing:1px; font-weight:600; }
+.stat-value { font-family:'Syne',sans-serif; font-size:2rem; font-weight:800; color:var(--azul); margin-top:4px; }
+.stat-sub { font-size:0.72rem; color:var(--txt2); margin-top:2px; }
+
+/* SECTION */
+.section { background:white; border-radius:var(--radius); box-shadow:var(--shadow); margin-bottom:24px; overflow:hidden; }
+.section-header {
+  padding:20px 24px; border-bottom:1px solid var(--border);
+  display:flex; align-items:center; justify-content:space-between;
+}
+.section-header h2 { font-family:'Syne',sans-serif; font-size:1rem; font-weight:700; color:var(--azul); }
+.section-body { padding:24px; }
+
+/* BUTTONS */
+.btn {
+  padding:9px 18px; border-radius:8px; font-family:'DM Sans',sans-serif;
+  font-size:0.85rem; font-weight:500; cursor:pointer; border:none;
+  transition:all 0.15s; display:inline-flex; align-items:center; gap:6px;
+}
+.btn-primary { background:var(--azul); color:white; }
+.btn-primary:hover { background:var(--azul-l); }
+.btn-success { background:var(--verde); color:white; }
+.btn-success:hover { background:var(--verde-l); }
+.btn-warning { background:var(--amber); color:white; }
+.btn-danger { background:var(--coral); color:white; }
+.btn-ghost { background:transparent; color:var(--azul); border:1.5px solid var(--border); }
+.btn-ghost:hover { border-color:var(--azul); background:var(--bg); }
+.btn-sm { padding:6px 12px; font-size:0.78rem; }
+
+/* FORM */
+.form-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+.form-grid.cols3 { grid-template-columns:1fr 1fr 1fr; }
+.form-group { display:flex; flex-direction:column; gap:6px; }
+.form-group.full { grid-column:1/-1; }
+.form-group label { font-size:0.78rem; font-weight:600; color:var(--txt2); text-transform:uppercase; letter-spacing:0.5px; }
+.form-group input,
+.form-group select,
+.form-group textarea {
+  padding:10px 14px; border:1.5px solid var(--border); border-radius:8px;
+  font-family:'DM Sans',sans-serif; font-size:0.9rem; outline:none;
+  transition:border-color 0.2s; background:white; color:var(--txt);
+}
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus { border-color:var(--azul); }
+.form-group textarea { resize:vertical; min-height:80px; }
+.form-actions { display:flex; gap:10px; margin-top:20px; padding-top:20px; border-top:1px solid var(--border); }
+
+/* TABLE */
+.table-wrap { overflow-x:auto; }
+table { width:100%; border-collapse:collapse; font-size:0.875rem; }
+thead th {
+  padding:10px 14px; text-align:left; font-size:0.7rem; font-weight:700;
+  color:var(--txt2); text-transform:uppercase; letter-spacing:1px;
+  background:var(--bg); border-bottom:1px solid var(--border);
+}
+tbody td { padding:12px 14px; border-bottom:1px solid var(--border); vertical-align:middle; }
+tbody tr:hover { background:var(--bg); }
+tbody tr:last-child td { border-bottom:none; }
+
+/* BADGES */
+.badge {
+  display:inline-flex; align-items:center; gap:4px;
+  padding:3px 10px; border-radius:20px; font-size:0.7rem; font-weight:600;
+}
+.badge-verde { background:#D1FAE5; color:#065F46; }
+.badge-azul { background:#DBEAFE; color:#1D4ED8; }
+.badge-amber { background:#FEF3C7; color:#92400E; }
+.badge-coral { background:#FEE2E2; color:#B91C1C; }
+.badge-gray { background:#F3F4F6; color:#374151; }
+
+/* TOGGLE */
+.toggle { display:flex; align-items:center; gap:8px; cursor:pointer; }
+.toggle input { display:none; }
+.toggle-track {
+  width:36px; height:20px; background:#D1D5DB; border-radius:10px;
+  position:relative; transition:background 0.2s;
+}
+.toggle input:checked + .toggle-track { background:var(--verde); }
+.toggle-thumb {
+  position:absolute; top:2px; left:2px; width:16px; height:16px;
+  background:white; border-radius:50%; transition:transform 0.2s;
+  box-shadow:0 1px 4px rgba(0,0,0,0.2);
+}
+.toggle input:checked + .toggle-track .toggle-thumb { transform:translateX(16px); }
+
+/* ALERT */
+.alert {
+  padding:12px 16px; border-radius:8px; font-size:0.85rem;
+  margin-bottom:16px; display:flex; align-items:center; gap:8px;
+}
+.alert-success { background:#D1FAE5; color:#065F46; border:1px solid #6EE7B7; }
+.alert-error { background:#FEE2E2; color:#B91C1C; border:1px solid #FCA5A5; }
+
+/* TABS */
+.tabs { display:flex; gap:0; border-bottom:2px solid var(--border); margin-bottom:24px; }
+.tab {
+  padding:10px 20px; font-size:0.87rem; font-weight:500; cursor:pointer;
+  color:var(--txt2); border-bottom:2px solid transparent; margin-bottom:-2px;
+  transition:all 0.15s;
+}
+.tab.active { color:var(--azul); border-bottom-color:var(--azul); font-weight:600; }
+.tab:hover { color:var(--azul); }
+
+/* MODAL */
+.modal-overlay {
+  position:fixed; inset:0; background:rgba(0,0,0,0.5);
+  display:flex; align-items:center; justify-content:center;
+  z-index:1000; padding:20px; opacity:0; pointer-events:none; transition:opacity 0.2s;
+}
+.modal-overlay.open { opacity:1; pointer-events:all; }
+.modal {
+  background:white; border-radius:16px; width:100%; max-width:640px;
+  max-height:90vh; overflow-y:auto; box-shadow:0 24px 80px rgba(0,0,0,0.3);
+}
+.modal-header {
+  padding:20px 24px; border-bottom:1px solid var(--border);
+  display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; background:white;
+}
+.modal-header h3 { font-family:'Syne',sans-serif; font-size:1rem; font-weight:700; color:var(--azul); }
+.modal-close { background:none; border:none; font-size:1.4rem; cursor:pointer; color:var(--txt2); line-height:1; }
+.modal-body { padding:24px; }
+
+/* SEARCH */
+.search-bar {
+  display:flex; gap:10px; margin-bottom:20px; align-items:center;
+}
+.search-bar input {
+  flex:1; padding:9px 14px; border:1.5px solid var(--border);
+  border-radius:8px; font-family:'DM Sans',sans-serif; font-size:0.875rem;
+  outline:none; transition:border-color 0.2s;
+}
+.search-bar input:focus { border-color:var(--azul); }
+
+/* EMPTY */
+.empty { text-align:center; padding:48px 20px; color:var(--txt2); }
+.empty .icon { font-size:3rem; margin-bottom:12px; }
+.empty p { font-size:0.9rem; }
+
+/* COMISSAO TABLE */
+.com-row { display:grid; grid-template-columns:1fr 1fr 1fr auto; gap:10px; align-items:center; padding:10px 0; border-bottom:1px solid var(--border); }
+.com-row:last-child { border-bottom:none; }
+
+/* SYSTEM PROMPT */
+.prompt-area { font-family:'DM Sans',sans-serif; font-size:0.85rem; line-height:1.6; }
+
+/* PAGES */
+.page { display:none; }
+.page.active { display:block; }
+
+/* RESPONSIVE */
+@media(max-width:768px) {
+  .sidebar { width:60px; }
+  .sidebar-brand p, .menu-item span, .sidebar-footer { display:none; }
+  .main { margin-left:60px; }
+  .stats-grid { grid-template-columns:1fr 1fr; }
+  .form-grid { grid-template-columns:1fr; }
+}
+
+.dot { width:8px; height:8px; border-radius:50%; display:inline-block; }
+.dot-verde { background:var(--verde-n); }
+.dot-coral { background:var(--coral); }
+.dot-amber { background:var(--amber); }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-brand">
+      <div><span class="b1">Serviço</span><span class="b2">Seguro</span></div>
+      <p>Painel Administrativo</p>
+    </div>
+    <h2>Entrar</h2>
+    <input type="email" id="login-email" placeholder="Email" value="admin@admin.com">
+    <input type="password" id="login-senha" placeholder="Senha" value="admin123">
+    <button class="btn-login" onclick="fazerLogin()">Entrar no painel</button>
+    <div class="login-err" id="login-err"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div><span class="b1">Serviço</span><span class="b2">Seguro</span></div>
+      <p>Admin</p>
+    </div>
+    <nav class="sidebar-menu">
+      <div class="menu-section">Principal</div>
+      <a class="menu-item active" onclick="irPara('dashboard')">
+        <span class="icon">📊</span><span>Dashboard</span>
+      </a>
+      <a class="menu-item" onclick="irPara('orcs')">
+        <span class="icon">📋</span><span>Orçamentos</span>
+      </a>
+      <div class="menu-section">Cadastros</div>
+      <a class="menu-item" onclick="irPara('prestadores')">
+        <span class="icon">👷</span><span>Prestadores</span>
+      </a>
+      <a class="menu-item" onclick="irPara('usuarios')">
+        <span class="icon">👤</span><span>Usuários</span>
+      </a>
+      <a class="menu-item" onclick="irPara('servicos')">
+        <span class="icon">🔧</span><span>Serviços</span>
+      </a>
+      <a class="menu-item" onclick="irPara('categorias')">
+        <span class="icon">🏷️</span><span>Categorias</span>
+      </a>
+      <div class="menu-section">Financeiro</div>
+      <a class="menu-item" onclick="irPara('financeiro')">
+        <span class="icon">💰</span><span>Comissões</span>
+      </a>
+      <a class="menu-item" onclick="irPara('comissoes')">
+        <span class="icon">📈</span><span>Tabela de Taxas</span>
+      </a>
+      <div class="menu-section">Configurações</div>
+      <a class="menu-item" onclick="irPara('ia')">
+        <span class="icon">🤖</span><span>Agente de IA</span>
+      </a>
+      <a class="menu-item" onclick="irPara('integracoes')">
+        <span class="icon">🔌</span><span>Integrações</span>
+      </a>
+      <a class="menu-item" onclick="irPara('avaliacoes')">
+        <span class="icon">⭐</span><span>Avaliações</span>
+      </a>
+      <a class="menu-item" onclick="irPara('biometria')">
+        <span class="icon">🤳</span><span>Verificações</span>
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <button class="btn-logout" onclick="fazerLogout()">← Sair</button>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <h1 id="topbar-title">Dashboard</h1>
+      <div class="topbar-right">
+        <span class="badge-admin">🛡️ Administrador</span>
+      </div>
+    </div>
+
+    <div class="content">
+      <div id="alert-global"></div>
+
+      <!-- ── DASHBOARD ── -->
+      <div class="page active" id="page-dashboard">
+        <div class="stats-grid">
+          <div class="stat-card azul">
+            <div class="stat-label">ORCs Abertos</div>
+            <div class="stat-value" id="stat-orcs">—</div>
+            <div class="stat-sub">em andamento</div>
+          </div>
+          <div class="stat-card verde">
+            <div class="stat-label">Contratos Fechados</div>
+            <div class="stat-value" id="stat-contratos">—</div>
+            <div class="stat-sub">este mês</div>
+          </div>
+          <div class="stat-card amber">
+            <div class="stat-label">Prestadores Ativos</div>
+            <div class="stat-value" id="stat-prestadores">—</div>
+            <div class="stat-sub" id="stat-verificados-sub">— verificados</div>
+          </div>
+          <div class="stat-card coral">
+            <div class="stat-label">Comissão Total</div>
+            <div class="stat-value" id="stat-comissao">—</div>
+            <div class="stat-sub">acumulado</div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-header">
+            <h2>ORCs Recentes</h2>
+            <button class="btn btn-ghost btn-sm" onclick="irPara('orcs')">Ver todos</button>
+          </div>
+          <div class="section-body">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Código</th>
+                    <th>Cliente</th>
+                    <th>Serviço</th>
+                    <th>Status</th>
+                    <th>Data</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="tb-orcs-dash">
+                  <tr><td colspan="6" class="empty"><p>Carregando...</p></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── PRESTADORES ── -->
+      <div class="page" id="page-prestadores">
+        <div class="section">
+          <div class="section-header">
+            <h2>Prestadores de Serviço</h2>
+            <button class="btn btn-primary" onclick="abrirModalPrestador()">+ Novo Prestador</button>
+          </div>
+          <div class="section-body">
+            <div class="search-bar">
+              <input type="text" id="search-prestadores" placeholder="🔍 Buscar por nome, telefone ou cidade..." oninput="filtrarPrestadores()">
+              <select id="filter-verificado" onchange="filtrarPrestadores()" style="padding:9px 14px;border:1.5px solid var(--border);border-radius:20px;font-family:'DM Sans',sans-serif;font-size:0.875rem;outline:none;background:white;color:var(--txt2);">
+                <option value="">Todos</option>
+                <option value="true">🤳 Verificados</option>
+                <option value="false">⏳ Pendentes</option>
+              </select>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Nome</th>
+                    <th>Telefone</th>
+                    <th>Cidade</th>
+                    <th>Orç. Online</th>
+                    <th>Nota</th>
+                    <th>Status</th>
+                    <th>Identidade</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="tb-prestadores">
+                  <tr><td colspan="8" class="empty"><p>Carregando...</p></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── USUÁRIOS ── -->
+      <div class="page" id="page-usuarios">
+        <div class="section">
+          <div class="section-header">
+            <h2>Usuários (Contratantes)</h2>
+            <button class="btn btn-primary" onclick="abrirModalUsuario()">+ Novo Usuário</button>
+          </div>
+          <div class="section-body">
+            <div class="search-bar">
+              <input type="text" id="search-usuarios" placeholder="🔍 Buscar por nome ou telefone..." oninput="filtrarUsuarios()">
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Nome</th>
+                    <th>Telefone</th>
+                    <th>Email</th>
+                    <th>Cidade</th>
+                    <th>Status</th>
+                    <th>Cadastro</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="tb-usuarios">
+                  <tr><td colspan="7" class="empty"><p>Carregando...</p></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── SERVIÇOS ── -->
+      <div class="page" id="page-servicos">
+        <div class="section">
+          <div class="section-header">
+            <h2>Serviços Cadastrados</h2>
+            <button class="btn btn-primary" onclick="abrirModalServico()">+ Novo Serviço</button>
+          </div>
+          <div class="section-body">
+            <div class="search-bar">
+              <input type="text" id="search-servicos" placeholder="🔍 Buscar por título ou categoria..." oninput="filtrarServicos()">
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Título</th>
+                    <th>Prestador</th>
+                    <th>Categoria</th>
+                    <th>Tipo</th>
+                    <th>Cidade</th>
+                    <th>Status</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="tb-servicos">
+                  <tr><td colspan="7" class="empty"><p>Carregando...</p></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── CATEGORIAS ── -->
+      <div class="page" id="page-categorias">
+        <div class="section">
+          <div class="section-header">
+            <h2>Categorias de Serviço</h2>
+            <button class="btn btn-primary" onclick="abrirModalCategoria()">+ Nova Categoria</button>
+          </div>
+          <div class="section-body">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>Ícone</th><th>Nome</th><th>Descrição</th><th>Status</th><th>Ações</th></tr>
+                </thead>
+                <tbody id="tb-categorias">
+                  <tr><td colspan="5" class="empty"><p>Carregando...</p></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── TABELA DE COMISSÕES ── -->
+      <div class="page" id="page-comissoes">
+        <div class="section">
+          <div class="section-header">
+            <h2>Tabela de Comissões</h2>
+            <button class="btn btn-primary" onclick="abrirModalComissao()">+ Nova Faixa</button>
+          </div>
+          <div class="section-body">
+            <div class="alert alert-success">
+              💡 Alterações nesta tabela afetam imediatamente todos os novos contratos gerados.
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>Valor Mínimo</th><th>Valor Máximo</th><th>Tipo</th><th>Comissão</th><th>Descrição</th><th>Ações</th></tr>
+                </thead>
+                <tbody id="tb-comissoes">
+                  <tr><td colspan="6" class="empty"><p>Carregando...</p></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── AGENTE DE IA ── -->
+      <div class="page" id="page-ia">
+        <div class="section">
+          <div class="section-header">
+            <h2>Configuração do Agente de IA</h2>
+            <button class="btn btn-success" onclick="salvarPrompts()">💾 Salvar Tudo</button>
+          </div>
+          <div class="section-body">
+            <div class="alert alert-success">
+              🤖 Edite as instruções abaixo e salve. O agente usará as novas instruções imediatamente na próxima conversa.
+            </div>
+            <div class="tabs">
+              <div class="tab active" onclick="abaPrompt('geral', this)">Geral</div>
+              <div class="tab" onclick="abaPrompt('encanamento', this)">Encanamento</div>
+              <div class="tab" onclick="abaPrompt('eletrica', this)">Elétrica</div>
+              <div class="tab" onclick="abaPrompt('gesso', this)">Gesso</div>
+            </div>
+            <div class="form-group">
+              <label id="prompt-label">System Prompt — Geral</label>
+              <textarea id="prompt-textarea" class="prompt-area" rows="14"></textarea>
+            </div>
+            <input type="hidden" id="prompt-chave" value="system_prompt_geral">
+          </div>
+        </div>
+      </div>
+
+      <!-- ── INTEGRAÇÕES ── -->
+      <div class="page" id="page-integracoes">
+        <div class="section">
+          <div class="section-header">
+            <h2>Integrações</h2>
+            <button class="btn btn-success" onclick="salvarIntegracoes()">💾 Salvar</button>
+          </div>
+          <div class="section-body">
+            <h3 style="font-family:'Syne',sans-serif;color:var(--azul);margin-bottom:16px;font-size:0.95rem;">Evolution API (WhatsApp)</h3>
+            <div class="form-grid cols3">
+              <div class="form-group">
+                <label>URL da API</label>
+                <input type="text" id="cfg-evolution-url" placeholder="https://sua-evolution-api.com">
+              </div>
+              <div class="form-group">
+                <label>API Key</label>
+                <input type="password" id="cfg-evolution-key" placeholder="sua-chave-aqui">
+              </div>
+              <div class="form-group">
+                <label>Nome da Instância</label>
+                <input type="text" id="cfg-evolution-instance" placeholder="servico-seguro">
+              </div>
+            </div>
+            <hr style="margin:24px 0;border:none;border-top:1px solid var(--border);">
+            <h3 style="font-family:'Syne',sans-serif;color:var(--azul);margin-bottom:16px;font-size:0.95rem;">Inteligência Artificial</h3>
+            <div class="form-grid">
+              <div class="form-group">
+                <label>OpenAI API Key (GPT-4)</label>
+                <input type="password" id="cfg-openai-key" placeholder="sk-...">
+              </div>
+              <div class="form-group">
+                <label>Anthropic API Key (Claude) — opcional</label>
+                <input type="password" id="cfg-anthropic-key" placeholder="sk-ant-...">
+              </div>
+            </div>
+            <hr style="margin:24px 0;border:none;border-top:1px solid var(--border);">
+            <h3 style="font-family:'Syne',sans-serif;color:var(--azul);margin-bottom:16px;font-size:0.95rem;">Supabase</h3>
+            <div class="form-grid">
+              <div class="form-group">
+                <label>URL do Projeto</label>
+                <input type="text" id="cfg-supabase-url" placeholder="https://xxx.supabase.co">
+              </div>
+              <div class="form-group">
+                <label>Anon Key</label>
+                <input type="password" id="cfg-supabase-key" placeholder="eyJ...">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── ORCs ── -->
+      <div class="page" id="page-orcs">
+        <div class="section">
+          <div class="section-header">
+            <h2>Todos os Orçamentos</h2>
+          </div>
+          <div class="section-body">
+            <div class="search-bar">
+              <input type="text" id="search-orcs" placeholder="🔍 Buscar por código ou cliente..." oninput="filtrarOrcs()">
+              <select id="filter-status-orc" onchange="filtrarOrcs()" style="padding:9px 14px;border:1.5px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:0.875rem;outline:none;">
+                <option value="">Todos os status</option>
+                <option>NOVO</option><option>EM ANAMNESE</option>
+                <option>ANAMNESE CONCLUÍDA</option><option>PRESTADOR NOTIFICADO</option>
+                <option>AGUARDANDO PRESTADOR</option><option>VISITA AGENDADA</option>
+                <option>ORÇAMENTO ONLINE</option><option>VISITA REALIZADA</option>
+                <option>AGUARDANDO DECISÃO</option><option>FECHADO</option>
+                <option>CONTRATO GERADO</option><option>AGUARDANDO ASSINATURA</option>
+                <option>CONTRATO ASSINADO</option><option>SERVIÇO CONCLUÍDO</option>
+                <option>AVALIAÇÃO PENDENTE</option><option>ENCERRADO</option>
+                <option>DIVERGÊNCIA DE VALOR</option><option>NÃO FECHOU</option>
+                <option>CANCELADO</option>
+              </select>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>Código</th><th>Cliente</th><th>Canal</th><th>Status</th><th>Valor</th><th>Comissão</th><th>Data</th><th>Ações</th></tr>
+                </thead>
+                <tbody id="tb-orcs">
+                  <tr><td colspan="8" class="empty"><p>Carregando...</p></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── VERIFICAÇÕES BIOMÉTRICAS ── -->
+      <div class="page" id="page-biometria">
+        <div class="section">
+          <div class="section-header">
+            <h2>Verificações de Identidade</h2>
+          </div>
+          <div class="section-body">
+            <div style="margin-bottom:16px;display:flex;gap:12px;flex-wrap:wrap;">
+              <div style="background:#D1FAE5;border:1px solid #6EE7B7;border-radius:10px;padding:12px 20px;text-align:center;">
+                <div style="font-family:'Syne',sans-serif;font-size:1.6rem;font-weight:800;color:#065F46;" id="bio-total-ok">0</div>
+                <div style="font-size:0.72rem;color:#065F46;font-weight:600;">Verificados</div>
+              </div>
+              <div style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:10px;padding:12px 20px;text-align:center;">
+                <div style="font-family:'Syne',sans-serif;font-size:1.6rem;font-weight:800;color:#92400E;" id="bio-total-pend">0</div>
+                <div style="font-size:0.72rem;color:#92400E;font-weight:600;">Pendentes</div>
+              </div>
+            </div>
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Prestador</th><th>Telefone</th><th>Cidade</th>
+                  <th>Status identidade</th><th>Ação</th>
+                </tr>
+              </thead>
+              <tbody id="tb-biometria">
+                <tr><td colspan="5" class="empty"><p>Carregando...</p></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── AVALIAÇÕES ── -->
+      <div class="page" id="page-avaliacoes">
+        <div class="section">
+          <div class="section-header">
+            <h2>Avaliações</h2>
+            <button class="btn btn-primary" onclick="abrirModalAvaliacao()">+ Adicionar Avaliação</button>
+          </div>
+          <div class="section-body">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>ORC</th><th>Avaliador</th><th>Avaliado</th><th>Nota</th><th>Comentário</th><th>Data</th><th>Ações</th></tr>
+                </thead>
+                <tbody id="tb-avaliacoes">
+                  <tr><td colspan="7" class="empty"><p>Carregando...</p></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── FINANCEIRO ── -->
+      <div class="page" id="page-financeiro">
+        <div class="section">
+          <div class="section-header"><h2>Extrato Financeiro</h2></div>
+          <div class="section-body">
+            <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:24px;">
+              <div class="stat-card verde">
+                <div class="stat-label">Total Comissões</div>
+                <div class="stat-value" id="fin-total">R$ 0</div>
+                <div class="stat-sub">todos os períodos</div>
+              </div>
+              <div class="stat-card azul">
+                <div class="stat-label">Contratos Fechados</div>
+                <div class="stat-value" id="fin-contratos">0</div>
+                <div class="stat-sub">total</div>
+              </div>
+              <div class="stat-card amber">
+                <div class="stat-label">Ticket Médio</div>
+                <div class="stat-value" id="fin-ticket">R$ 0</div>
+                <div class="stat-sub">por contrato</div>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>ORC</th><th>Serviço</th><th>Valor</th><th>%</th><th>Comissão</th><th>Tipo Contrato</th><th>Data</th></tr>
+                </thead>
+                <tbody id="tb-financeiro">
+                  <tr><td colspan="7" class="empty"><p>Carregando...</p></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<!-- ── MODALS ── -->
+
+<!-- Modal Prestador -->
+<div class="modal-overlay" id="modal-prestador">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modal-prestador-title">Novo Prestador</h3>
+      <button class="modal-close" onclick="fecharModal('modal-prestador')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group full"><label>Nome completo *</label><input type="text" id="p-nome" placeholder="Nome do prestador"></div>
+        <div class="form-group"><label>Telefone / WhatsApp *</label><input type="text" id="p-tel" placeholder="(55) 99999-0000"></div>
+        <div class="form-group"><label>CPF</label><input type="text" id="p-cpf" placeholder="000.000.000-00"></div>
+        <div class="form-group"><label>Email</label><input type="email" id="p-email" placeholder="email@exemplo.com"></div>
+        <div class="form-group"><label>Cidade</label><input type="text" id="p-cidade" value="Santa Maria"></div>
+        <div class="form-group"><label>Estado</label><input type="text" id="p-estado" value="RS"></div>
+        <div class="form-group full"><label>Endereço</label><input type="text" id="p-end" placeholder="Rua, número, bairro"></div>
+        <div class="form-group full"><label>Bio / Apresentação</label><textarea id="p-bio" placeholder="Conte um pouco sobre o profissional..."></textarea></div>
+        <div class="form-group">
+          <label>Aceita orçamento online?</label>
+          <select id="p-online">
+            <option value="false">Não</option>
+            <option value="true">Sim</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Verificado?</label>
+          <select id="p-verificado">
+            <option value="false">Não</option>
+            <option value="true">Sim</option>
+          </select>
+        </div>
+      </div>
+      <input type="hidden" id="p-id">
+      <div class="form-actions">
+        <button class="btn btn-primary" onclick="salvarPrestador()">💾 Salvar</button>
+        <button class="btn btn-ghost" onclick="fecharModal('modal-prestador')">Cancelar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Usuário -->
+<div class="modal-overlay" id="modal-usuario">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modal-usuario-title">Novo Usuário</h3>
+      <button class="modal-close" onclick="fecharModal('modal-usuario')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group full"><label>Nome completo *</label><input type="text" id="u-nome" placeholder="Nome do usuário"></div>
+        <div class="form-group"><label>Telefone / WhatsApp *</label><input type="text" id="u-tel" placeholder="(55) 99999-0000"></div>
+        <div class="form-group"><label>CPF</label><input type="text" id="u-cpf" placeholder="000.000.000-00"></div>
+        <div class="form-group full"><label>Email</label><input type="email" id="u-email" placeholder="email@exemplo.com"></div>
+        <div class="form-group"><label>Cidade</label><input type="text" id="u-cidade" value="Santa Maria"></div>
+        <div class="form-group"><label>Estado</label><input type="text" id="u-estado" value="RS"></div>
+        <div class="form-group full"><label>Endereço</label><input type="text" id="u-end" placeholder="Rua, número, bairro"></div>
+      </div>
+      <input type="hidden" id="u-id">
+      <div class="form-actions">
+        <button class="btn btn-primary" onclick="salvarUsuario()">💾 Salvar</button>
+        <button class="btn btn-ghost" onclick="fecharModal('modal-usuario')">Cancelar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Serviço -->
+<div class="modal-overlay" id="modal-servico">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modal-servico-title">Novo Serviço</h3>
+      <button class="modal-close" onclick="fecharModal('modal-servico')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group full"><label>Título do Serviço *</label><input type="text" id="s-titulo" placeholder="Ex: Instalação elétrica residencial"></div>
+        <div class="form-group"><label>Prestador *</label><select id="s-prestador"><option value="">Selecione...</option></select></div>
+        <div class="form-group"><label>Categoria *</label><select id="s-categoria"><option value="">Selecione...</option></select></div>
+        <div class="form-group"><label>Tipo</label>
+          <select id="s-tipo" onchange="toggleValorFixo()">
+            <option value="orcamento">Sob orçamento</option>
+            <option value="fixo">Preço fixo</option>
+          </select>
+        </div>
+        <div class="form-group" id="grupo-valor-fixo" style="display:none">
+          <label>Valor fixo (R$)</label>
+          <input type="number" id="s-valor" placeholder="0,00">
+        </div>
+        <div class="form-group"><label>Cidade</label><input type="text" id="s-cidade" value="Santa Maria"></div>
+        <div class="form-group"><label>Estado</label><input type="text" id="s-estado" value="RS"></div>
+        <div class="form-group full"><label>Descrição</label><textarea id="s-desc" placeholder="Descreva o serviço oferecido..."></textarea></div>
+      </div>
+      <input type="hidden" id="s-id">
+
+      <!-- FOTOS -->
+      <div class="form-group full" id="grupo-fotos" style="display:none;">
+        <label>Fotos do Serviço</label>
+        <div id="fotos-preview" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;min-height:20px;"></div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="url" id="s-foto-url" placeholder="URL da foto (ex: https://...)" style="flex:1;padding:10px 14px;border:1.5px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:0.85rem;outline:none;">
+          <button type="button" class="btn btn-success btn-sm" onclick="adicionarFoto()">+ Adicionar</button>
+        </div>
+        <p style="font-size:0.72rem;color:var(--txt2);margin-top:6px;">Cole a URL de uma imagem hospedada. Use imgbb.com, cloudinary ou similar para hospedar.</p>
+      </div>
+
+      <div class="form-actions">
+        <button class="btn btn-primary" onclick="salvarServico()">💾 Salvar</button>
+        <button class="btn btn-ghost" onclick="fecharModal('modal-servico')">Cancelar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Categoria -->
+<div class="modal-overlay" id="modal-categoria">
+  <div class="modal" style="max-width:420px;">
+    <div class="modal-header">
+      <h3>Nova Categoria</h3>
+      <button class="modal-close" onclick="fecharModal('modal-categoria')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid" style="grid-template-columns:80px 1fr;">
+        <div class="form-group"><label>Ícone</label><input type="text" id="cat-icone" placeholder="🏗️"></div>
+        <div class="form-group"><label>Nome *</label><input type="text" id="cat-nome" placeholder="Nome da categoria"></div>
+        <div class="form-group full"><label>Descrição</label><textarea id="cat-desc" rows="3" placeholder="Tipos de serviços incluídos..."></textarea></div>
+      </div>
+      <input type="hidden" id="cat-id">
+      <div class="form-actions">
+        <button class="btn btn-primary" onclick="salvarCategoria()">💾 Salvar</button>
+        <button class="btn btn-ghost" onclick="fecharModal('modal-categoria')">Cancelar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Comissão -->
+<div class="modal-overlay" id="modal-comissao">
+  <div class="modal" style="max-width:480px;">
+    <div class="modal-header">
+      <h3 id="modal-comissao-title">Nova Faixa de Comissão</h3>
+      <button class="modal-close" onclick="fecharModal('modal-comissao')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group"><label>Valor Mínimo (R$) *</label><input type="number" id="com-min" placeholder="0"></div>
+        <div class="form-group"><label>Valor Máximo (R$)</label><input type="number" id="com-max" placeholder="vazio = sem limite"></div>
+        <div class="form-group"><label>Tipo</label>
+          <select id="com-tipo">
+            <option value="percentual">Percentual (%)</option>
+            <option value="fixo">Valor Fixo (R$)</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Valor da Comissão *</label><input type="number" id="com-valor" step="0.01" placeholder="Ex: 5 para 5%"></div>
+        <div class="form-group full"><label>Descrição</label><input type="text" id="com-desc" placeholder="Ex: R$ 100 a R$ 500 — 6%"></div>
+      </div>
+      <input type="hidden" id="com-id">
+      <div class="form-actions">
+        <button class="btn btn-primary" onclick="salvarComissao()">💾 Salvar</button>
+        <button class="btn btn-ghost" onclick="fecharModal('modal-comissao')">Cancelar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Avaliação -->
+<div class="modal-overlay" id="modal-avaliacao">
+  <div class="modal" style="max-width:480px;">
+    <div class="modal-header">
+      <h3>Adicionar Avaliação</h3>
+      <button class="modal-close" onclick="fecharModal('modal-avaliacao')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group"><label>Prestador</label><select id="av-prestador"><option value="">Selecione...</option></select></div>
+        <div class="form-group"><label>Nota (1-5)</label>
+          <select id="av-nota">
+            <option value="5">⭐⭐⭐⭐⭐ — 5</option>
+            <option value="4">⭐⭐⭐⭐ — 4</option>
+            <option value="3">⭐⭐⭐ — 3</option>
+            <option value="2">⭐⭐ — 2</option>
+            <option value="1">⭐ — 1</option>
+          </select>
+        </div>
+        <div class="form-group full"><label>Comentário</label><textarea id="av-comentario" rows="4" placeholder="Descreva a avaliação..."></textarea></div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-primary" onclick="salvarAvaliacao()">💾 Salvar</button>
+        <button class="btn btn-ghost" onclick="fecharModal('modal-avaliacao')">Cancelar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── CONFIGURAÇÃO SUPABASE ──────────────────────────────────────
+// ATENÇÃO: substitua com suas credenciais reais do Supabase
+const SUPABASE_URL = 'https://mejzfpivpbdhcmfepfdh.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1lanpmcGl2cGJkaGNtZmVwZmRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2NDYxMzcsImV4cCI6MjA5NTIyMjEzN30.NVs6rC27r44rKPngLa91BF3oazkl4XuTpLzJLQbKIfo';
+
+let sb = null;
+let dadosPrestadores = [];
+let dadosUsuarios = [];
+let dadosServicos = [];
+let dadosCategorias = [];
+let dadosOrcs = [];
+let dadosComissoes = [];
+let dadosAvaliacoes = [];
+let promptsCache = {};
+
+// Inicializa Supabase se credenciais estiverem presentes
+function initSupabase() {
+  return supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+}
+
+// ── LOGIN ─────────────────────────────────────────────────────
+async function fazerLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const senha = document.getElementById('login-senha').value.trim();
+  document.getElementById('login-err').textContent = '';
+
+  // Credenciais padrão — alterar após primeiro acesso
+  if (email === 'admin@admin.com' && senha === 'admin123') {
+    sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    await carregarTudo();
+    return;
+  }
+  document.getElementById('login-err').textContent = 'Email ou senha incorretos.';
+}
+
+function fazerLogout() {
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+}
+
+document.getElementById('login-senha').addEventListener('keydown', e => {
+  if (e.key === 'Enter') fazerLogin();
+});
+
+// ── NAVEGAÇÃO ─────────────────────────────────────────────────
+const titulosMenu = {
+  dashboard: 'Dashboard', prestadores: 'Prestadores', usuarios: 'Usuários',
+  servicos: 'Serviços', categorias: 'Categorias', orcs: 'Orçamentos',
+  financeiro: 'Financeiro', comissoes: 'Tabela de Comissões',
+  ia: 'Agente de IA', integracoes: 'Integrações', avaliacoes: 'Avaliações'
+};
+
+function irPara(pagina) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
+  document.getElementById(`page-${pagina}`).classList.add('active');
+  document.getElementById('topbar-title').textContent = titulosMenu[pagina] || pagina;
+  event?.currentTarget?.classList.add('active');
+  if (pagina === 'ia') carregarPrompt('system_prompt_geral');
+  if (pagina === 'biometria') carregarBiometria();
+  if (pagina === 'integracoes') carregarIntegracoes();
+  if (pagina === 'financeiro') carregarFinanceiro();
+}
+
+// ── CARREGAR DADOS ────────────────────────────────────────────
+async function carregarTudo() {
+  await Promise.all([
+    carregarPrestadores(),
+    carregarUsuarios(),
+    carregarServicos(),
+    carregarCategorias(),
+    carregarOrcs(),
+    carregarComissoes(),
+    carregarAvaliacoes(),
+    carregarDashboard()
+  ]);
+}
+
+// Dados de exemplo quando Supabase não está configurado
+function dadosExemplo() {
+  dadosPrestadores = [
+    { id:'1', nome:'José Silva', telefone:'(55) 99901-2345', cidade:'Santa Maria', estado:'RS', aceita_orcamento_online:true, ativo:true, verificado:true, nota_media:4.8, total_servicos:23 },
+    { id:'2', nome:'Carlos Eletricista', telefone:'(55) 99902-3456', cidade:'Santa Maria', estado:'RS', aceita_orcamento_online:false, ativo:true, verificado:false, nota_media:4.5, total_servicos:12 },
+  ];
+  dadosUsuarios = [
+    { id:'1', nome:'Maria Costa', telefone:'(55) 99903-4567', email:'maria@email.com', cidade:'Santa Maria', estado:'RS', ativo:true, criado_em:'2026-05-01' },
+  ];
+  dadosCategorias = [
+    { id:'1', nome:'Construção e Reforma', icone:'🏗️', descricao:'Pedreiro, gesseiro, pintor', ativa:true },
+    { id:'2', nome:'Instalações', icone:'⚡', descricao:'Encanador, eletricista', ativa:true },
+    { id:'3', nome:'Acabamento', icone:'🪚', descricao:'Marceneiro, serralheiro', ativa:true },
+    { id:'4', nome:'Limpeza e Conservação', icone:'🧹', descricao:'Limpeza residencial, jardinagem', ativa:true },
+    { id:'5', nome:'Tecnologia', icone:'💻', descricao:'Câmeras, redes, suporte', ativa:true },
+    { id:'6', nome:'Experiências', icone:'✨', descricao:'Fotografia, eventos, gastronomia', ativa:true },
+    { id:'7', nome:'Outros', icone:'📋', descricao:'Categorias não listadas', ativa:true },
+  ];
+  dadosServicos = [
+    { id:'1', titulo:'Instalação elétrica residencial', prestador_id:'2', categoria_id:'2', tipo:'orcamento', cidade:'Santa Maria', estado:'RS', ativo:true },
+  ];
+  dadosOrcs = [
+    { id:'1', codigo:'ORC-2026-00001', nome_cliente:'Maria Costa', canal:'whatsapp', status:'EM ANAMNESE', valor_final:null, comissao_valor:null, criado_em:'2026-05-24T10:00:00Z' },
+    { id:'2', codigo:'ORC-2026-00002', nome_cliente:'João Souza', canal:'site', status:'FECHADO', valor_final:1200, comissao_valor:60, criado_em:'2026-05-23T14:00:00Z' },
+  ];
+  dadosComissoes = [
+    { id:'1', valor_min:0, valor_max:100, tipo:'fixo', valor:10, descricao:'Até R$ 100 — taxa fixa', ativo:true },
+    { id:'2', valor_min:100.01, valor_max:500, tipo:'percentual', valor:6, descricao:'R$ 100,01 até R$ 500 — 6%', ativo:true },
+    { id:'3', valor_min:500.01, valor_max:1000, tipo:'percentual', valor:5, descricao:'R$ 500,01 até R$ 1.000 — 5%', ativo:true },
+    { id:'4', valor_min:1000.01, valor_max:5000, tipo:'percentual', valor:4, descricao:'R$ 1.000,01 até R$ 5.000 — 4%', ativo:true },
+    { id:'5', valor_min:5000.01, valor_max:10000, tipo:'percentual', valor:3, descricao:'R$ 5.000,01 até R$ 10.000 — 3%', ativo:true },
+    { id:'6', valor_min:10000.01, valor_max:100000, tipo:'percentual', valor:2, descricao:'R$ 10.000,01 até R$ 100.000 — 2%', ativo:true },
+    { id:'7', valor_min:100000.01, valor_max:500000, tipo:'percentual', valor:1.5, descricao:'R$ 100.000,01 até R$ 500.000 — 1,5%', ativo:true },
+    { id:'8', valor_min:500000.01, valor_max:null, tipo:'percentual', valor:1, descricao:'Acima de R$ 500.000 — 1%', ativo:true },
+  ];
+  dadosAvaliacoes = [];
+  promptsCache = {
+    system_prompt_geral: 'Você é a assistente virtual do Serviço Seguro, plataforma de serviços profissionais de Santa Maria RS. Seu único objetivo é: coletar as informações do serviço, entender a disponibilidade do cliente para receber um orçamento, e confirmar o agendamento ou orçamento online. Seja direta, simpática e objetiva. Faça uma pergunta por vez. Nunca duas ao mesmo tempo. Sempre confirme as informações antes de avançar. Nunca prometa preços ou prazos.',
+    system_prompt_encanamento: 'Perguntas para encanamento: tipo de problema, localização (cômodo), vazamento visível, urgência, solicitar foto.',
+    system_prompt_eletrica: 'Perguntas para elétrica: tipo de problema, cômodos afetados, disjuntor caindo, urgência, solicitar foto do quadro.',
+    system_prompt_gesso: 'Perguntas para gesso: tipo de serviço (forro, parede, drywall), metragem aproximada, solicitar foto.',
+  };
+}
+
+async function carregarPrestadores() {
+  if (sb) {
+    const { data } = await sb.from('prestadores').select('*').order('criado_em', { ascending:false });
+    dadosPrestadores = data || [];
+  }
+  renderPrestadores(dadosPrestadores);
+}
+
+async function carregarUsuarios() {
+  if (sb) {
+    const { data } = await sb.from('usuarios').select('*').order('criado_em', { ascending:false });
+    dadosUsuarios = data || [];
+  }
+  renderUsuarios(dadosUsuarios);
+}
+
+async function carregarServicos() {
+  if (sb) {
+    const { data } = await sb.from('servicos').select('*, prestadores(nome), categorias(nome)').order('criado_em', { ascending:false });
+    dadosServicos = data || [];
+  }
+  renderServicos(dadosServicos);
+}
+
+async function carregarCategorias() {
+  if (sb) {
+    const { data } = await sb.from('categorias').select('*').order('nome');
+    dadosCategorias = data || [];
+  }
+  renderCategorias(dadosCategorias);
+  popularSelectCategorias();
+}
+
+async function carregarOrcs() {
+  if (sb) {
+    const { data } = await sb.from('orcs').select('*').order('criado_em', { ascending:false });
+    dadosOrcs = data || [];
+  }
+  renderOrcs(dadosOrcs);
+  renderOrcsDash(dadosOrcs.slice(0,5));
+}
+
+async function carregarComissoes() {
+  if (sb) {
+    const { data } = await sb.from('comissoes').select('*').order('ordem');
+    dadosComissoes = data || [];
+  }
+  renderComissoes(dadosComissoes);
+}
+
+async function carregarBiometria() {
+  const verificados = dadosPrestadores.filter(p => p.verificado).length;
+  const pendentes = dadosPrestadores.filter(p => !p.verificado).length;
+  const elOk = document.getElementById('bio-total-ok');
+  const elPend = document.getElementById('bio-total-pend');
+  if (elOk) elOk.textContent = verificados;
+  if (elPend) elPend.textContent = pendentes;
+
+  const tb = document.getElementById('tb-biometria');
+  if (!tb) return;
+  if (!dadosPrestadores.length) {
+    tb.innerHTML = `<tr><td colspan="5"><div class="empty"><p>Nenhum prestador cadastrado.</p></div></td></tr>`;
+    return;
+  }
+  tb.innerHTML = dadosPrestadores.map(p => `
+    <tr>
+      <td><strong>${p.nome}</strong></td>
+      <td>${p.telefone || '—'}</td>
+      <td>${p.cidade || '—'}/${p.estado || 'RS'}</td>
+      <td>
+        ${p.verificado
+          ? '<span class="badge badge-verde">🤳 Identidade verificada</span>'
+          : '<span class="badge badge-gray">⏳ Não verificado</span>'}
+      </td>
+      <td style="display:flex;gap:6px;">
+        ${!p.verificado
+          ? `<button class="btn btn-success btn-sm" onclick="toggleVerificado('${p.id}',false)">✓ Aprovar</button>`
+          : `<button class="btn btn-ghost btn-sm" onclick="toggleVerificado('${p.id}',true)">✕ Remover</button>`}
+      </td>
+    </tr>`).join('');
+}
+
+async function carregarAvaliacoes() {
+  if (sb) {
+    const { data } = await sb.from('avaliacoes').select('*').order('criado_em', { ascending:false });
+    dadosAvaliacoes = data || [];
+  }
+  renderAvaliacoes(dadosAvaliacoes);
+}
+
+async function carregarDashboard() {
+  if (!sb) { dadosExemplo(); renderTudo(); return; }
+  document.getElementById('stat-orcs').textContent = dadosOrcs.filter(o => !['ENCERRADO','NÃO FECHOU','CANCELADO'].includes(o.status)).length;
+  document.getElementById('stat-contratos').textContent = dadosOrcs.filter(o => o.status === 'CONTRATO ASSINADO').length;
+  const ativos = dadosPrestadores.filter(p => p.ativo);
+  const verificados = dadosPrestadores.filter(p => p.verificado).length;
+  document.getElementById('stat-prestadores').textContent = ativos.length;
+  document.getElementById('stat-verificados-sub').textContent = verificados + ' verificados';
+  const totalCom = dadosOrcs.reduce((a,o) => a + (o.comissao_valor || 0), 0);
+  document.getElementById('stat-comissao').textContent = 'R$ ' + totalCom.toLocaleString('pt-BR', {minimumFractionDigits:2});
+}
+
+function renderTudo() {
+  renderPrestadores(dadosPrestadores);
+  renderUsuarios(dadosUsuarios);
+  renderServicos(dadosServicos);
+  renderCategorias(dadosCategorias);
+  renderOrcs(dadosOrcs);
+  renderOrcsDash(dadosOrcs.slice(0,5));
+  renderComissoes(dadosComissoes);
+  renderAvaliacoes(dadosAvaliacoes);
+  popularSelectCategorias();
+  popularSelectPrestadores();
+  document.getElementById('stat-orcs').textContent = dadosOrcs.filter(o => !['ENCERRADO','NÃO FECHOU','CANCELADO'].includes(o.status)).length;
+  document.getElementById('stat-contratos').textContent = dadosOrcs.filter(o => o.status === 'CONTRATO ASSINADO').length;
+  const ativos = dadosPrestadores.filter(p => p.ativo);
+  const verificados = dadosPrestadores.filter(p => p.verificado).length;
+  document.getElementById('stat-prestadores').textContent = ativos.length;
+  document.getElementById('stat-verificados-sub').textContent = verificados + ' verificados';
+  const totalCom = dadosOrcs.reduce((a,o) => a + (o.comissao_valor || 0), 0);
+  document.getElementById('stat-comissao').textContent = 'R$ ' + totalCom.toLocaleString('pt-BR', {minimumFractionDigits:2});
+}
+
+
+// ── FOTOS DO SERVIÇO ─────────────────────────────────────────
+let fotosServico = [];
+
+async function carregarFotosAdmin(servicoId) {
+  fotosServico = [];
+  if (sb) {
+    const { data } = await sb.from('servico_fotos').select('*').eq('servico_id', servicoId).order('ordem');
+    fotosServico = data || [];
+  }
+  renderFotosAdmin();
+}
+
+function renderFotosAdmin() {
+  const prev = document.getElementById('fotos-preview');
+  if (!prev) return;
+  if (!fotosServico.length) {
+    prev.innerHTML = '<p style="font-size:0.78rem;color:#999;padding:8px 0;">Nenhuma foto ainda.</p>';
+    return;
+  }
+  prev.innerHTML = fotosServico.map((f,i) => `
+    <div style="position:relative;width:90px;height:70px;border-radius:8px;overflow:hidden;border:1px solid var(--border);">
+      <img src="${f.url}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none'">
+      <button onclick="removerFoto('${f.id}',${i})" style="position:absolute;top:2px;right:2px;background:rgba(220,50,30,0.85);color:white;border:none;border-radius:50%;width:18px;height:18px;font-size:0.7rem;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;">×</button>
+    </div>`).join('');
+}
+
+async function adicionarFoto() {
+  const url = document.getElementById('s-foto-url').value.trim();
+  if (!url) { mostrarAlerta('Cole a URL da foto.','error'); return; }
+  const servicoId = document.getElementById('s-id').value;
+  const ordem = fotosServico.length;
+  if (sb && servicoId) {
+    const { data } = await sb.from('servico_fotos').insert({ servico_id: servicoId, url, ordem }).select().single();
+    if (data) fotosServico.push(data);
+  } else {
+    fotosServico.push({ id: Date.now().toString(), url, ordem });
+  }
+  document.getElementById('s-foto-url').value = '';
+  renderFotosAdmin();
+  mostrarAlerta('Foto adicionada!','success');
+}
+
+async function removerFoto(id, idx) {
+  if (!confirm('Remover esta foto?')) return;
+  if (sb) { await sb.from('servico_fotos').delete().eq('id', id); }
+  fotosServico = fotosServico.filter(f => f.id !== id);
+  renderFotosAdmin();
+}
+
+// ── RENDERS ───────────────────────────────────────────────────
+function statusBadge(s) {
+  const cores = {
+    'NOVO':'badge-gray','EM ANAMNESE':'badge-azul','ANAMNESE CONCLUÍDA':'badge-azul',
+    'PRESTADOR NOTIFICADO':'badge-amber','AGUARDANDO PRESTADOR':'badge-amber',
+    'VISITA AGENDADA':'badge-amber','ORÇAMENTO ONLINE':'badge-amber',
+    'VISITA REALIZADA':'badge-amber','AGUARDANDO DECISÃO':'badge-amber',
+    'FECHADO':'badge-verde','CONTRATO GERADO':'badge-verde',
+    'AGUARDANDO ASSINATURA':'badge-verde','CONTRATO ASSINADO':'badge-verde',
+    'SERVIÇO CONCLUÍDO':'badge-verde','AVALIAÇÃO PENDENTE':'badge-verde',
+    'ENCERRADO':'badge-verde','DIVERGÊNCIA DE VALOR':'badge-coral',
+    'SEM RESPOSTA CLIENTE':'badge-coral','SEM RESPOSTA PRESTADOR':'badge-coral',
+    'NÃO FECHOU':'badge-coral','CANCELADO':'badge-coral',
+  };
+  return `<span class="badge ${cores[s]||'badge-gray'}">${s}</span>`;
+}
+
+function renderPrestadores(lista) {
+  const tb = document.getElementById('tb-prestadores');
+  if (!lista.length) { tb.innerHTML = `<tr><td colspan="8"><div class="empty"><div class="icon">👷</div><p>Nenhum prestador cadastrado.</p></div></td></tr>`; return; }
+  tb.innerHTML = lista.map(p => `
+    <tr>
+      <td><strong>${p.nome}</strong></td>
+      <td>${p.telefone}</td>
+      <td>${p.cidade}/${p.estado}</td>
+      <td>${p.aceita_orcamento_online ? '<span class="badge badge-verde">Sim</span>' : '<span class="badge badge-gray">Não</span>'}</td>
+      <td>⭐ ${p.nota_media || '—'}</td>
+      <td>${p.ativo ? '<span class="badge badge-verde"><span class="dot dot-verde"></span> Ativo</span>' : '<span class="badge badge-coral"><span class="dot dot-coral"></span> Inativo</span>'}</td>
+      <td>
+        ${p.verificado 
+          ? '<span class="badge badge-verde" title="Identidade verificada por biometria">🤳 Verificado</span>'
+          : '<span class="badge badge-gray" title="Identidade não verificada">⏳ Pendente</span>'}
+        <button class="btn btn-ghost" style="padding:2px 8px;font-size:0.68rem;margin-left:4px;" 
+          onclick="toggleVerificado('${p.id}',${p.verificado})" 
+          title="${p.verificado ? 'Remover verificação' : 'Aprovar manualmente'}">
+          ${p.verificado ? '✕' : '✓'}
+        </button>
+      </td>
+      <td style="display:flex;gap:6px;">
+        <button class="btn btn-ghost btn-sm" onclick="editarPrestador('${p.id}')">✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="excluirPrestador('${p.id}')">🗑️</button>
+      </td>
+    </tr>`).join('');
+}
+
+function renderUsuarios(lista) {
+  const tb = document.getElementById('tb-usuarios');
+  if (!lista.length) { tb.innerHTML = `<tr><td colspan="7"><div class="empty"><div class="icon">👤</div><p>Nenhum usuário cadastrado.</p></div></td></tr>`; return; }
+  tb.innerHTML = lista.map(u => `
+    <tr>
+      <td><strong>${u.nome}</strong></td>
+      <td>${u.telefone}</td>
+      <td>${u.email || '—'}</td>
+      <td>${u.cidade}/${u.estado}</td>
+      <td>${u.ativo ? '<span class="badge badge-verde">Ativo</span>' : '<span class="badge badge-coral">Inativo</span>'}</td>
+      <td>${u.criado_em ? new Date(u.criado_em).toLocaleDateString('pt-BR') : '—'}</td>
+      <td style="display:flex;gap:6px;">
+        <button class="btn btn-ghost btn-sm" onclick="editarUsuario('${u.id}')">✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="excluirUsuario('${u.id}')">🗑️</button>
+      </td>
+    </tr>`).join('');
+}
+
+function renderServicos(lista) {
+  const tb = document.getElementById('tb-servicos');
+  if (!lista.length) { tb.innerHTML = `<tr><td colspan="7"><div class="empty"><div class="icon">🔧</div><p>Nenhum serviço cadastrado.</p></div></td></tr>`; return; }
+  tb.innerHTML = lista.map(s => {
+    const nomePrestador = s.prestadores?.nome || dadosPrestadores.find(p=>p.id===s.prestador_id)?.nome || '—';
+    const nomeCategoria = s.categorias?.nome || dadosCategorias.find(c=>c.id===s.categoria_id)?.nome || '—';
+    return `
+    <tr>
+      <td><strong>${s.titulo}</strong></td>
+      <td>${nomePrestador}</td>
+      <td>${nomeCategoria}</td>
+      <td>${s.tipo === 'fixo' ? '<span class="badge badge-azul">Preço fixo</span>' : '<span class="badge badge-amber">Sob orçamento</span>'}</td>
+      <td>${s.cidade}/${s.estado}</td>
+      <td>${s.ativo ? '<span class="badge badge-verde">Ativo</span>' : '<span class="badge badge-coral">Inativo</span>'}</td>
+      <td style="display:flex;gap:6px;">
+        <button class="btn btn-ghost btn-sm" onclick="editarServico('${s.id}')">✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="excluirServico('${s.id}')">🗑️</button>
+      </td>
+    </tr>`}).join('');
+}
+
+function renderCategorias(lista) {
+  const tb = document.getElementById('tb-categorias');
+  if (!lista.length) { tb.innerHTML = `<tr><td colspan="5"><div class="empty"><div class="icon">🏷️</div><p>Nenhuma categoria.</p></div></td></tr>`; return; }
+  tb.innerHTML = lista.map(c => `
+    <tr>
+      <td style="font-size:1.4rem;">${c.icone||'📋'}</td>
+      <td><strong>${c.nome}</strong></td>
+      <td>${c.descricao||'—'}</td>
+      <td>${c.ativa ? '<span class="badge badge-verde">Ativa</span>' : '<span class="badge badge-coral">Inativa</span>'}</td>
+      <td style="display:flex;gap:6px;">
+        <button class="btn btn-ghost btn-sm" onclick="editarCategoria('${c.id}')">✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="excluirCategoria('${c.id}')">🗑️</button>
+      </td>
+    </tr>`).join('');
+}
+
+function renderOrcs(lista) {
+  const tb = document.getElementById('tb-orcs');
+  if (!lista.length) { tb.innerHTML = `<tr><td colspan="8"><div class="empty"><div class="icon">📋</div><p>Nenhum orçamento.</p></div></td></tr>`; return; }
+  tb.innerHTML = lista.map(o => `
+    <tr>
+      <td><strong style="font-family:'Syne',sans-serif;color:var(--azul);">${o.codigo}</strong></td>
+      <td>${o.nome_cliente||'—'}</td>
+      <td>${o.canal === 'whatsapp' ? '📱 WhatsApp' : '💻 Site'}</td>
+      <td>${statusBadge(o.status)}</td>
+      <td>${o.valor_final ? 'R$ '+Number(o.valor_final).toLocaleString('pt-BR',{minimumFractionDigits:2}) : '—'}</td>
+      <td>${o.comissao_valor ? '<span style="color:var(--verde);font-weight:600;">R$ '+Number(o.comissao_valor).toLocaleString('pt-BR',{minimumFractionDigits:2})+'</span>' : '—'}</td>
+      <td>${o.criado_em ? new Date(o.criado_em).toLocaleDateString('pt-BR') : '—'}</td>
+      <td style="display:flex;gap:4px;">
+        <button class="btn btn-ghost btn-sm" onclick="verOrc('${o.id}')">👁️</button>
+        ${['FECHADO','ANAMNESE CONCLUÍDA','AGUARDANDO DECISÃO'].includes(o.status) || o.valor_final > 0 ? 
+          `<button class="btn btn-success btn-sm" onclick="window.open('contrato.html?orc=${o.id}&codigo=${o.codigo}','_blank')">📄</button>` : ''}
+      </td>
+    </tr>`).join('');
+}
+
+function renderOrcsDash(lista) {
+  const tb = document.getElementById('tb-orcs-dash');
+  if (!lista.length) { tb.innerHTML = `<tr><td colspan="6"><div class="empty"><p>Nenhum orçamento ainda.</p></div></td></tr>`; return; }
+  tb.innerHTML = lista.map(o => `
+    <tr>
+      <td><strong style="font-family:'Syne',sans-serif;color:var(--azul);">${o.codigo}</strong></td>
+      <td>${o.nome_cliente||'—'}</td>
+      <td>—</td>
+      <td>${statusBadge(o.status)}</td>
+      <td>${o.criado_em ? new Date(o.criado_em).toLocaleDateString('pt-BR') : '—'}</td>
+      <td><button class="btn btn-ghost btn-sm" onclick="verOrc('${o.id}')">👁️</button></td>
+    </tr>`).join('');
+}
+
+function renderComissoes(lista) {
+  const tb = document.getElementById('tb-comissoes');
+  if (!lista.length) { tb.innerHTML = `<tr><td colspan="6"><div class="empty"><p>Nenhuma faixa cadastrada.</p></div></td></tr>`; return; }
+  tb.innerHTML = lista.map(c => `
+    <tr>
+      <td>R$ ${Number(c.valor_min).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+      <td>${c.valor_max ? 'R$ '+Number(c.valor_max).toLocaleString('pt-BR',{minimumFractionDigits:2}) : 'Sem limite'}</td>
+      <td>${c.tipo === 'percentual' ? 'Percentual' : 'Fixo'}</td>
+      <td><strong style="color:var(--verde);">${c.tipo==='percentual' ? c.valor+'%' : 'R$ '+c.valor}</strong></td>
+      <td>${c.descricao||'—'}</td>
+      <td style="display:flex;gap:6px;">
+        <button class="btn btn-ghost btn-sm" onclick="editarComissao('${c.id}')">✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="excluirComissao('${c.id}')">🗑️</button>
+      </td>
+    </tr>`).join('');
+}
+
+function renderAvaliacoes(lista) {
+  const tb = document.getElementById('tb-avaliacoes');
+  if (!lista.length) { tb.innerHTML = `<tr><td colspan="7"><div class="empty"><div class="icon">⭐</div><p>Nenhuma avaliação.</p></div></td></tr>`; return; }
+  tb.innerHTML = lista.map(a => `
+    <tr>
+      <td>${a.orc_id||'—'}</td>
+      <td>${a.avaliador}</td>
+      <td>${a.avaliado_tipo}</td>
+      <td>${'⭐'.repeat(a.nota)}</td>
+      <td>${a.comentario||'—'}</td>
+      <td>${a.criado_em ? new Date(a.criado_em).toLocaleDateString('pt-BR') : '—'}</td>
+      <td><button class="btn btn-danger btn-sm" onclick="excluirAvaliacao('${a.id}')">🗑️</button></td>
+    </tr>`).join('');
+}
+
+// ── FILTROS ───────────────────────────────────────────────────
+function filtrarPrestadores() {
+  const q = document.getElementById('search-prestadores').value.toLowerCase();
+  const v = document.getElementById('filter-verificado').value;
+  renderPrestadores(dadosPrestadores.filter(p => {
+    const matchQ = !q || p.nome.toLowerCase().includes(q) || p.telefone?.includes(q) || p.cidade?.toLowerCase().includes(q);
+    const matchV = v === '' || String(p.verificado) === v;
+    return matchQ && matchV;
+  }));
+}
+function filtrarUsuarios() {
+  const q = document.getElementById('search-usuarios').value.toLowerCase();
+  renderUsuarios(dadosUsuarios.filter(u => u.nome.toLowerCase().includes(q) || u.telefone.includes(q)));
+}
+function filtrarServicos() {
+  const q = document.getElementById('search-servicos').value.toLowerCase();
+  renderServicos(dadosServicos.filter(s => s.titulo.toLowerCase().includes(q)));
+}
+function filtrarOrcs() {
+  const q = document.getElementById('search-orcs').value.toLowerCase();
+  const st = document.getElementById('filter-status-orc').value;
+  renderOrcs(dadosOrcs.filter(o => (!q || o.codigo?.toLowerCase().includes(q) || o.nome_cliente?.toLowerCase().includes(q)) && (!st || o.status === st)));
+}
+
+// ── MODALS ────────────────────────────────────────────────────
+function abrirModal(id) { document.getElementById(id).classList.add('open'); }
+function fecharModal(id) { document.getElementById(id).classList.remove('open'); }
+
+// PRESTADOR
+function abrirModalPrestador() {
+  document.getElementById('modal-prestador-title').textContent = 'Novo Prestador';
+  ['p-nome','p-tel','p-cpf','p-email','p-end','p-bio'].forEach(id => document.getElementById(id).value='');
+  document.getElementById('p-cidade').value = 'Santa Maria';
+  document.getElementById('p-estado').value = 'RS';
+  document.getElementById('p-online').value = 'false';
+  document.getElementById('p-verificado').value = 'false';
+  document.getElementById('p-id').value = '';
+  abrirModal('modal-prestador');
+}
+function editarPrestador(id) {
+  const p = dadosPrestadores.find(x=>x.id===id); if(!p)return;
+  document.getElementById('modal-prestador-title').textContent = 'Editar Prestador';
+  document.getElementById('p-nome').value = p.nome||'';
+  document.getElementById('p-tel').value = p.telefone||'';
+  document.getElementById('p-cpf').value = p.cpf||'';
+  document.getElementById('p-email').value = p.email||'';
+  document.getElementById('p-cidade').value = p.cidade||'Santa Maria';
+  document.getElementById('p-estado').value = p.estado||'RS';
+  document.getElementById('p-end').value = p.endereco||'';
+  document.getElementById('p-bio').value = p.bio||'';
+  document.getElementById('p-online').value = p.aceita_orcamento_online ? 'true' : 'false';
+  document.getElementById('p-verificado').value = p.verificado ? 'true' : 'false';
+  document.getElementById('p-id').value = p.id;
+  abrirModal('modal-prestador');
+}
+async function salvarPrestador() {
+  const dados = {
+    nome: document.getElementById('p-nome').value.trim(),
+    telefone: document.getElementById('p-tel').value.trim(),
+    cpf: document.getElementById('p-cpf').value.trim()||null,
+    email: document.getElementById('p-email').value.trim()||null,
+    cidade: document.getElementById('p-cidade').value.trim(),
+    estado: document.getElementById('p-estado').value.trim(),
+    endereco: document.getElementById('p-end').value.trim()||null,
+    bio: document.getElementById('p-bio').value.trim()||null,
+    aceita_orcamento_online: document.getElementById('p-online').value === 'true',
+    verificado: document.getElementById('p-verificado').value === 'true',
+    ativo: true
+  };
+  if (!dados.nome || !dados.telefone) { mostrarAlerta('Preencha nome e telefone.','error'); return; }
+  const id = document.getElementById('p-id').value;
+  if (sb) {
+    if (id) await sb.from('prestadores').update(dados).eq('id',id);
+    else await sb.from('prestadores').insert(dados);
+    await carregarPrestadores();
+  } else {
+    if (id) { const i = dadosPrestadores.findIndex(x=>x.id===id); if(i>=0) dadosPrestadores[i]={...dadosPrestadores[i],...dados}; }
+    else dadosPrestadores.unshift({...dados, id: Date.now().toString(), nota_media:0, total_servicos:0, criado_em:new Date().toISOString()});
+    renderPrestadores(dadosPrestadores);
+    popularSelectPrestadores();
+  }
+  fecharModal('modal-prestador');
+  mostrarAlerta('Prestador salvo com sucesso!','success');
+}
+async function toggleVerificado(id, atual) {
+  const acao = atual ? 'Remover verificação' : 'Aprovar manualmente';
+  if (!confirm(`${acao} deste prestador?`)) return;
+  if (sb) {
+    await sb.from('prestadores').update({ verificado: !atual }).eq('id', id);
+    await carregarPrestadores();
+  } else {
+    const i = dadosPrestadores.findIndex(x => x.id === id);
+    if (i >= 0) dadosPrestadores[i].verificado = !atual;
+    renderPrestadores(dadosPrestadores);
+  }
+  mostrarAlerta(atual ? 'Verificação removida.' : 'Prestador aprovado como verificado!', atual ? 'error' : 'success');
+}
+
+async function excluirPrestador(id) {
+  if (!confirm('Excluir este prestador?')) return;
+  if (sb) { await sb.from('prestadores').delete().eq('id',id); await carregarPrestadores(); }
+  else { dadosPrestadores = dadosPrestadores.filter(x=>x.id!==id); renderPrestadores(dadosPrestadores); }
+}
+
+// USUÁRIO
+function abrirModalUsuario() {
+  ['u-nome','u-tel','u-cpf','u-email','u-end'].forEach(id => document.getElementById(id).value='');
+  document.getElementById('u-cidade').value='Santa Maria'; document.getElementById('u-estado').value='RS';
+  document.getElementById('u-id').value='';
+  abrirModal('modal-usuario');
+}
+function editarUsuario(id) {
+  const u = dadosUsuarios.find(x=>x.id===id); if(!u)return;
+  document.getElementById('u-nome').value=u.nome||''; document.getElementById('u-tel').value=u.telefone||'';
+  document.getElementById('u-cpf').value=u.cpf||''; document.getElementById('u-email').value=u.email||'';
+  document.getElementById('u-cidade').value=u.cidade||'Santa Maria'; document.getElementById('u-estado').value=u.estado||'RS';
+  document.getElementById('u-end').value=u.endereco||''; document.getElementById('u-id').value=u.id;
+  document.getElementById('modal-usuario-title').textContent='Editar Usuário';
+  abrirModal('modal-usuario');
+}
+async function salvarUsuario() {
+  const dados = {
+    nome:document.getElementById('u-nome').value.trim(), telefone:document.getElementById('u-tel').value.trim(),
+    cpf:document.getElementById('u-cpf').value.trim()||null, email:document.getElementById('u-email').value.trim()||null,
+    cidade:document.getElementById('u-cidade').value.trim(), estado:document.getElementById('u-estado').value.trim(),
+    endereco:document.getElementById('u-end').value.trim()||null, ativo:true
+  };
+  if (!dados.nome || !dados.telefone) { mostrarAlerta('Preencha nome e telefone.','error'); return; }
+  const id = document.getElementById('u-id').value;
+  if (sb) {
+    if (id) await sb.from('usuarios').update(dados).eq('id',id);
+    else await sb.from('usuarios').insert(dados);
+    await carregarUsuarios();
+  } else {
+    if (id) { const i=dadosUsuarios.findIndex(x=>x.id===id); if(i>=0) dadosUsuarios[i]={...dadosUsuarios[i],...dados}; }
+    else dadosUsuarios.unshift({...dados, id:Date.now().toString(), criado_em:new Date().toISOString()});
+    renderUsuarios(dadosUsuarios);
+  }
+  fecharModal('modal-usuario'); mostrarAlerta('Usuário salvo!','success');
+}
+async function excluirUsuario(id) {
+  if (!confirm('Excluir este usuário?')) return;
+  if (sb) { await sb.from('usuarios').delete().eq('id',id); await carregarUsuarios(); }
+  else { dadosUsuarios=dadosUsuarios.filter(x=>x.id!==id); renderUsuarios(dadosUsuarios); }
+}
+
+// SERVIÇO
+function abrirModalServico() {
+  ['s-titulo','s-desc','s-valor'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('s-cidade').value='Santa Maria'; document.getElementById('s-estado').value='RS';
+  document.getElementById('s-tipo').value='orcamento'; document.getElementById('s-id').value='';
+  document.getElementById('grupo-valor-fixo').style.display='none';
+  document.getElementById('modal-servico-title').textContent='Novo Serviço';
+  popularSelectPrestadores(); popularSelectCategorias();
+  abrirModal('modal-servico');
+}
+function editarServico(id) {
+  const s=dadosServicos.find(x=>x.id===id); if(!s)return;
+  popularSelectPrestadores(); popularSelectCategorias();
+  document.getElementById('s-titulo').value=s.titulo||'';
+  document.getElementById('s-prestador').value=s.prestador_id||'';
+  document.getElementById('s-categoria').value=s.categoria_id||'';
+  document.getElementById('s-tipo').value=s.tipo||'orcamento';
+  document.getElementById('s-valor').value=s.valor_fixo||'';
+  document.getElementById('s-cidade').value=s.cidade||'Santa Maria';
+  document.getElementById('s-estado').value=s.estado||'RS';
+  document.getElementById('s-desc').value=s.descricao||'';
+  document.getElementById('s-id').value=s.id;
+  document.getElementById('grupo-valor-fixo').style.display=s.tipo==='fixo'?'flex':'none';
+  document.getElementById('modal-servico-title').textContent='Editar Serviço';
+  document.getElementById('grupo-fotos').style.display='block';
+  carregarFotosAdmin(s.id);
+  abrirModal('modal-servico');
+}
+async function salvarServico() {
+  const dados = {
+    titulo:document.getElementById('s-titulo').value.trim(),
+    prestador_id:document.getElementById('s-prestador').value||null,
+    categoria_id:document.getElementById('s-categoria').value||null,
+    tipo:document.getElementById('s-tipo').value,
+    valor_fixo:document.getElementById('s-valor').value||null,
+    cidade:document.getElementById('s-cidade').value.trim(),
+    estado:document.getElementById('s-estado').value.trim(),
+    descricao:document.getElementById('s-desc').value.trim()||null,
+    ativo:true
+  };
+  if (!dados.titulo) { mostrarAlerta('Preencha o título do serviço.','error'); return; }
+  const id=document.getElementById('s-id').value;
+  if (sb) {
+    if (id) await sb.from('servicos').update(dados).eq('id',id);
+    else await sb.from('servicos').insert(dados);
+    await carregarServicos();
+  } else {
+    if (id) { const i=dadosServicos.findIndex(x=>x.id===id); if(i>=0) dadosServicos[i]={...dadosServicos[i],...dados}; }
+    else dadosServicos.unshift({...dados, id:Date.now().toString(), criado_em:new Date().toISOString()});
+    renderServicos(dadosServicos);
+  }
+  document.getElementById('grupo-fotos').style.display='block';
+  const sid = document.getElementById('s-id').value;
+  if (sid) carregarFotosAdmin(sid);
+  fecharModal('modal-servico'); mostrarAlerta('Serviço salvo!','success');
+}
+async function excluirServico(id) {
+  if (!confirm('Excluir este serviço?')) return;
+  if (sb) { await sb.from('servicos').delete().eq('id',id); await carregarServicos(); }
+  else { dadosServicos=dadosServicos.filter(x=>x.id!==id); renderServicos(dadosServicos); }
+}
+function toggleValorFixo() {
+  document.getElementById('grupo-valor-fixo').style.display = document.getElementById('s-tipo').value==='fixo'?'flex':'none';
+}
+
+// CATEGORIA
+function abrirModalCategoria() {
+  ['cat-nome','cat-icone','cat-desc'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('cat-id').value=''; abrirModal('modal-categoria');
+}
+function editarCategoria(id) {
+  const c=dadosCategorias.find(x=>x.id===id); if(!c)return;
+  document.getElementById('cat-nome').value=c.nome||'';
+  document.getElementById('cat-icone').value=c.icone||'';
+  document.getElementById('cat-desc').value=c.descricao||'';
+  document.getElementById('cat-id').value=c.id;
+  abrirModal('modal-categoria');
+}
+async function salvarCategoria() {
+  const dados={nome:document.getElementById('cat-nome').value.trim(), icone:document.getElementById('cat-icone').value.trim(), descricao:document.getElementById('cat-desc').value.trim(), ativa:true};
+  if (!dados.nome) { mostrarAlerta('Preencha o nome.','error'); return; }
+  const id=document.getElementById('cat-id').value;
+  if (sb) {
+    if (id) await sb.from('categorias').update(dados).eq('id',id);
+    else await sb.from('categorias').insert(dados);
+    await carregarCategorias();
+  } else {
+    if (id) { const i=dadosCategorias.findIndex(x=>x.id===id); if(i>=0) dadosCategorias[i]={...dadosCategorias[i],...dados}; }
+    else dadosCategorias.push({...dados, id:Date.now().toString()});
+    renderCategorias(dadosCategorias); popularSelectCategorias();
+  }
+  fecharModal('modal-categoria'); mostrarAlerta('Categoria salva!','success');
+}
+async function excluirCategoria(id) {
+  if (!confirm('Excluir esta categoria?')) return;
+  if (sb) { await sb.from('categorias').delete().eq('id',id); await carregarCategorias(); }
+  else { dadosCategorias=dadosCategorias.filter(x=>x.id!==id); renderCategorias(dadosCategorias); }
+}
+
+// COMISSÃO
+function abrirModalComissao() {
+  ['com-min','com-max','com-valor','com-desc'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('com-tipo').value='percentual'; document.getElementById('com-id').value='';
+  document.getElementById('modal-comissao-title').textContent='Nova Faixa de Comissão';
+  abrirModal('modal-comissao');
+}
+function editarComissao(id) {
+  const c=dadosComissoes.find(x=>x.id===id); if(!c)return;
+  document.getElementById('com-min').value=c.valor_min;
+  document.getElementById('com-max').value=c.valor_max||'';
+  document.getElementById('com-tipo').value=c.tipo;
+  document.getElementById('com-valor').value=c.valor;
+  document.getElementById('com-desc').value=c.descricao||'';
+  document.getElementById('com-id').value=c.id;
+  document.getElementById('modal-comissao-title').textContent='Editar Faixa';
+  abrirModal('modal-comissao');
+}
+async function salvarComissao() {
+  const dados={valor_min:parseFloat(document.getElementById('com-min').value), valor_max:document.getElementById('com-max').value?parseFloat(document.getElementById('com-max').value):null, tipo:document.getElementById('com-tipo').value, valor:parseFloat(document.getElementById('com-valor').value), descricao:document.getElementById('com-desc').value.trim(), ativo:true};
+  if (isNaN(dados.valor_min)||isNaN(dados.valor)) { mostrarAlerta('Preencha os valores corretamente.','error'); return; }
+  const id=document.getElementById('com-id').value;
+  if (sb) {
+    if (id) await sb.from('comissoes').update(dados).eq('id',id);
+    else await sb.from('comissoes').insert(dados);
+    await carregarComissoes();
+  } else {
+    if (id) { const i=dadosComissoes.findIndex(x=>x.id===id); if(i>=0) dadosComissoes[i]={...dadosComissoes[i],...dados}; }
+    else dadosComissoes.push({...dados, id:Date.now().toString()});
+    renderComissoes(dadosComissoes);
+  }
+  fecharModal('modal-comissao'); mostrarAlerta('Faixa de comissão salva!','success');
+}
+async function excluirComissao(id) {
+  if (!confirm('Excluir esta faixa?')) return;
+  if (sb) { await sb.from('comissoes').delete().eq('id',id); await carregarComissoes(); }
+  else { dadosComissoes=dadosComissoes.filter(x=>x.id!==id); renderComissoes(dadosComissoes); }
+}
+
+// AVALIAÇÃO
+function abrirModalAvaliacao() {
+  popularSelectPrestadoresAv(); document.getElementById('av-nota').value='5';
+  document.getElementById('av-comentario').value=''; abrirModal('modal-avaliacao');
+}
+async function salvarAvaliacao() {
+  const pid=document.getElementById('av-prestador').value;
+  if (!pid) { mostrarAlerta('Selecione um prestador.','error'); return; }
+  const dados={avaliador:'admin', avaliado_id:pid, avaliado_tipo:'prestador', nota:parseInt(document.getElementById('av-nota').value), comentario:document.getElementById('av-comentario').value.trim()||null};
+  if (sb) { await sb.from('avaliacoes').insert(dados); await carregarAvaliacoes(); }
+  else { dadosAvaliacoes.unshift({...dados, id:Date.now().toString(), criado_em:new Date().toISOString()}); renderAvaliacoes(dadosAvaliacoes); }
+  fecharModal('modal-avaliacao'); mostrarAlerta('Avaliação adicionada!','success');
+}
+async function excluirAvaliacao(id) {
+  if (!confirm('Excluir avaliação?')) return;
+  if (sb) { await sb.from('avaliacoes').delete().eq('id',id); await carregarAvaliacoes(); }
+  else { dadosAvaliacoes=dadosAvaliacoes.filter(x=>x.id!==id); renderAvaliacoes(dadosAvaliacoes); }
+}
+
+// SELECTS HELPERS
+function popularSelectCategorias() {
+  const sel=document.getElementById('s-categoria');
+  sel.innerHTML='<option value="">Selecione...</option>'+dadosCategorias.map(c=>`<option value="${c.id}">${c.icone||''} ${c.nome}</option>`).join('');
+}
+function popularSelectPrestadores() {
+  const sel=document.getElementById('s-prestador');
+  sel.innerHTML='<option value="">Selecione...</option>'+dadosPrestadores.map(p=>`<option value="${p.id}">${p.nome}</option>`).join('');
+}
+function popularSelectPrestadoresAv() {
+  const sel=document.getElementById('av-prestador');
+  sel.innerHTML='<option value="">Selecione...</option>'+dadosPrestadores.map(p=>`<option value="${p.id}">${p.nome}</option>`).join('');
+}
+
+// PROMPTS IA
+function abaPrompt(chave, el) {
+  salvarPromptAtual();
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  const nomes={geral:'Geral',encanamento:'Encanamento',eletrica:'Elétrica',gesso:'Gesso'};
+  document.getElementById('prompt-label').textContent=`System Prompt — ${nomes[chave]||chave}`;
+  document.getElementById('prompt-chave').value='system_prompt_'+chave;
+  carregarPrompt('system_prompt_'+chave);
+}
+function salvarPromptAtual() {
+  const chave=document.getElementById('prompt-chave').value;
+  if (chave) promptsCache[chave]=document.getElementById('prompt-textarea').value;
+}
+async function carregarPrompt(chave) {
+  if (promptsCache[chave]) { document.getElementById('prompt-textarea').value=promptsCache[chave]; return; }
+  if (sb) {
+    const {data}=await sb.from('configuracoes').select('valor').eq('chave',chave).single();
+    document.getElementById('prompt-textarea').value=data?.valor||'';
+    promptsCache[chave]=data?.valor||'';
+  }
+}
+async function salvarPrompts() {
+  salvarPromptAtual();
+  if (sb) {
+    for (const [chave,valor] of Object.entries(promptsCache)) {
+      await sb.from('configuracoes').upsert({chave,valor,atualizado_em:new Date().toISOString()},{onConflict:'chave'});
+    }
+  }
+  mostrarAlerta('Prompts salvos! O agente já usará as novas instruções.','success');
+}
+
+// INTEGRAÇÕES
+async function carregarIntegracoes() {
+  if (!sb) return;
+  const campos=['evolution_api_url','evolution_api_key','evolution_instance','anthropic_api_key','openai_api_key','supabase_url','supabase_anon_key'];
+  const {data}=await sb.from('configuracoes').select('*').in('chave',campos);
+  const mapa={}; data?.forEach(d=>mapa[d.chave]=d.valor);
+  document.getElementById('cfg-evolution-url').value=mapa['evolution_api_url']||'';
+  document.getElementById('cfg-evolution-key').value=mapa['evolution_api_key']||'';
+  document.getElementById('cfg-evolution-instance').value=mapa['evolution_instance']||'';
+  document.getElementById('cfg-anthropic-key').value=mapa['anthropic_api_key']||'';
+  document.getElementById('cfg-openai-key').value=mapa['openai_api_key']||'';
+  document.getElementById('cfg-supabase-url').value=mapa['supabase_url']||'';
+  document.getElementById('cfg-supabase-key').value=mapa['supabase_anon_key']||'';
+}
+async function salvarIntegracoes() {
+  const configs=[
+    {chave:'evolution_api_url',valor:document.getElementById('cfg-evolution-url').value},
+    {chave:'evolution_api_key',valor:document.getElementById('cfg-evolution-key').value},
+    {chave:'evolution_instance',valor:document.getElementById('cfg-evolution-instance').value},
+    {chave:'anthropic_api_key',valor:document.getElementById('cfg-anthropic-key').value},
+    {chave:'openai_api_key',valor:document.getElementById('cfg-openai-key').value},
+    {chave:'supabase_url',valor:document.getElementById('cfg-supabase-url').value},
+    {chave:'supabase_anon_key',valor:document.getElementById('cfg-supabase-key').value},
+  ];
+  if (sb) {
+    for (const c of configs) await sb.from('configuracoes').upsert({...c,atualizado_em:new Date().toISOString()},{onConflict:'chave'});
+  }
+  mostrarAlerta('Integrações salvas com sucesso!','success');
+}
+
+// FINANCEIRO
+function carregarFinanceiro() {
+  const fechados=dadosOrcs.filter(o=>o.comissao_valor>0);
+  const total=fechados.reduce((a,o)=>a+(o.comissao_valor||0),0);
+  const valores=fechados.reduce((a,o)=>a+(o.valor_final||0),0);
+  document.getElementById('fin-total').textContent='R$ '+total.toLocaleString('pt-BR',{minimumFractionDigits:2});
+  document.getElementById('fin-contratos').textContent=fechados.length;
+  document.getElementById('fin-ticket').textContent='R$ '+(fechados.length?valores/fechados.length:0).toLocaleString('pt-BR',{minimumFractionDigits:2});
+  const tb=document.getElementById('tb-financeiro');
+  if (!fechados.length) { tb.innerHTML=`<tr><td colspan="7"><div class="empty"><p>Nenhum contrato fechado ainda.</p></div></td></tr>`; return; }
+  tb.innerHTML=fechados.map(o=>`<tr>
+    <td><strong style="color:var(--azul);">${o.codigo}</strong></td>
+    <td>—</td>
+    <td>R$ ${Number(o.valor_final).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+    <td>${o.comissao_percentual||'—'}%</td>
+    <td><strong style="color:var(--verde);">R$ ${Number(o.comissao_valor).toLocaleString('pt-BR',{minimumFractionDigits:2})}</strong></td>
+    <td>${o.tipo_contrato==='carta_aceite'?'Carta Aceite':'Serviço Seguro'}</td>
+    <td>${o.criado_em?new Date(o.criado_em).toLocaleDateString('pt-BR'):'—'}</td>
+  </tr>`).join('');
+}
+
+// ORC DETAIL
+function verOrc(id) {
+  const o=dadosOrcs.find(x=>x.id===id); if(!o)return;
+  const podeContrato = ['FECHADO','AGUARDANDO DECISÃO','ANAMNESE CONCLUÍDA'].includes(o.status) || o.valor_final > 0;
+  const btnContrato = podeContrato ? `\n\n[Gerar Contrato] → contrato.html?orc=${o.id}&codigo=${o.codigo}` : '';
+  const msg = `ORC: ${o.codigo}\nCliente: ${o.nome_cliente||'—'}\nStatus: ${o.status}\nValor: ${o.valor_final?'R$ '+o.valor_final:'—'}\nCanal: ${o.canal}\nResumo: ${o.resumo_anamnese||'—'}${btnContrato}`;
+  if (podeContrato && confirm(msg + '\n\nAbrir gerador de contrato?')) {
+    window.open(`contrato.html?orc=${o.id}&codigo=${o.codigo}`, '_blank');
+  } else if (!podeContrato) {
+    alert(msg);
+  }
+}
+
+// ALERTA
+let alertTimer;
+function mostrarAlerta(msg, tipo='success') {
+  const el=document.getElementById('alert-global');
+  el.innerHTML=`<div class="alert alert-${tipo}">${tipo==='success'?'✅':'❌'} ${msg}</div>`;
+  clearTimeout(alertTimer);
+  alertTimer=setTimeout(()=>el.innerHTML='', 3000);
+}
+
+// Fechar modal clicando fora
+document.querySelectorAll('.modal-overlay').forEach(m=>{
+  m.addEventListener('click', e=>{ if(e.target===m) m.classList.remove('open'); });
+});
+</script>
+</body>
+</html>
