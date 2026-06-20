@@ -5,7 +5,7 @@ import { Logo } from '../components/Logo';
 import { supabase } from '../../lib/supabase';
 
 const NOTAS = [3, 3.5, 4, 4.5, 5];
-const WHATSAPP_NUMERO = '555597127811';
+const WHATSAPP_NUMERO = '555591598658';
 
 export function Busca() {
   const [urlParams] = useSearchParams();

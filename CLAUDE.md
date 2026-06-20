@@ -15,7 +15,7 @@ Cidade piloto: **Santa Maria, RS**.
 | Banco | Supabase (Postgres) | https://mejzfpivpbdhcmfepfdh.supabase.co |
 
 **Instância Evolution API:** `Servico-Seguro` (atenção ao S maiúsculo — usado exatamente assim na env var `EVOLUTION_INSTANCE`)
-**Número WhatsApp da plataforma:** `555597127811` (+55 55 9712-7811)
+**Número WhatsApp da plataforma:** `555591598658` (+55 55 9159-8658)
 **Painel Admin:** `/admin` — login `admin@admin.com` / senha `admin123`
 
 ### Variáveis de ambiente (Railway backend)
@@ -27,8 +27,8 @@ OPENAI_API_KEY=[chave válida, GPT-4o-mini]
 EVOLUTION_API_URL=https://evolution-api-production-5d17.up.railway.app
 EVOLUTION_API_KEY=servico-seguro-2026
 EVOLUTION_INSTANCE=Servico-Seguro
-WHATSAPP_NUMBER=555597127811
-ADMIN_WHATSAPP=555597127811
+WHATSAPP_NUMBER=555591598658
+ADMIN_WHATSAPP=555591598658
 PORT=3001
 NODE_ENV=production
 FRONTEND_URL=https://classy-cucurucho-4e3455.netlify.app
@@ -331,8 +331,8 @@ Usar Supabase Realtime para mensagens aparecerem ao vivo (já no ecossistema, se
   (`servicoAberto.id.substring(0,8)`) — sempre usar o UUID completo.
 
 ## Numeração/formatação que já causou confusão
-- Número da plataforma: `555597127811` — **12 dígitos**: 55 (DDI) + 55 (DDD) + 9712-7811 (8 dígitos
-  locais, sem o 9 extra). Não confundir com `5555971277811` (13 dígitos, errado).
+- Número da plataforma: `555591598658` — **12 dígitos**: 55 (DDI) + 55 (DDD) + 9159-8658 (8 dígitos
+  locais, sem o 9 extra). Não confundir com `5555915986589` (13 dígitos, errado).
 
 ---
 

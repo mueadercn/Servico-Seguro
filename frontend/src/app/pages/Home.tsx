@@ -5,7 +5,7 @@ import { Logo } from '../components/Logo';
 import { supabase } from '../../lib/supabase';
 
 const CIDADE_PADRAO = 'Santa Maria';
-const WHATSAPP_NUMERO = '555597127811';
+const WHATSAPP_NUMERO = '555591598658';
 const CIDADES = ['Santa Maria', 'Passo Fundo', 'Porto Alegre', 'Pelotas'];
 
 const CATEGORIAS_FIXAS = [
