@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Serviço Seguro — Solicitar Orçamento</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --azul:#1B2F6E;--azul-d:#0f1d45;
+  --verde:#1A7A4A;--verde-l:#22a362;--verde-n:#2ECC71;
+  --border:#E2E8F4;--txt:#0d1424;--txt2:#5a6478;--off:#F7F9FC;
+}
+body{font-family:'DM Sans',sans-serif;background:var(--off);
+  min-height:100vh;display:flex;flex-direction:column;}
+
+/* HEADER */
+.hdr{background:var(--azul);padding:14px 20px;
+  display:flex;align-items:center;gap:12px;}
+.hdr-av{width:40px;height:40px;border-radius:50%;
+  background:linear-gradient(135deg,var(--verde),var(--verde-l));
+  display:flex;align-items:center;justify-content:center;font-size:1rem;color:white;flex-shrink:0;}
+.hdr-info{flex:1;}
+.hdr-nome{font-family:'Syne',sans-serif;font-size:0.9rem;font-weight:700;color:white;}
+.hdr-status{font-size:0.7rem;color:rgba(255,255,255,0.6);}
+.hdr-back{background:none;border:none;color:rgba(255,255,255,0.7);
+  font-size:1.3rem;cursor:pointer;padding:4px;}
+.hdr-serv{font-size:0.68rem;background:rgba(255,255,255,0.15);
+  color:rgba(255,255,255,0.9);padding:3px 10px;border-radius:20px;
+  font-weight:600;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+/* CHAT */
+.chat-area{flex:1;overflow-y:auto;padding:16px;
+  display:flex;flex-direction:column;gap:10px;background:#f0f4f8;}
+.msg{max-width:82%;padding:10px 14px;border-radius:14px;
+  font-size:0.875rem;line-height:1.55;animation:fadeIn 0.3s ease;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.msg-ia{background:white;color:var(--txt);border:1px solid var(--border);
+  border-radius:4px 14px 14px 14px;align-self:flex-start;
+  box-shadow:0 1px 6px rgba(0,0,0,0.06);}
+.msg-user{background:var(--azul);color:white;
+  border-radius:14px 4px 14px 14px;align-self:flex-end;}
+.msg-system{background:rgba(27,47,110,0.08);color:var(--azul);
+  border-radius:10px;align-self:center;font-size:0.75rem;
+  font-weight:600;padding:6px 14px;text-align:center;}
+
+/* TYPING */
+.typing{display:flex;gap:4px;align-items:center;
+  background:white;border:1px solid var(--border);
+  border-radius:4px 14px 14px 14px;padding:12px 16px;
+  align-self:flex-start;box-shadow:0 1px 6px rgba(0,0,0,0.06);}
+.tdot{width:7px;height:7px;border-radius:50%;background:var(--txt2);
+  animation:td 1s infinite;}
+.tdot:nth-child(2){animation-delay:.2s;}
+.tdot:nth-child(3){animation-delay:.4s;}
+@keyframes td{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-7px)}}
+
+/* OPTIONS (quick replies) */
+.opts{display:flex;flex-wrap:wrap;gap:7px;align-self:flex-start;margin-top:-4px;}
+.opt{padding:7px 14px;background:white;border:1.5px solid var(--border);
+  border-radius:20px;font-family:'DM Sans',sans-serif;font-size:0.8rem;
+  font-weight:500;cursor:pointer;color:var(--azul);transition:all 0.15s;}
+.opt:hover{background:var(--azul);color:white;border-color:var(--azul);}
+
+/* INPUT */
+.input-area{background:white;border-top:1px solid var(--border);
+  padding:12px 16px;display:flex;gap:9px;align-items:flex-end;}
+.input-wrap{flex:1;position:relative;}
+textarea.chat-inp{width:100%;border:1.5px solid var(--border);border-radius:12px;
+  padding:10px 14px;font-family:'DM Sans',sans-serif;font-size:0.9rem;
+  outline:none;resize:none;max-height:120px;line-height:1.5;
+  transition:border-color 0.2s;}
+textarea.chat-inp:focus{border-color:var(--azul);}
+.btn-foto{background:none;border:none;font-size:1.3rem;cursor:pointer;
+  padding:8px;color:var(--txt2);transition:color 0.2s;flex-shrink:0;}
+.btn-foto:hover{color:var(--azul);}
+.btn-send{width:42px;height:42px;background:var(--azul);color:white;
+  border:none;border-radius:12px;cursor:pointer;font-size:1rem;
+  display:flex;align-items:center;justify-content:center;
+  transition:all 0.2s;flex-shrink:0;}
+.btn-send:hover{background:var(--verde);}
+.btn-send:disabled{opacity:0.4;cursor:not-allowed;}
+input[type=file]{display:none;}
+
+/* ORC BADGE */
+.orc-badge{background:var(--verde);color:white;font-size:0.68rem;
+  font-weight:700;padding:3px 10px;border-radius:20px;
+  display:inline-block;margin-bottom:6px;}
+
+/* STATUS CARDS */
+.status-card{background:white;border-radius:14px;border:1px solid var(--border);
+  padding:16px;align-self:stretch;box-shadow:0 2px 10px rgba(27,47,110,0.07);}
+.sc-title{font-family:'Syne',sans-serif;font-size:0.85rem;font-weight:700;
+  color:var(--azul);margin-bottom:8px;}
+.sc-row{display:flex;justify-content:space-between;align-items:center;
+  padding:5px 0;border-bottom:1px solid var(--border);font-size:0.8rem;}
+.sc-row:last-child{border-bottom:none;}
+.sc-lbl{color:var(--txt2);}
+.sc-val{font-weight:600;color:var(--txt);}
+
+/* CONCLUÍDO */
+.concluido{background:linear-gradient(135deg,var(--azul-d),var(--azul));
+  border-radius:16px;padding:24px;text-align:center;align-self:stretch;}
+.concluido h3{font-family:'Syne',sans-serif;font-size:1rem;font-weight:700;
+  color:white;margin-bottom:6px;}
+.concluido p{font-size:0.8rem;color:rgba(255,255,255,0.7);line-height:1.5;}
+.btn-voltar{display:inline-block;margin-top:14px;padding:10px 22px;
+  background:var(--verde);color:white;border:none;border-radius:10px;
+  font-family:'Syne',sans-serif;font-size:0.83rem;font-weight:700;cursor:pointer;}
+
+/* FOTO PREVIEW */
+.foto-preview{max-width:200px;border-radius:10px;margin-top:6px;
+  border:1px solid var(--border);display:block;}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <button class="hdr-back" onclick="history.back()">←</button>
+  <div class="hdr-av">🛡️</div>
+  <div class="hdr-info">
+    <div class="hdr-nome">Serviço Seguro</div>
+    <div class="hdr-status">● Atendimento online</div>
+  </div>
+  <div class="hdr-serv" id="hdr-serv">Solicitando orçamento</div>
+</div>
+
+<div class="chat-area" id="chat-area"></div>
+
+<input type="file" id="file-foto" accept="image/*" onchange="enviarFoto(this)">
+
+<div class="input-area">
+  <button class="btn-foto" onclick="document.getElementById('file-foto').click()" title="Enviar foto">📷</button>
+  <div class="input-wrap">
+    <textarea class="chat-inp" id="chat-inp" rows="1"
+      placeholder="Digite sua mensagem..."
+      onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();enviar();}"
+      oninput="autoResize(this)"></textarea>
+  </div>
+  <button class="btn-send" id="btn-send" onclick="enviar()">➤</button>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://mejzfpivpbdhcmfepfdh.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1lanpmcGl2cGJkaGNtZmVwZmRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2NDYxMzcsImV4cCI6MjA5NTIyMjEzN30.NVs6rC27r44rKPngLa91BF3oazkl4XuTpLzJLQbKIfo';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ── STATE ──────────────────────────────────────────────────────
+const params = new URLSearchParams(location.search);
+const servicoId = params.get('servico');
+const servicoNome = params.get('nome') || 'Serviço';
+const catNome = params.get('cat') || '';
+
+let orc = null;
+let etapa = 'identificacao';
+let anamnese = {};
+let chatHistory = [];
+let contratante = JSON.parse(localStorage.getItem('ss_contratante') || 'null');
+let nomeCliente = contratante?.nome || null;
+let telefoneCliente = contratante?.telefone || null;
+let orcGerado = false;
+let apiKey = null;
+
+document.getElementById('hdr-serv').textContent = servicoNome;
+
+// ── SYSTEM PROMPT ─────────────────────────────────────────────
+const SYSTEM_PROMPT = `Você é a assistente virtual do Serviço Seguro, plataforma de serviços profissionais.
+
+O cliente está solicitando orçamento para: ${servicoNome} (categoria: ${catNome}).
+
+Seu objetivo é coletar as informações necessárias para o profissional fazer o orçamento. Siga estas regras:
+
+1. Faça UMA pergunta por vez — nunca duas ao mesmo tempo
+2. Seja simpática, direta e objetiva
+3. Adapte as perguntas conforme as respostas do cliente
+4. Pergunte sobre: descrição do problema/serviço, localização/cômodo, metragem se aplicável, urgência, disponibilidade de dias e turnos
+5. Solicite foto quando fizer sentido para o tipo de serviço
+6. Quando tiver informações suficientes (mínimo: descrição + disponibilidade), encerre dizendo exatamente: "ANAMNESE_CONCLUIDA" e nada mais
+7. Nunca prometa preços ou prazos
+8. Se o cliente mandar foto, agradeça e continue normalmente
+
+Idioma: português brasileiro. Tom: amigável e profissional.`;
+
+// ── INIT ──────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', async () => {
+  // Load API key from Supabase config
+  try {
+    const { data } = await sb.from('configuracoes').select('valor').eq('chave', 'openai_api_key').limit(1);
+    if (data && data.length > 0 && data[0].valor) {
+      apiKey = data[0].valor;
+    }
+  } catch(e) { console.warn('Config load error:', e); }
+
+  addMsgSistema('Novo atendimento iniciado');
+  setTimeout(() => iniciarAtendimento(), 400);
+});
+
+async function iniciarAtendimento() {
+  if (!contratante) {
+    addMsgIA('Olá! Sou a assistente do **Serviço Seguro**. 😊\n\nVi que você tem interesse em: **' + servicoNome + '**\n\nPara começar, qual é o seu nome?');
+    etapa = 'nome';
+  } else {
+    nomeCliente = contratante.nome;
+    telefoneCliente = contratante.telefone;
+    etapa = 'anamnese';
+    addMsgIA('Olá, **' + nomeCliente + '**! Sou a assistente do **Serviço Seguro**. 😊\n\nVi que você tem interesse em: **' + servicoNome + '**\n\nMe conta: o que exatamente você precisa?');
+    chatHistory.push({role: 'assistant', content: 'Olá, ' + nomeCliente + '! Me conta o que você precisa para ' + servicoNome + '.'});
+  }
+}
+
+// ── PROCESSAR RESPOSTA ────────────────────────────────────────
+async function processarResposta(txt) {
+  if (etapa === 'nome') {
+    nomeCliente = txt;
+    anamnese.nome = txt;
+    etapa = 'telefone';
+    addMsgIA('Prazer, **' + txt + '**! Qual o seu WhatsApp para o profissional entrar em contato?');
+    return;
+  }
+  
+  if (etapa === 'telefone') {
+    telefoneCliente = txt;
+    anamnese.telefone = txt;
+    etapa = 'anamnese';
+    chatHistory.push({role: 'assistant', content: 'Ótimo! Me conta o que você precisa para ' + servicoNome + '.'});
+    addMsgIA('Ótimo! Agora me conta: o que exatamente você precisa para **' + servicoNome + '**?');
+    return;
+  }
+
+  if (etapa === 'anamnese') {
+    chatHistory.push({role: 'user', content: txt});
+    await responderComIA();
+    return;
+  }
+}
+
+// ── IA ────────────────────────────────────────────────────────
+async function responderComIA() {
+  if (!apiKey) {
+    // Fallback sem IA
+    respostaDemo();
+    return;
+  }
+
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + apiKey
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        max_tokens: 300,
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT },
+          ...chatHistory
+        ]
+      })
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok) {
+      console.error('OpenAI error:', data);
+      respostaDemo();
+      return;
+    }
+
+    const resposta = data.choices[0].message.content.trim();
+    chatHistory.push({role: 'assistant', content: resposta});
+
+    // Check if anamnese is done
+    if (resposta.includes('ANAMNESE_CONCLUIDA')) {
+      await concluirAnamnese();
+      return;
+    }
+
+    addMsgIA(resposta);
+
+  } catch(e) {
+    console.error('IA error:', e);
+    respostaDemo();
+  }
+}
+
+// Fallback sem IA
+let demoIdx = 0;
+const demoResps = [
+  'Entendido! Em qual cômodo ou local é o serviço?',
+  'Qual a urgência — precisa para esta semana ou pode aguardar?',
+  'Você consegue enviar uma foto? Use o ícone 📷 abaixo.',
+  'Quais dias e turnos você tem disponibilidade? Ex: terça à tarde, quarta de manhã.',
+  'Perfeito! Já tenho todas as informações necessárias.',
+];
+function respostaDemo() {
+  const resp = demoResps[Math.min(demoIdx++, demoResps.length - 1)];
+  chatHistory.push({role: 'assistant', content: resp});
+  addMsgIA(resp);
+  if (demoIdx >= demoResps.length) {
+    setTimeout(() => concluirAnamnese(), 1500);
+  }
+}
+
+// ── CONCLUIR ──────────────────────────────────────────────────
+async function concluirAnamnese() {
+  if (orcGerado) return;
+  orcGerado = true;
+
+  const codigo = 'ORC-' + new Date().getFullYear() + '-' + String(Date.now()).slice(-5);
+  addMsgSistema('Gerando seu código de orçamento...');
+
+  // Build resumo from chat history
+  const resumo = chatHistory
+    .filter(m => m.role === 'user')
+    .map(m => m.content)
+    .join(' | ')
+    .substring(0, 500);
+
+  try {
+    const orcData = {
+      codigo,
+      servico_id: servicoId || null,
+      usuario_id: contratante?.id || null,
+      nome_cliente: nomeCliente || 'Não identificado',
+      telefone_cliente: telefoneCliente || null,
+      canal: 'site',
+      status: 'ANAMNESE CONCLUÍDA',
+      resumo_anamnese: resumo,
+    };
+    const { data, error } = await sb.from('orcs').insert(orcData).select();
+    if (!error && data && data.length > 0) orc = data[0];
+  } catch(e) {
+    console.warn('ORC save error:', e);
+    orc = { codigo };
+  }
+
+  etapa = 'concluido';
+  setTimeout(() => {
+    addMsgSistema('✅ ORC gerado: ' + codigo);
+    addCard(codigo, resumo);
+    setTimeout(() => addConcluido(codigo), 800);
+  }, 600);
+}
+
+// ── CHAT ELEMENTS ─────────────────────────────────────────────
+function addMsgIA(txt) {
+  removeTyping();
+  const typing = document.createElement('div');
+  typing.className = 'typing'; typing.id = 'typing';
+  typing.innerHTML = '<div class="tdot"></div><div class="tdot"></div><div class="tdot"></div>';
+  document.getElementById('chat-area').appendChild(typing);
+  scrollBottom();
+  
+  setTimeout(() => {
+    removeTyping();
+    const d = document.createElement('div');
+    d.className = 'msg msg-ia';
+    d.innerHTML = txt.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
+    document.getElementById('chat-area').appendChild(d);
+    scrollBottom();
+  }, 800);
+}
+
+function addMsgUser(txt) {
+  const d = document.createElement('div');
+  d.className = 'msg msg-user'; d.textContent = txt;
+  document.getElementById('chat-area').appendChild(d);
+  scrollBottom();
+}
+
+function addMsgSistema(txt) {
+  const d = document.createElement('div');
+  d.className = 'msg msg-system'; d.textContent = txt;
+  document.getElementById('chat-area').appendChild(d);
+  scrollBottom();
+}
+
+function addOpts(opts) {
+  setTimeout(() => {
+    const wrap = document.createElement('div');
+    wrap.className = 'opts';
+    opts.forEach(o => {
+      const btn = document.createElement('button');
+      btn.className = 'opt'; btn.textContent = o;
+      btn.onclick = () => { 
+        document.querySelectorAll('.opts').forEach(el => el.remove());
+        processarResposta(o); 
+      };
+      wrap.appendChild(btn);
+    });
+    document.getElementById('chat-area').appendChild(wrap);
+    scrollBottom();
+  }, 900);
+}
+
+function addCard(codigo, resumo) {
+  const d = document.createElement('div');
+  d.className = 'status-card';
+  d.innerHTML = `
+    <div class="orc-badge">${codigo}</div>
+    <div class="sc-title">Resumo do seu pedido</div>
+    ${Object.entries(anamnese).filter(([k])=>k!=='foto_url').map(([k,v])=>`
+      <div class="sc-row"><span class="sc-lbl">${k}</span><span class="sc-val">${String(v).substring(0,40)}</span></div>
+    `).join('')}
+  `;
+  document.getElementById('chat-area').appendChild(d);
+  scrollBottom();
+}
+
+function addConcluido(codigo) {
+  const d = document.createElement('div');
+  d.className = 'concluido';
+  d.innerHTML = `
+    <div style="font-size:2rem;margin-bottom:8px;">🎉</div>
+    <h3>Pedido registrado com sucesso!</h3>
+    <p>Seu código é <strong>${codigo}</strong>.<br>
+    Nossa equipe entrará em contato em breve para confirmar o agendamento com o profissional.</p>
+    <button class="btn-voltar" onclick="window.location.href='index.html'">← Voltar ao site</button>
+  `;
+  document.getElementById('chat-area').appendChild(d);
+  document.getElementById('btn-send').disabled = true;
+  document.querySelector('.chat-inp').disabled = true;
+  scrollBottom();
+}
+
+function removeTyping() {
+  const t = document.getElementById('typing'); if(t) t.remove();
+}
+
+function scrollBottom() {
+  const area = document.getElementById('chat-area');
+  setTimeout(() => area.scrollTop = area.scrollHeight, 100);
+}
+
+// ── ENVIAR ────────────────────────────────────────────────────
+function enviar() {
+  const inp = document.querySelector('.chat-inp');
+  const txt = inp.value.trim(); if (!txt) return;
+  inp.value = ''; autoResize(inp);
+  document.querySelectorAll('.opts').forEach(el => el.remove());
+  addMsgUser(txt);
+  processarResposta(txt);
+}
+
+function processarResposta(txt) {
+  if (etapa === 'identificacao') {
+    anamnese.nome = txt;
+    etapa = 'telefone';
+    addMsgIA('Qual o seu telefone ou WhatsApp?');
+    return;
+  }
+  if (etapa === 'telefone') {
+    anamnese.telefone = txt;
+    fazerPergunta();
+    return;
+  }
+  if (etapa.startsWith('anamnese_')) {
+    const key = etapa.replace('anamnese_', '');
+    anamnese[key] = txt;
+    perguntaIdx++;
+    fazerPergunta();
+    return;
+  }
+}
+
+// ── FOTO ──────────────────────────────────────────────────────
+async function enviarFoto(input) {
+  const file = input.files[0]; if (!file) return;
+  
+  // Show preview
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    const d = document.createElement('div');
+    d.className = 'msg msg-user';
+    d.innerHTML = `📷 Foto enviada<br><img src="${e.target.result}" class="foto-preview">`;
+    document.getElementById('chat-area').appendChild(d);
+    scrollBottom();
+    
+    // Save to anamnese
+    anamnese.foto = 'Foto enviada pelo cliente';
+    anamnese.foto_url = e.target.result.substring(0,100) + '...';
+    
+    // Process as answer to current question
+    if (etapa.startsWith('anamnese_')) {
+      const key = etapa.replace('anamnese_', '');
+      anamnese[key] = 'Foto enviada';
+      perguntaIdx++;
+      setTimeout(() => fazerPergunta(), 500);
+    }
+  };
+  reader.readAsDataURL(file);
+  input.value = '';
+}
+
+// ── UTILS ─────────────────────────────────────────────────────
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+</script>
+</body>
+</html>
