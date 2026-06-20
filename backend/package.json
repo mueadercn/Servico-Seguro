@@ -1,0 +1,11 @@
+{
+  "name": "servico-seguro-backend",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "cd backend && node src/index.js",
+    "install-deps": "cd backend && npm install"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
