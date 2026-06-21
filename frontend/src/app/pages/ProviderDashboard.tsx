@@ -6,7 +6,7 @@ import {
   Shield, X, ChevronDown, MessageSquare
 } from 'lucide-react';
 import { Logo } from '../components/Logo';
-import { supabase, getPrestador, logout } from '../../lib/supabase';
+import { supabase, getPrestador, logout, apiCall } from '../../lib/supabase';
 
 const navItems = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -66,20 +66,22 @@ export function ProviderDashboard() {
 
   async function carregarTudo() {
     if (!prestador) return;
-    const [lRes, sRes, avRes, pRes, cRes, chRes] = await Promise.all([
+    const [lRes, sRes, avRes, pRes, cRes] = await Promise.all([
       supabase.from('orcs').select('*').eq('prestador_id', prestador.id).order('criado_em', { ascending: false }),
       supabase.from('servicos').select('*, categorias(nome,icone)').eq('prestador_id', prestador.id).order('criado_em', { ascending: false }),
       supabase.from('avaliacoes').select('*, servicos(titulo)').eq('avaliado_id', prestador.id).order('criado_em', { ascending: false }),
       supabase.from('prestadores').select('*').eq('id', prestador.id).limit(1),
       supabase.from('categorias').select('id,nome,icone').eq('ativa', true).order('nome'),
-      supabase.from('chat_negociacao').select('id, link_token, status, criado_em, orcs!inner(id, codigo, nome_cliente, servico_nome, servicos(titulo), prestador_id)').eq('orcs.prestador_id', prestador.id).order('criado_em', { ascending: false }),
     ]);
     setLeads(lRes.data || []);
     setServicos(sRes.data || []);
     setAvaliacoes(avRes.data || []);
     if (pRes.data?.[0]) setPerfil(pRes.data[0]);
     if (cRes.data?.length) setCategorias(cRes.data);
-    setChats(chRes.data || []);
+    try {
+      const chatsData = await apiCall(`/api/chat/prestador/${prestador.id}`);
+      setChats(chatsData || []);
+    } catch { setChats([]); }
     setLoading(false);
   }
 

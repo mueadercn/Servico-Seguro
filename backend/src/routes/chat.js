@@ -311,6 +311,41 @@ router.post('/:token/contrato/assinar', async (req, res) => {
   });
 });
 
+// ── LISTAR CHATS — ADMIN ─────────────────────────────────────
+router.get('/admin/all', async (req, res) => {
+  const { data, error } = await supabase
+    .from('chat_negociacao')
+    .select(`
+      id, link_token, status, criado_em, finalizado_em,
+      orcs ( id, codigo, nome_cliente, servico_nome, servicos ( titulo ), prestadores ( nome ) )
+    `)
+    .order('criado_em', { ascending: false })
+    .limit(200);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data || []);
+});
+
+// ── LISTAR CHATS — PRESTADOR ──────────────────────────────────
+router.get('/prestador/:prestadorId', async (req, res) => {
+  const { prestadorId } = req.params;
+  const { data: orcsData } = await supabase
+    .from('orcs')
+    .select('id')
+    .eq('prestador_id', prestadorId);
+  const orcIds = (orcsData || []).map(o => o.id);
+  if (!orcIds.length) return res.json([]);
+  const { data, error } = await supabase
+    .from('chat_negociacao')
+    .select(`
+      id, link_token, status, criado_em,
+      orcs ( id, codigo, nome_cliente, servico_nome, servicos ( titulo ) )
+    `)
+    .in('orc_id', orcIds)
+    .order('criado_em', { ascending: false });
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data || []);
+});
+
 // ── CRIAR CHAT (usado internamente pelo whatsapp.js) ──────────
 async function criarChatParaOrc(orcId) {
   const token = crypto.randomBytes(16).toString('hex');

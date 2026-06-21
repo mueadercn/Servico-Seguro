@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { Logo } from '../components/Logo';
 import { AdminPrompts } from './AdminPrompts';
-import { supabase } from '../../lib/supabase';
+import { supabase, apiCall } from '../../lib/supabase';
 
 const ADMIN_EMAIL = 'admin@admin.com';
 const ADMIN_SENHA = 'admin123';
@@ -192,28 +192,25 @@ export function Admin() {
     setLoading(true);
     try {
       if (pagina === 'chats') {
-        const { data, error: chatErr } = await supabase
-          .from('chat_negociacao')
-          .select(`
-            id, link_token, status, criado_em, finalizado_em,
-            orcs ( id, codigo, nome_cliente, servico_nome, servicos ( titulo ), prestadores ( nome ) )
-          `)
-          .order('criado_em', { ascending: false })
-          .limit(200);
-        if (chatErr) console.warn('[Admin] Erro ao carregar chats:', chatErr.message);
-        // Buscar contagem de mensagens por chat
-        const chatIds = (data || []).map((c: any) => c.id);
-        const contagensMap: Record<string, number> = {};
-        if (chatIds.length) {
-          const { data: contagens } = await supabase
-            .from('chat_mensagens')
-            .select('chat_id')
-            .in('chat_id', chatIds);
-          (contagens || []).forEach((m: any) => {
-            contagensMap[m.chat_id] = (contagensMap[m.chat_id] || 0) + 1;
-          });
+        try {
+          const data = await apiCall('/api/chat/admin/all');
+          // Buscar contagem de mensagens por chat via supabase (mesmo que falhe, continua)
+          const chatIds = (data || []).map((c: any) => c.id);
+          const contagensMap: Record<string, number> = {};
+          if (chatIds.length) {
+            const { data: contagens } = await supabase
+              .from('chat_mensagens')
+              .select('chat_id')
+              .in('chat_id', chatIds);
+            (contagens || []).forEach((m: any) => {
+              contagensMap[m.chat_id] = (contagensMap[m.chat_id] || 0) + 1;
+            });
+          }
+          setDados({ chats: (data || []).map((c: any) => ({ ...c, total_mensagens: contagensMap[c.id] || 0 })) });
+        } catch (e) {
+          console.warn('[Admin] Erro ao carregar chats:', e);
+          setDados({ chats: [] });
         }
-        setDados({ chats: (data || []).map((c: any) => ({ ...c, total_mensagens: contagensMap[c.id] || 0 })) });
       } else if (pagina === 'dashboard') {
         const [o, p, u, c] = await Promise.all([
           supabase.from('orcs').select('id, status'),

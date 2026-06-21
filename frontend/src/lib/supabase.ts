@@ -21,7 +21,7 @@ export const logout = () => {
   window.location.href = '/auth'
 }
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+const API_URL = import.meta.env.VITE_API_URL || 'https://servi-o-seguro-production.up.railway.app'
 
 export async function apiCall(path: string, options: any = {}) {
   const { body, ...rest } = options
