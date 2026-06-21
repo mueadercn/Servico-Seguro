@@ -34,6 +34,21 @@ router.get('/prestador/:prestadorId', async (req, res) => {
   res.json(data || []);
 });
 
+// ── LISTAR CHATS — CONTRATANTE ───────────────────────────────
+router.get('/cliente/:clienteId', async (req, res) => {
+  const { clienteId } = req.params;
+  const { data: orcsData } = await supabase.from('orcs').select('id').eq('usuario_id', clienteId);
+  const orcIds = (orcsData || []).map(o => o.id);
+  if (!orcIds.length) return res.json([]);
+  const { data, error } = await supabase
+    .from('chat_negociacao')
+    .select('id, link_token, status, criado_em, orcs ( id, codigo, nome_cliente, servico_nome, servicos ( titulo ), prestadores ( nome ) )')
+    .in('orc_id', orcIds)
+    .order('criado_em', { ascending: false });
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data || []);
+});
+
 // ── CHAT + MENSAGENS POR ORC ID — ADMIN KANBAN ───────────────
 router.get('/orc/:orcId', async (req, res) => {
   const { orcId } = req.params;

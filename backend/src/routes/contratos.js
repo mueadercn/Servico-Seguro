@@ -202,6 +202,22 @@ router.get('/:id/pdf', async (req, res) => {
   }
 });
 
+// ── CONTRATO POR ORC ─────────────────────────────────────────
+// GET /api/contratos/orc/:orcId
+router.get('/orc/:orcId', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('contratos')
+      .select('*')
+      .eq('orc_id', req.params.orcId)
+      .maybeSingle();
+    if (error) throw error;
+    res.json(data || null);
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 // ── CONTRATOS DO PRESTADOR ────────────────────────────────────
 // GET /api/contratos/prestador/:prestadorId
 router.get('/prestador/:prestadorId', async (req, res) => {

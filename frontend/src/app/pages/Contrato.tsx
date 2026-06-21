@@ -24,7 +24,7 @@ export function Contrato() {
   const [loadingInicial, setLoadingInicial] = useState(true);
   const [concluido, setConcluido] = useState(false);
   const [erro, setErro] = useState('');
-  const [mostrarClausulas, setMostrarClausulas] = useState(false);
+  const [mostrarClausulas, setMostrarClausulas] = useState(true);
   const [jaSigned, setJaSigned] = useState(false);
 
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
@@ -58,12 +58,11 @@ export function Contrato() {
           if (o.valor_final) { set('valor', String(o.valor_final)); }
         }
 
-        // Verificar se já existe contrato para esse ORC
-        const { data: existente } = await supabase
-          .from('contratos')
-          .select('*')
-          .eq('orc_id', orcId)
-          .maybeSingle();
+        // Verificar se já existe contrato para esse ORC (via backend para bypassar RLS)
+        let existente: any = null;
+        try {
+          existente = await apiCall(`/api/contratos/orc/${orcId}`);
+        } catch {}
 
         if (existente) {
           setContratoId(existente.id);
