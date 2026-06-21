@@ -97,9 +97,10 @@ function gerarPDF(dadosContrato) {
       ['2. OBRIGAÇÕES DO CONTRATANTE', 'O contratante compromete-se a efetuar o pagamento conforme acordado e a disponibilizar acesso ao local do serviço nos horários combinados, bem como fornecer todas as informações necessárias à execução.'],
       ['3. GARANTIA', `O prestador garante o serviço executado pelo período de ${garantia} a partir da data de conclusão, comprometendo-se a corrigir eventuais defeitos decorrentes da execução sem custo adicional.`],
       ['4. RESCISÃO', 'Em caso de desistência após assinatura deste contrato, a parte desistente fica sujeita a multa de 20% sobre o valor total do serviço, salvo acordo mútuo entre as partes.'],
-      ['5. MEDIAÇÃO', 'A plataforma Serviço Seguro atuará como mediadora em caso de disputas, tendo acesso ao histórico completo das interações, acordos e documentos registrados na plataforma.'],
-      ['6. CUSTÓDIA DIGITAL', 'Todas as interações entre as partes realizadas pela plataforma ficam registradas com timestamp e hash criptográfico, constituindo prova eletrônica nos termos da Lei 14.063/2020.'],
-      ['7. FORO', 'Fica eleito o foro da comarca de Santa Maria/RS para dirimir quaisquer controvérsias oriundas deste instrumento, com renúncia expressa a qualquer outro, por mais privilegiado que seja.'],
+      ['5. COMISSÃO DA PLATAFORMA', `O PRESTADOR compromete-se a pagar à Serviço Seguro Plataforma Digital LTDA a comissão de ${comFmt} (${comissaoPct}), no prazo máximo de 5 (cinco) dias úteis após a conclusão do serviço, mediante transferência bancária ou PIX para os dados informados pela plataforma. O não pagamento no prazo implicará suspensão do perfil na plataforma e cobrança de multa de 2% ao mês sobre o valor devido.`],
+      ['6. MEDIAÇÃO', 'A plataforma Serviço Seguro atuará como mediadora em caso de disputas, tendo acesso ao histórico completo das interações, acordos e documentos registrados na plataforma.'],
+      ['7. CUSTÓDIA DIGITAL', 'Todas as interações entre as partes realizadas pela plataforma ficam registradas com timestamp e hash criptográfico, constituindo prova eletrônica nos termos da Lei 14.063/2020.'],
+      ['8. FORO', 'Fica eleito o foro da comarca de Santa Maria/RS para dirimir quaisquer controvérsias oriundas deste instrumento, com renúncia expressa a qualquer outro, por mais privilegiado que seja.'],
     ];
 
     clausulas.forEach(([titulo, texto]) => {

@@ -28,6 +28,7 @@ export function ProviderDashboard() {
   const [perfil, setPerfil] = useState<any>(null);
   const [categorias, setCategorias] = useState<any[]>([]);
   const [chats, setChats] = useState<any[]>([]);
+  const [contratos, setContratos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [mobileMenu, setMobileMenu] = useState(false);
 
@@ -82,6 +83,10 @@ export function ProviderDashboard() {
       const chatsData = await apiCall(`/api/chat/prestador/${prestador.id}`);
       setChats(chatsData || []);
     } catch { setChats([]); }
+    try {
+      const contratosData = await apiCall(`/api/contratos/prestador/${prestador.id}`);
+      setContratos(contratosData || []);
+    } catch { setContratos([]); }
     setLoading(false);
   }
 
@@ -504,9 +509,71 @@ export function ProviderDashboard() {
 
           {/* CONTRATOS */}
           {aba === 'contratos' && (
-            <div className="bg-white rounded-2xl border py-16 text-center text-muted-foreground">
-              <FileText className="h-10 w-10 mx-auto mb-3 opacity-30" />
-              <p>Nenhum contrato ainda.</p>
+            <div>
+              <div className="mb-4">
+                <h2 className="font-bold text-primary">Contratos ({contratos.length})</h2>
+                <p className="text-xs text-muted-foreground mt-1">Contratos gerados via chat de negociação</p>
+              </div>
+              {contratos.length === 0 ? (
+                <div className="bg-white rounded-2xl border py-16 text-center text-muted-foreground">
+                  <FileText className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                  <p>Nenhum contrato gerado ainda.</p>
+                  <p className="text-xs mt-1">Os contratos aparecem após finalizar a negociação no chat.</p>
+                </div>
+              ) : (
+                <div className="grid gap-3">
+                  {contratos.map((c: any) => {
+                    const ambosAssinaram = c.assinado_cliente && c.assinado_prestador;
+                    const clienteAssinou = c.assinado_cliente;
+                    const prestadorAssinou = c.assinado_prestador;
+                    const statusLabel = ambosAssinaram ? '✅ Assinado por ambos'
+                      : (!clienteAssinou && !prestadorAssinou) ? '⏳ Aguardando assinaturas'
+                      : !clienteAssinou ? '⏳ Aguardando assinatura do cliente'
+                      : '⏳ Aguardando sua assinatura';
+                    const statusColor = ambosAssinaram ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800';
+                    const API_URL = 'https://servi-o-seguro-production.up.railway.app';
+                    return (
+                      <div key={c.id} className="bg-white rounded-2xl border p-5">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="font-mono text-xs font-bold text-primary">{c.orcs?.codigo || '—'}</span>
+                              <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${statusColor}`}>{statusLabel}</span>
+                            </div>
+                            <div className="text-sm font-semibold">{c.orcs?.nome_cliente || 'Cliente'}</div>
+                            <div className="text-xs text-muted-foreground mt-0.5">
+                              💰 {c.valor ? `R$ ${Number(c.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '—'}
+                              {c.comissao ? ` · Comissão: R$ ${Number(c.comissao).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : ''}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {c.criado_em ? new Date(c.criado_em).toLocaleDateString('pt-BR') : ''}
+                            </div>
+                          </div>
+                          <div className="flex flex-col gap-2 shrink-0">
+                            <a href={`/contrato?orc=${c.orc_id}`}
+                              className="text-center text-xs px-4 py-2 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition">
+                              {ambosAssinaram ? 'Ver contrato' : 'Assinar'}
+                            </a>
+                            <a href={`${API_URL}/api/contratos/${c.id}/pdf`} target="_blank" rel="noreferrer"
+                              className="text-center text-xs px-4 py-2 border border-border rounded-xl font-semibold hover:bg-slate-50 transition">
+                              📄 Baixar PDF
+                            </a>
+                          </div>
+                        </div>
+                        {/* Detalhes assinaturas */}
+                        <div className="mt-3 pt-3 border-t grid grid-cols-2 gap-2 text-xs">
+                          <div className={`px-2 py-1.5 rounded-lg ${clienteAssinou ? 'bg-green-50 text-green-700' : 'bg-slate-50 text-muted-foreground'}`}>
+                            👤 Cliente: {clienteAssinou ? `✓ Assinado ${c.assinado_cliente_em ? new Date(c.assinado_cliente_em).toLocaleDateString('pt-BR') : ''}` : 'Pendente'}
+                          </div>
+                          <div className={`px-2 py-1.5 rounded-lg ${prestadorAssinou ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'}`}>
+                            👷 Você: {prestadorAssinou ? `✓ Assinado ${c.assinado_prestador_em ? new Date(c.assinado_prestador_em).toLocaleDateString('pt-BR') : ''}` : 'Pendente'}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 

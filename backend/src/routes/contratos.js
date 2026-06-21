@@ -164,9 +164,9 @@ router.get('/:id/pdf', async (req, res) => {
       valor: contrato.valor,
       comissaoValor: contrato.comissao,
       comissaoPct: calcularPct(contrato.valor, contrato.comissao),
-      prazo: 'A combinar',
-      pagamento: 'Conforme acordado',
-      garantia: '90 dias',
+      prazo: contrato.prazo || 'A combinar',
+      pagamento: contrato.pagamento || 'Conforme acordado',
+      garantia: contrato.garantia || '90 dias',
       dataGeracao: new Date(contrato.criado_em).toLocaleString('pt-BR'),
       hashDocumento: contrato.hash_documento,
       assinadoCliente: contrato.assinado_cliente,
@@ -194,6 +194,27 @@ router.get('/:id/pdf', async (req, res) => {
       dados: { contrato_id: req.params.id }
     });
 
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ── CONTRATOS DO PRESTADOR ────────────────────────────────────
+// GET /api/contratos/prestador/:prestadorId
+router.get('/prestador/:prestadorId', async (req, res) => {
+  try {
+    const { prestadorId } = req.params;
+    const { data: orcs } = await supabase
+      .from('orcs').select('id').eq('prestador_id', prestadorId);
+    const orcIds = (orcs || []).map(o => o.id);
+    if (!orcIds.length) return res.json([]);
+    const { data, error } = await supabase
+      .from('contratos')
+      .select('*, orcs(codigo, nome_cliente, resumo_anamnese)')
+      .in('orc_id', orcIds)
+      .order('criado_em', { ascending: false });
+    if (error) throw error;
+    res.json(data || []);
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
   }
