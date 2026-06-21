@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router';
-import { ArrowLeft, Shield, FileText, CheckCircle2, Download, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, FileText, CheckCircle2, Download, ChevronDown, ChevronUp } from 'lucide-react';
 import { Logo } from '../components/Logo';
 import { supabase, apiCall } from '../../lib/supabase';
 
@@ -329,10 +329,6 @@ export function Contrato() {
                   </h2>
                   <p className="text-xs text-muted-foreground">Leia com atenção antes de assinar</p>
                 </div>
-                <a href={`${API_URL}/api/contratos/${contratoId}/pdf`} target="_blank" rel="noreferrer"
-                  className="ml-auto inline-flex items-center gap-1.5 text-xs border border-border px-3 py-1.5 rounded-lg font-semibold hover:bg-slate-50 transition">
-                  <Download className="h-3.5 w-3.5" /> PDF
-                </a>
               </div>
 
               {/* Resumo */}
@@ -428,20 +424,16 @@ export function Contrato() {
               ) : (
                 <div>
                   <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-sm text-green-700 mb-4">
-                    🛡️ Contrato Seguro requer verificação de CPF e biometria facial.
+                    🛡️ Contrato Seguro requer confirmação de CPF para assinar.
                   </div>
-                  <div className="mb-3">
+                  <div className="mb-4">
                     <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Confirme seu CPF</label>
                     <input type="text" value={cpfSeguro} onChange={e => setCpfSeguro(e.target.value.replace(/\D/g,''))} placeholder="00000000000" maxLength={11}
-                      className="w-full border border-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-primary mb-4" />
+                      className="w-full border border-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-primary" />
                   </div>
-                  <Link to={`/biometria?retorno=contrato&contrato=${contratoId}`}
-                    className="w-full py-3 bg-primary text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 mb-3 hover:bg-primary/90">
-                    🤳 Verificar identidade (biometria)
-                  </Link>
                   <label className="flex items-start gap-3 mb-4 cursor-pointer">
                     <input type="checkbox" checked={aceite} onChange={e => setAceite(e.target.checked)} className="mt-1 accent-primary" />
-                    <span className="text-sm text-muted-foreground">Identidade verificada. Li e concordo com todos os termos.</span>
+                    <span className="text-sm text-muted-foreground">Li e concordo com todas as cláusulas deste contrato. As informações prestadas são verdadeiras.</span>
                   </label>
                   {erro && <p className="text-xs text-red-500 mb-3">{erro}</p>}
                   <button onClick={assinar} disabled={!aceite || cpfSeguro.length !== 11 || loading}

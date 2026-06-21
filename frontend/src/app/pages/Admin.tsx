@@ -74,6 +74,12 @@ export function Admin() {
   const [categoriasList, setCategoriasList] = useState<any[]>([]);
   const [salvando, setSalvando] = useState(false);
 
+  // Modal edição de contrato
+  const [modalEditContrato, setModalEditContrato] = useState(false);
+  const [editandoContratoId, setEditandoContratoId] = useState('');
+  const [formContrato, setFormContrato] = useState({ tipo: '', valor: '', prazo: '', pagamento: '', garantia: '', comissao: '' });
+  const [erroContrato, setErroContrato] = useState('');
+
   useEffect(() => {
     if (localStorage.getItem('ss_admin')) {
       setLogado(true);
@@ -315,6 +321,36 @@ export function Admin() {
       setFormPrestador({ nome: '', email: '', telefone: '', cidade: 'Santa Maria', cpf: '', bio: '' });
       carregarDados('prestadores');
     } catch (e) { console.warn(e); }
+    setSalvando(false);
+  }
+
+  function abrirEditContrato(c: any) {
+    setEditandoContratoId(c.id);
+    setFormContrato({
+      tipo: c.tipo || 'carta_aceite',
+      valor: String(c.valor || ''),
+      prazo: c.prazo || '',
+      pagamento: c.pagamento || '',
+      garantia: c.garantia || '',
+      comissao: String(c.comissao || ''),
+    });
+    setErroContrato('');
+    setModalEditContrato(true);
+  }
+
+  async function salvarContrato() {
+    setErroContrato('');
+    setSalvando(true);
+    try {
+      await apiCall(`/api/contratos/${editandoContratoId}`, {
+        method: 'PUT',
+        body: formContrato,
+      });
+      setModalEditContrato(false);
+      carregarDados('contratos');
+    } catch (e: any) {
+      setErroContrato(e.message || 'Erro ao salvar.');
+    }
     setSalvando(false);
   }
 
@@ -970,6 +1006,56 @@ export function Admin() {
                 </div>
               </div>
 
+              {/* MODAL EDITAR CONTRATO */}
+              {modalEditContrato && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={e => { if (e.target === e.currentTarget) setModalEditContrato(false); }}>
+                  <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-y-auto max-h-[90vh]">
+                    <div className="flex items-center justify-between px-6 py-4 border-b">
+                      <h3 className="font-bold text-primary">✏️ Editar Contrato</h3>
+                      <button onClick={() => setModalEditContrato(false)} className="p-2 hover:bg-slate-100 rounded-lg"><X className="h-4 w-4" /></button>
+                    </div>
+                    <div className="p-6 space-y-4">
+                      {erroContrato && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-xl">❌ {erroContrato}</div>}
+                      <div>
+                        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1 block">Tipo</label>
+                        <select value={formContrato.tipo} onChange={e => setFormContrato(f => ({ ...f, tipo: e.target.value }))} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-primary">
+                          <option value="carta_aceite">📜 Carta Aceite</option>
+                          <option value="servico_seguro">🛡️ Contrato Seguro</option>
+                        </select>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1 block">Valor (R$)</label>
+                          <input type="number" value={formContrato.valor} onChange={e => setFormContrato(f => ({ ...f, valor: e.target.value }))} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-primary" />
+                        </div>
+                        <div>
+                          <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1 block">Comissão (R$)</label>
+                          <input type="number" value={formContrato.comissao} onChange={e => setFormContrato(f => ({ ...f, comissao: e.target.value }))} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-primary" />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1 block">Prazo de execução</label>
+                        <input type="text" value={formContrato.prazo} onChange={e => setFormContrato(f => ({ ...f, prazo: e.target.value }))} placeholder="Ex: 5 dias úteis" className="w-full border border-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-primary" />
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1 block">Forma de pagamento</label>
+                        <input type="text" value={formContrato.pagamento} onChange={e => setFormContrato(f => ({ ...f, pagamento: e.target.value }))} placeholder="Ex: À vista" className="w-full border border-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-primary" />
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1 block">Garantia</label>
+                        <input type="text" value={formContrato.garantia} onChange={e => setFormContrato(f => ({ ...f, garantia: e.target.value }))} placeholder="Ex: 90 dias" className="w-full border border-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-primary" />
+                      </div>
+                      <div className="flex gap-3 pt-2">
+                        <button onClick={() => setModalEditContrato(false)} className="flex-1 py-3 border border-border rounded-xl text-sm font-semibold hover:bg-slate-50">Cancelar</button>
+                        <button onClick={salvarContrato} disabled={salvando} className="flex-1 py-3 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 disabled:opacity-50">
+                          {salvando ? 'Salvando...' : 'Salvar alterações'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* MODAL NOVO PRESTADOR */}
               {modalPrestador && (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={e => { if (e.target === e.currentTarget) setModalPrestador(false); }}>
@@ -1209,20 +1295,36 @@ export function Admin() {
           {/* CONTRATOS */}
           {!loading && aba === 'contratos' && (
             <div className="bg-white rounded-2xl border overflow-hidden">
+              <div className="px-5 py-3 border-b text-xs text-muted-foreground bg-slate-50">
+                Contratos não assinados por nenhuma parte podem ser editados pelo Admin.
+              </div>
               <div className="overflow-x-auto">
                 <table className={tbl}>
-                  <thead><tr>{['ORC', 'Tipo', 'Valor', 'Contratante', 'Prestador', 'Status'].map(h => <th key={h} className={th}>{h}</th>)}</tr></thead>
+                  <thead><tr>{['ORC', 'Tipo', 'Valor', 'Comissão', 'Prazo', 'Cliente ✍', 'Prestador ✍', 'Status', ''].map(h => <th key={h} className={th}>{h}</th>)}</tr></thead>
                   <tbody>
-                    {(dados.contratos || []).map((c: any) => (
-                      <tr key={c.id} className="hover:bg-slate-50">
-                        <td className={td}><span className="font-mono font-bold text-primary text-xs">{c.orcs?.codigo}</span></td>
-                        <td className={td}>{c.tipo === 'carta_aceite' ? '📜 Carta Aceite' : '🛡️ Contrato Seguro'}</td>
-                        <td className={td}><span className="font-bold text-success">R$ {Number(c.valor || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></td>
-                        <td className={td}>{c.assinado_cliente ? '✅' : '⏳'}</td>
-                        <td className={td}>{c.assinado_prestador ? '✅' : '⏳'}</td>
-                        <td className={td}><span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${c.assinado_cliente && c.assinado_prestador ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}`}>{c.assinado_cliente && c.assinado_prestador ? 'Assinado' : 'Pendente'}</span></td>
-                      </tr>
-                    ))}
+                    {(dados.contratos || []).map((c: any) => {
+                      const nenhumAssinou = !c.assinado_cliente && !c.assinado_prestador;
+                      return (
+                        <tr key={c.id} className="hover:bg-slate-50">
+                          <td className={td}><span className="font-mono font-bold text-primary text-xs">{c.orcs?.codigo}</span></td>
+                          <td className={td}>{c.tipo === 'carta_aceite' ? '📜 Carta Aceite' : '🛡️ Contrato Seguro'}</td>
+                          <td className={td}><span className="font-bold text-success">R$ {Number(c.valor || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></td>
+                          <td className={td}><span className="text-xs text-muted-foreground">R$ {Number(c.comissao || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></td>
+                          <td className={td}><span className="text-xs">{c.prazo || '—'}</span></td>
+                          <td className={td}>{c.assinado_cliente ? '✅' : '⏳'}</td>
+                          <td className={td}>{c.assinado_prestador ? '✅' : '⏳'}</td>
+                          <td className={td}><span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${c.assinado_cliente && c.assinado_prestador ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}`}>{c.assinado_cliente && c.assinado_prestador ? 'Assinado' : 'Pendente'}</span></td>
+                          <td className={td}>
+                            {nenhumAssinou && (
+                              <button onClick={() => abrirEditContrato(c)}
+                                className="text-xs px-2 py-1 bg-primary/10 text-primary rounded-lg hover:bg-primary/20 font-semibold transition">
+                                ✏️ Editar
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

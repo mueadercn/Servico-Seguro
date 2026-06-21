@@ -32,6 +32,14 @@ router.post('/', async (req, res) => {
     const hashDocumento = gerarHash(dadosContrato);
     dadosContrato.hashDocumento = hashDocumento;
 
+    // Bloquear duplicatas — um ORC só pode ter um contrato
+    if (orc_id) {
+      const { data: existente } = await supabase.from('contratos').select('id').eq('orc_id', orc_id).maybeSingle();
+      if (existente) {
+        return res.status(409).json({ ok: false, error: 'Já existe um contrato para este orçamento.', contrato_id: existente.id });
+      }
+    }
+
     // Salvar no banco
     const { data, error } = await supabase.from('contratos').insert({
       orc_id: orc_id || null,
@@ -253,6 +261,36 @@ router.get('/:id', async (req, res) => {
     res.json({ ok: true, contrato: data });
   } catch (err) {
     res.status(404).json({ ok: false, error: 'Contrato não encontrado' });
+  }
+});
+
+// ── EDITAR CONTRATO (admin — somente não assinados) ──────────
+// PUT /api/contratos/:id
+router.put('/:id', async (req, res) => {
+  try {
+    const { tipo, valor, prazo, pagamento, garantia, comissao } = req.body;
+
+    const { data: atual, error: errBusca } = await supabase
+      .from('contratos').select('assinado_cliente, assinado_prestador').eq('id', req.params.id).single();
+
+    if (errBusca || !atual) return res.status(404).json({ ok: false, error: 'Contrato não encontrado.' });
+    if (atual.assinado_cliente || atual.assinado_prestador) {
+      return res.status(400).json({ ok: false, error: 'Não é possível editar um contrato já assinado por alguma das partes.' });
+    }
+
+    const update = {};
+    if (tipo) update.tipo = tipo;
+    if (valor !== undefined) update.valor = parseFloat(valor);
+    if (prazo) update.prazo = prazo;
+    if (pagamento) update.pagamento = pagamento;
+    if (garantia) update.garantia = garantia;
+    if (comissao !== undefined) update.comissao = parseFloat(comissao);
+
+    const { data, error } = await supabase.from('contratos').update(update).eq('id', req.params.id).select().single();
+    if (error) throw error;
+    res.json({ ok: true, contrato: data });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
   }
 });
 

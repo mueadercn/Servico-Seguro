@@ -262,6 +262,8 @@ export function Chat() {
       });
       setChat(prev => prev ? { ...prev, status: 'contrato_gerado' } : prev);
       setPainelFinalizar(false);
+      // Redireciona imediatamente para assinar
+      window.location.href = `/contrato?orc=${chat?.orc_id}&papel=${papel}`;
     } catch (e: any) {
       setErroFinalizar(e.message || 'Erro ao gerar contrato.');
     }
@@ -403,17 +405,17 @@ export function Chat() {
       ) : chat.status === 'elaborando_contrato' && !painelFinalizar ? (
         <div className="bg-white border-t px-4 py-6 text-center max-w-2xl w-full mx-auto">
           <div className="animate-spin w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-3" />
-          <p className="font-semibold text-gray-700">Contrato sendo elaborado...</p>
-          <p className="text-sm text-gray-400 mt-1">Aguarde enquanto {outroNome} preenche os detalhes.</p>
+          <p className="font-semibold text-gray-700">Aguardando {outroNome}...</p>
+          <p className="text-sm text-gray-400 mt-1">{outroNome} está redigindo e assinando o contrato. Você poderá assinar em seguida.</p>
         </div>
       ) : chat.status === 'finalizado' || chat.status === 'elaborando_contrato' ? (
         <div className="bg-white border-t px-4 py-6 text-center max-w-2xl w-full mx-auto">
           <CheckCircle2 className="mx-auto text-green-500 mb-2" size={32} />
           <p className="font-semibold text-gray-800">Negociação finalizada!</p>
-          <p className="text-sm text-gray-500 mt-1">Qualquer das partes pode gerar o contrato.</p>
+          <p className="text-sm text-gray-500 mt-1">Clique para redigir e assinar o contrato.</p>
           <button onClick={abrirFormContrato}
             className="mt-4 px-6 py-2.5 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition">
-            <FileText className="inline mr-2" size={16} />Gerar contrato
+            <FileText className="inline mr-2" size={16} />Redigir e Assinar Contrato
           </button>
         </div>
       ) : (
