@@ -135,6 +135,7 @@ router.post('/:token/finalizar', async (req, res) => {
 
   if (ambosConfirmaram) {
     update.status = 'finalizado';
+    update.finalizado_em = new Date().toISOString();
   }
 
   const { data: chatAtualizado, error } = await supabase
