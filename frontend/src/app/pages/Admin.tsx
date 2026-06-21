@@ -192,14 +192,15 @@ export function Admin() {
     setLoading(true);
     try {
       if (pagina === 'chats') {
-        const { data } = await supabase
+        const { data, error: chatErr } = await supabase
           .from('chat_negociacao')
           .select(`
             id, link_token, status, criado_em, finalizado_em,
-            orcs ( codigo, nome_cliente, servico_nome, prestadores ( nome ) )
+            orcs ( id, codigo, nome_cliente, servico_nome, prestadores ( nome ) )
           `)
           .order('criado_em', { ascending: false })
           .limit(200);
+        if (chatErr) console.warn('[Admin] Erro ao carregar chats:', chatErr.message);
         // Buscar contagem de mensagens por chat
         const chatIds = (data || []).map((c: any) => c.id);
         const contagensMap: Record<string, number> = {};
@@ -1152,20 +1153,74 @@ export function Admin() {
 
           {/* CATEGORIAS */}
           {!loading && aba === 'categorias' && (
-            <div className="bg-white rounded-2xl border overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className={tbl}>
-                  <thead><tr>{['Ícone', 'Nome', 'Status'].map(h => <th key={h} className={th}>{h}</th>)}</tr></thead>
-                  <tbody>
-                    {(dados.categorias || []).map((c: any) => (
-                      <tr key={c.id} className="hover:bg-slate-50">
-                        <td className={td + " text-xl"}>{c.icone || '📋'}</td>
-                        <td className={td}><span className="font-semibold">{c.nome}</span></td>
-                        <td className={td}><span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${c.ativa ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{c.ativa ? 'Ativa' : 'Inativa'}</span></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            <div>
+              {/* Formulário nova categoria */}
+              <div className="bg-white rounded-2xl border p-5 mb-4">
+                <h3 className="font-bold text-primary text-sm mb-3">Nova Categoria</h3>
+                <div className="flex gap-3 flex-wrap">
+                  <input id="cat-icone" placeholder="Ícone (ex: 🔧)" maxLength={4}
+                    className="w-24 border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-primary text-center text-xl" />
+                  <input id="cat-nome" placeholder="Nome da categoria"
+                    className="flex-1 min-w-[160px] border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-primary" />
+                  <input id="cat-descricao" placeholder="Descrição (opcional)"
+                    className="flex-1 min-w-[200px] border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-primary" />
+                  <button
+                    onClick={async () => {
+                      const icone = (document.getElementById('cat-icone') as HTMLInputElement).value.trim();
+                      const nome = (document.getElementById('cat-nome') as HTMLInputElement).value.trim();
+                      const descricao = (document.getElementById('cat-descricao') as HTMLInputElement).value.trim();
+                      if (!nome) return alert('Nome obrigatório');
+                      await supabase.from('categorias').insert({ nome, icone: icone || '📋', descricao: descricao || null, ativa: true });
+                      (document.getElementById('cat-nome') as HTMLInputElement).value = '';
+                      (document.getElementById('cat-icone') as HTMLInputElement).value = '';
+                      (document.getElementById('cat-descricao') as HTMLInputElement).value = '';
+                      carregarDados('categorias');
+                    }}
+                    className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors flex items-center gap-2"
+                  >
+                    <Plus className="h-4 w-4" /> Adicionar
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-2xl border overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className={tbl}>
+                    <thead><tr>{['Ícone', 'Nome', 'Descrição', 'Status', 'Ação'].map(h => <th key={h} className={th}>{h}</th>)}</tr></thead>
+                    <tbody>
+                      {(dados.categorias || []).map((c: any) => (
+                        <tr key={c.id} className="hover:bg-slate-50">
+                          <td className={td + ' text-xl'}>{c.icone || '📋'}</td>
+                          <td className={td}><span className="font-semibold">{c.nome}</span></td>
+                          <td className={td + ' text-xs text-muted-foreground'}>{c.descricao || '—'}</td>
+                          <td className={td}>
+                            <button
+                              onClick={async () => {
+                                await supabase.from('categorias').update({ ativa: !c.ativa }).eq('id', c.id);
+                                carregarDados('categorias');
+                              }}
+                              className={`text-xs px-2 py-0.5 rounded-full font-semibold cursor-pointer ${c.ativa ? 'bg-green-100 text-green-800 hover:bg-red-100 hover:text-red-800' : 'bg-red-100 text-red-800 hover:bg-green-100 hover:text-green-800'}`}
+                            >
+                              {c.ativa ? 'Ativa' : 'Inativa'}
+                            </button>
+                          </td>
+                          <td className={td}>
+                            <button
+                              onClick={async () => {
+                                if (!confirm(`Remover categoria "${c.nome}"? Serviços vinculados perdem a categoria.`)) return;
+                                await supabase.from('categorias').delete().eq('id', c.id);
+                                carregarDados('categorias');
+                              }}
+                              className="text-xs px-2 py-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           )}
@@ -1217,22 +1272,46 @@ export function Admin() {
 
           {/* COMISSÕES */}
           {!loading && aba === 'comissoes' && (
-            <div className="bg-white rounded-2xl border overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className={tbl}>
-                  <thead><tr>{['Ordem', 'Valor Mín', 'Valor Máx', 'Taxa', 'Tipo'].map(h => <th key={h} className={th}>{h}</th>)}</tr></thead>
-                  <tbody>
-                    {(dados.comissoes || []).map((c: any) => (
-                      <tr key={c.id} className="hover:bg-slate-50">
-                        <td className={td}><span className="font-semibold">#{c.ordem}</span></td>
-                        <td className={td}>R$ {Number(c.valor_min || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                        <td className={td}>{c.valor_max ? 'R$ ' + Number(c.valor_max).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : 'Sem limite'}</td>
-                        <td className={td}><span className="font-bold text-success">{c.tipo === 'fixo' ? 'R$ ' + c.valor : c.valor + '%'}</span></td>
-                        <td className={td}>{c.tipo === 'fixo' ? 'Fixo' : 'Percentual'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            <div>
+              <p className="text-xs text-muted-foreground mb-3">Edite o valor da taxa diretamente na tabela e clique em Salvar.</p>
+              <div className="bg-white rounded-2xl border overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className={tbl}>
+                    <thead><tr>{['Ordem', 'Valor Mín', 'Valor Máx', 'Tipo', 'Taxa', 'Ação'].map(h => <th key={h} className={th}>{h}</th>)}</tr></thead>
+                    <tbody>
+                      {(dados.comissoes || []).map((c: any) => (
+                        <tr key={c.id} className="hover:bg-slate-50">
+                          <td className={td}><span className="font-semibold">#{c.ordem}</span></td>
+                          <td className={td}>R$ {Number(c.valor_min || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                          <td className={td}>{c.valor_max ? 'R$ ' + Number(c.valor_max).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : 'Sem limite'}</td>
+                          <td className={td}>{c.tipo === 'fixo' ? 'Fixo (R$)' : 'Percentual (%)'}</td>
+                          <td className={td}>
+                            <input
+                              type="number"
+                              defaultValue={c.valor}
+                              id={`comissao-${c.id}`}
+                              className="w-24 border border-border rounded-lg px-2 py-1 text-sm outline-none focus:border-primary font-bold text-success"
+                            />
+                          </td>
+                          <td className={td}>
+                            <button
+                              onClick={async () => {
+                                const input = document.getElementById(`comissao-${c.id}`) as HTMLInputElement;
+                                const novoValor = parseFloat(input.value);
+                                if (isNaN(novoValor)) return;
+                                await supabase.from('comissoes').update({ valor: novoValor }).eq('id', c.id);
+                                carregarDados('comissoes');
+                              }}
+                              className="text-xs px-3 py-1.5 bg-primary text-white rounded-lg hover:bg-primary/90 font-semibold transition-colors"
+                            >
+                              Salvar
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           )}

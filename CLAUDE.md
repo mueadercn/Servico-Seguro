@@ -120,7 +120,7 @@ Ping-pong de horário começa
 | Tipo | Uso | Exige |
 |---|---|---|
 | Carta Aceite | Serviços até ~R$1.500 | 1 clique, válida em Juizados Especiais |
-| Contrato Seguro | Maior proteção | CPF confirmado + biometria, válido em qualquer instância |
+| Contrato Seguro | Maior proteção | CPF confirmado,válido em qualquer instância |
 
 Base legal: Lei 14.063/2020 (assinatura eletrônica). Cada assinatura registra IP, timestamp e
 hash SHA-256 do documento (imutabilidade).
