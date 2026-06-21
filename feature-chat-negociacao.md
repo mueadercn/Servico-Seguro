@@ -43,8 +43,8 @@ anamnese inicial via WhatsApp (essa parte funciona bem e deve ser preservada —
    valor, prazo, garantia, forma de pagamento
         ↓
 10. Gera contrato reaproveitando o fluxo já pronto de /contrato (cadastro
-    completo do cliente se ainda não tiver, depois assinatura)
-```
+    completo do cliente se ainda não tiver, depois assinatura), o contrato já cria o percentual que será pago a plataforma pelo prestador. Dados do valor e PIX ser enviado diretamente ao prestador.
+11. Prestador naturalmente ja tem cadastro, já o usuário, pode fazer na hora de preencher o contrato
 
 ---
 
