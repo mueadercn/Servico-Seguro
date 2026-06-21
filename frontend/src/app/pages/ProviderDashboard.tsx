@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router';
 import {
   LayoutDashboard, ClipboardList, FileText, Star, User, LogOut,
   Plus, TrendingUp, CheckCircle2, DollarSign, Clock, Settings,
-  Shield, X, ChevronDown
+  Shield, X, ChevronDown, MessageSquare
 } from 'lucide-react';
 import { Logo } from '../components/Logo';
 import { supabase, getPrestador, logout } from '../../lib/supabase';
@@ -11,6 +11,7 @@ import { supabase, getPrestador, logout } from '../../lib/supabase';
 const navItems = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'leads', label: 'Meus Leads', icon: ClipboardList },
+  { id: 'chats', label: 'Meus Chats', icon: MessageSquare },
   { id: 'servicos', label: 'Meus Serviços', icon: Settings },
   { id: 'contratos', label: 'Contratos', icon: FileText },
   { id: 'avaliacoes', label: 'Avaliações', icon: Star },
@@ -26,6 +27,7 @@ export function ProviderDashboard() {
   const [avaliacoes, setAvaliacoes] = useState<any[]>([]);
   const [perfil, setPerfil] = useState<any>(null);
   const [categorias, setCategorias] = useState<any[]>([]);
+  const [chats, setChats] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [mobileMenu, setMobileMenu] = useState(false);
 
@@ -64,18 +66,20 @@ export function ProviderDashboard() {
 
   async function carregarTudo() {
     if (!prestador) return;
-    const [lRes, sRes, avRes, pRes, cRes] = await Promise.all([
+    const [lRes, sRes, avRes, pRes, cRes, chRes] = await Promise.all([
       supabase.from('orcs').select('*').eq('prestador_id', prestador.id).order('criado_em', { ascending: false }),
       supabase.from('servicos').select('*, categorias(nome,icone)').eq('prestador_id', prestador.id).order('criado_em', { ascending: false }),
       supabase.from('avaliacoes').select('*, servicos(titulo)').eq('avaliado_id', prestador.id).order('criado_em', { ascending: false }),
       supabase.from('prestadores').select('*').eq('id', prestador.id).limit(1),
       supabase.from('categorias').select('id,nome,icone').eq('ativa', true).order('nome'),
+      supabase.from('chat_negociacao').select('id, link_token, status, criado_em, orcs!inner(id, codigo, nome_cliente, servico_nome, servicos(titulo), prestador_id)').eq('orcs.prestador_id', prestador.id).order('criado_em', { ascending: false }),
     ]);
     setLeads(lRes.data || []);
     setServicos(sRes.data || []);
     setAvaliacoes(avRes.data || []);
     if (pRes.data?.[0]) setPerfil(pRes.data[0]);
     if (cRes.data?.length) setCategorias(cRes.data);
+    setChats(chRes.data || []);
     setLoading(false);
   }
 
@@ -436,6 +440,63 @@ export function ProviderDashboard() {
                   </div>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* MEUS CHATS */}
+          {aba === 'chats' && (
+            <div>
+              <div className="mb-4">
+                <h2 className="font-bold text-primary">Meus Chats ({chats.length})</h2>
+                <p className="text-xs text-muted-foreground mt-1">Conversas de negociação com clientes</p>
+              </div>
+              {chats.length === 0 ? (
+                <div className="bg-white rounded-2xl border py-16 text-center text-muted-foreground">
+                  <MessageSquare className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                  <p>Nenhum chat iniciado ainda.</p>
+                  <p className="text-xs mt-1">Os chats aparecem após a anamnese ser concluída pelo cliente.</p>
+                </div>
+              ) : (
+                <div className="grid gap-3">
+                  {chats.map((c: any) => {
+                    const statusLabel: Record<string, string> = {
+                      conversando: '💬 Conversando',
+                      aguardando_orcamento: '📋 Aguardando orçamento',
+                      orcamento_enviado: '💰 Orçamento enviado',
+                      finalizado: '✅ Finalizado',
+                    };
+                    const statusColor: Record<string, string> = {
+                      conversando: 'bg-blue-100 text-blue-800',
+                      aguardando_orcamento: 'bg-amber-100 -amber-800',
+                      orcamento_enviado: 'bg-purple-100 text-purple-800',
+                      finalizado: 'bg-green-100 text-green-800',
+                    };
+                    const titulo = c.orcs?.servicos?.titulo || c.orcs?.servico_nome || 'Serviço';
+                    const chatUrl = `${window.location.origin}/chat/${c.link_token}?papel=prestador`;
+                    return (
+                      <div key={c.id} className="bg-white rounded-2xl border p-5 flex flex-col sm:flex-row sm:items-center gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-mono text-xs font-bold text-primary">{c.orcs?.codigo || '—'}</span>
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${statusColor[c.status] || 'bg-slate-100 text-slate-600'}`}>
+                              {statusLabel[c.status] || c.status}
+                            </span>
+                          </div>
+                          <div className="font-semibold text-sm truncate">{titulo}</div>
+                          <div className="text-xs text-muted-foreground mt-0.5">
+                            👤 {c.orcs?.nome_cliente || 'Cliente'} &nbsp;·&nbsp;
+                            {c.criado_em ? new Date(c.criado_em).toLocaleDateString('pt-BR') : ''}
+                          </div>
+                        </div>
+                        <a href={chatUrl} target="_blank" rel="noreferrer"
+                          className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors whitespace-nowrap">
+                          <MessageSquare className="h-4 w-4" /> Abrir chat
+                        </a>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 

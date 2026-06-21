@@ -196,7 +196,7 @@ export function Admin() {
           .from('chat_negociacao')
           .select(`
             id, link_token, status, criado_em, finalizado_em,
-            orcs ( id, codigo, nome_cliente, servico_nome, prestadores ( nome ) )
+            orcs ( id, codigo, nome_cliente, servico_nome, servicos ( titulo ), prestadores ( nome ) )
           `)
           .order('criado_em', { ascending: false })
           .limit(200);
@@ -899,7 +899,7 @@ export function Admin() {
                         return (
                           <tr key={c.id} className="hover:bg-slate-50">
                             <td className={td}><span className="font-mono font-bold text-primary text-xs">{c.orcs?.codigo || '—'}</span></td>
-                            <td className={td + ' text-xs text-muted-foreground max-w-[140px] truncate'}>{c.orcs?.servico_nome || '—'}</td>
+                            <td className={td + ' text-xs text-muted-foreground max-w-[140px] truncate'}>{c.orcs?.servicos?.titulo || c.orcs?.servico_nome || '—'}</td>
                             <td className={td}><span className="text-sm font-medium">{c.orcs?.nome_cliente || '—'}</span></td>
                             <td className={td}><span className="text-sm">{c.orcs?.prestadores?.nome || '—'}</span></td>
                             <td className={td}>

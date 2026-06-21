@@ -334,7 +334,7 @@ async function handleAnamnese(sessao, numero, texto, temImagem = false) {
       let linkChatPrestador = null;
       try {
         const chatCriado = await criarChatParaOrc(novoOrc.id);
-        const frontendUrl = process.env.FRONTEND_URL || 'https://venerable-kitten-a7b2cd.netlify.app';
+        const frontendUrl = (process.env.FRONTEND_URL || 'https://venerable-kitten-a7b2cd.netlify.app').replace(/\/$/, '');
         const base = `${frontendUrl}/chat/${chatCriado.link_token}`;
         linkChatCliente = `${base}?papel=cliente`;
         linkChatPrestador = `${base}?papel=prestador`;
@@ -469,7 +469,7 @@ async function mostrarOrcsCliente(numero, telefone) {
   const chatPorOrc = {};
   (chats || []).forEach(c => { chatPorOrc[c.orc_id] = c.link_token; });
 
-  const frontendUrl = process.env.FRONTEND_URL || 'https://venerable-kitten-a7b2cd.netlify.app';
+  const frontendUrl = (process.env.FRONTEND_URL || 'https://venerable-kitten-a7b2cd.netlify.app').replace(/\/$/, '');
 
   const statusLabel = {
     'NOVO': '🆕 Novo',
@@ -822,7 +822,8 @@ async function handleFollowUp(orc, numero, texto) {
         await enviarMensagem(numero, templates.divergencia(orc.prestadores?.nome, orcAtual.valor_prestador, orcAtual.valor_cliente));
       } else {
         await supabase.from('orcs').update({ status: 'FECHADO', valor_final: interp.valor }).eq('id', orc.id);
-        const link = `${process.env.FRONTEND_URL}/contrato?orc=${orc.id}&codigo=${orc.codigo}`;
+        const frontendUrlContrato = (process.env.FRONTEND_URL || 'https://venerable-kitten-a7b2cd.netlify.app').replace(/\/$/, '');
+        const link = `${frontendUrlContrato}/contrato?orc=${orc.id}&codigo=${orc.codigo}`;
         if (orc.telefone_cliente) await enviarMensagem(orc.telefone_cliente, templates.linkContrato(orc.nome_cliente, 'a confirmar', link, orc.codigo));
         await enviarMensagem(numero, templates.linkContrato(orc.prestadores?.nome, 'a confirmar', link, orc.codigo));
       }
