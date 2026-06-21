@@ -279,9 +279,9 @@ async function handleAnamnese(sessao, numero, texto, temImagem = false) {
   }
 
   if (resultado.concluida) {
-    console.log(`[ANAMNESE] ✅ Anamnese concluída!`);
+    console.log(`[ANAMNESE] ✅ CONCLUÍDA para ${numero}. Histórico tinha ${novoHistorico.length} mensagens.`);
     // ── ANAMNESE CONCLUÍDA — CRIAR ORC ────────────────────────
-    console.log(`[ANAMNESE] Concluída! Gerando resumo e criando ORC...`);
+    console.log(`[ANAMNESE] Gerando resumo e criando ORC...`);
 
     // Filtrar mensagem inicial com #SERVICO do histórico antes do resumo
     const historicoLimpo = novoHistorico.filter(m =>
@@ -424,7 +424,12 @@ async function handleAnamnese(sessao, numero, texto, temImagem = false) {
       ...novoHistorico,
       { role: 'assistant', content: resposta }
     ];
-    await atualizarHistorico(numero, historicoAtualizado);
+    try {
+      await atualizarHistorico(numero, historicoAtualizado);
+    } catch (err) {
+      console.error(`[ANAMNESE] ERRO ao salvar histórico para ${numero}:`, err.message);
+      await enviarMensagem(numero, `Desculpe, tive um problema técnico. Pode repetir sua resposta?`);
+    }
   }
 }
 
@@ -860,11 +865,13 @@ async function buscarOrcAtivo(numero) {
 }
 
 async function buscarSessao(numero) {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('sessoes_whatsapp')
     .select('*')
     .eq('telefone', numero)
     .limit(1);
+  if (error) console.error('[SESSAO] Erro ao buscar sessão:', error.message);
+  console.log(`[SESSAO] buscarSessao(${numero}): ${data?.[0] ? 'ENCONTRADA' : 'NÃO ENCONTRADA'}`);
   return data?.[0] || null;
 }
 
@@ -873,9 +880,11 @@ async function atualizarHistorico(numero, historico, role, content) {
   if (role && content) {
     hist = [...historico, { role, content }];
   }
-  await supabase.from('sessoes_whatsapp')
+  const { error } = await supabase.from('sessoes_whatsapp')
     .update({ historico: hist, atualizado_em: new Date().toISOString() })
     .eq('telefone', numero);
+  if (error) throw new Error(`Supabase atualizarHistorico: ${error.message}`);
+  console.log(`[SESSAO] Histórico atualizado (${hist.length} msgs)`);
 }
 
 function extrairIdentificadores(texto) {
