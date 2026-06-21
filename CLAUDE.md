@@ -145,7 +145,7 @@ backend — quebram o build no Railway (Node puro não entende). Sempre usar JS 
 
 ## Pendências conhecidas (estado da última sessão)
 
-- [ ] Implementar o chat de negociação — ver `docs/feature-chat-negociacao.md` (não iniciado)
+- [ ] Confirmar se o frontend (`Chat.tsx`) está completo e usando todos os endpoints do chat (ver `docs/feature-chat-negociacao.md`)
 - [ ] Confirmar se telefones de prestadores de teste estão no formato completo
       (ex: Emanuel Correa estava cadastrado como `5597309687`, faltando dígitos)
 - [ ] Avaliar se ainda vale manter o ping-pong de horário via WhatsApp como fallback
@@ -161,7 +161,7 @@ backend — quebram o build no Railway (Node puro não entende). Sempre usar JS 
 | Arquivo | Quando ler |
 |---|---|
 | `docs/regras-whatsapp.md` | Tarefa envolve `routes/whatsapp.js`, `services/whatsapp.js`, identificação de remetente, disponibilidade/horários, múltiplos ORCs ou cron jobs |
-| `docs/feature-chat-negociacao.md` | Se for implementar o chat web de negociação (próxima feature grande, ainda não começada) |
+| `docs/feature-chat-negociacao.md` | Se for mexer no chat de negociação ou na geração/assinatura de contrato via chat (já implementados — este doc descreve o comportamento real do código) |
 | `docs/bugs-resolvidos.md` | Se for mexer em áreas que já tiveram bug (câmera/biometria, filtro de cidade no Supabase, UUID truncado, template strings) — para não reintroduzir o erro |
 
 Peça explicitamente: *"leia docs/X.md antes de começar"* quando a tarefa exigir.
