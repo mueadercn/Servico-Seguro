@@ -137,7 +137,7 @@ async function processarMensagem(numero, texto, temImagem = false, imagemUrl = n
     await enviarMensagem(numero,
       `Olá! 😊 Sou a assistente do *Serviço Seguro*.\n\n` +
       `Para solicitar um orçamento, acesse nosso site, encontre o serviço que precisa e clique em *"Via WhatsApp"*.\n\n` +
-      `🌐 classy-cucurucho-4e3455.netlify.app\n\n` +
+      `🌐 venerable-kitten-a7b2cd.netlify.app\n\n` +
       `_Serviço Seguro — Serviços com Segurança_ 🛡️`
     );
     // Registrar que já orientamos esse número
@@ -169,7 +169,7 @@ async function iniciarSessao(numero, texto, ids) {
       await enviarMensagem(numero,
         `Hmm, não encontrei esse serviço. 🔍\n\n` +
         `Acesse nosso site para encontrar o serviço correto e solicitar o orçamento:\n\n` +
-        `🌐 classy-cucurucho-4e3455.netlify.app`
+        `🌐 venerable-kitten-a7b2cd.netlify.app`
       );
       return;
     }
@@ -181,7 +181,7 @@ async function iniciarSessao(numero, texto, ids) {
     // Sem serviço e sem prestador — redirecionar
     await enviarMensagem(numero,
       `Para solicitar um orçamento, acesse nosso site e clique em *"Via WhatsApp"* no serviço desejado:\n\n` +
-      `🌐 classy-cucurucho-4e3455.netlify.app`
+      `🌐 venerable-kitten-a7b2cd.netlify.app`
     );
     return;
   }
@@ -334,7 +334,7 @@ async function handleAnamnese(sessao, numero, texto, temImagem = false) {
       let linkChatPrestador = null;
       try {
         const chatCriado = await criarChatParaOrc(novoOrc.id);
-        const frontendUrl = process.env.FRONTEND_URL || 'https://classy-cucurucho-4e3455.netlify.app';
+        const frontendUrl = process.env.FRONTEND_URL || 'https://venerable-kitten-a7b2cd.netlify.app';
         const base = `${frontendUrl}/chat/${chatCriado.link_token}`;
         linkChatCliente = `${base}?papel=cliente`;
         linkChatPrestador = `${base}?papel=prestador`;
@@ -453,7 +453,7 @@ async function mostrarOrcsCliente(numero, telefone) {
     await enviarMensagem(numero,
       `Você não tem pedidos em andamento.\n\n` +
       `Para solicitar um orçamento, acesse nosso site! 😊\n` +
-      `🌐 classy-cucurucho-4e3455.netlify.app`
+      `🌐 venerable-kitten-a7b2cd.netlify.app`
     );
     return;
   }
