@@ -3,6 +3,35 @@ const path = require('path');
 const supabase = require(path.join(__dirname, '../services/supabase'));
 const { enviarMensagem, templates } = require(path.join(__dirname, '../services/whatsapp'));
 
+const FRONTEND_URL = process.env.FRONTEND_URL || 'https://venerable-kitten-a7b2cd.netlify.app';
+
+// ── CONFIGURAÇÕES DO FOLLOW-UP (editáveis via /api/config, tabela `configuracoes`) ──
+// Cada uma tem um valor padrão caso ainda não exista na tabela (primeira vez rodando).
+const CONFIG_DEFAULTS = {
+  followup_chat_nunca_iniciado_horas: 6,    // chat criado e ninguém mandou 1ª mensagem
+  followup_chat_sem_resposta_horas: 6,      // alguém respondeu, outro lado não respondeu de volta
+  followup_chat_intervalo_lembrete_horas: 24, // intervalo mínimo entre lembretes do mesmo chat
+  followup_contrato_finalizado_tolerancia_horas: 2,  // tolerância antes de alertar "finalizado sem contrato"
+  followup_assinatura_horas: 24,            // tempo até lembrar de assinatura pendente
+};
+
+async function getConfig(chave) {
+  try {
+    const { data } = await supabase
+      .from('configuracoes')
+      .select('valor')
+      .eq('chave', chave)
+      .maybeSingle();
+    if (data?.valor !== undefined && data?.valor !== null && data?.valor !== '') {
+      const num = Number(data.valor);
+      return Number.isFinite(num) ? num : CONFIG_DEFAULTS[chave];
+    }
+  } catch (err) {
+    console.error(`[Config] Erro lendo ${chave}:`, err.message);
+  }
+  return CONFIG_DEFAULTS[chave];
+}
+
 // ── INICIAR TODOS OS JOBS ─────────────────────────────────────
 function iniciarJobs() {
   console.log('[Jobs] Iniciando jobs automáticos...');
@@ -10,22 +39,19 @@ function iniciarJobs() {
   // Follow-up pós-visita — todo dia às 09:00
   cron.schedule('0 9 * * *', followUpPosVisita, { timezone: 'America/Sao_Paulo' });
 
-  // Verificar sem resposta — a cada 6 horas
-  cron.schedule('0 */6 * * *', verificarSemResposta);
+  // Follow-up de chats (mensagem sem resposta / chat nunca iniciado) — a cada 4h
+  cron.schedule('0 */4 * * *', followUpChats);
 
-  // Lembrete de assinatura — todo dia às 14:00
-  cron.schedule('0 14 * * *', lembreteAssinatura, { timezone: 'America/Sao_Paulo' });
+  // Follow-up de contratos (finalizado sem contrato / contrato sem assinatura) — todo dia às 14:00
+  cron.schedule('0 14 * * *', followUpContratos, { timezone: 'America/Sao_Paulo' });
 
-  // Limpeza — toda segunda às 02:00
-  cron.schedule('0 2 * * 1', limpezaSessoes);
+  // Limpeza de sessões de anamnese abandonadas — a cada 6h
+  cron.schedule('0 */6 * * *', limpezaSessoes);
 
-  // Lembrete diário aos prestadores — 8h da manhã
-  cron.schedule('0 8 * * *', lembretesDiariosPrestadores, { timezone: 'America/Sao_Paulo' });
-
-  console.log('[Jobs] ✅ 5 jobs registrados');
+  console.log('[Jobs] ✅ 4 jobs registrados');
 }
 
-// ── JOB 1: FOLLOW-UP PÓS-VISITA ──────────────────────────────
+// ── JOB 1: FOLLOW-UP PÓS-VISITA (sem alteração) ──────────────
 async function followUpPosVisita() {
   console.log('[Job] Rodando follow-up pós-visita...');
   try {
@@ -60,186 +86,195 @@ async function followUpPosVisita() {
   }
 }
 
-// ── JOB 2: SEM RESPOSTA ───────────────────────────────────────
-async function verificarSemResposta() {
-  console.log('[Job] Verificando sem resposta...');
+// ── JOB 2: FOLLOW-UP DE CHATS ─────────────────────────────────
+// Cobre 2 situações, por chat ainda não finalizado:
+//  a) Chat criado, mas ninguém nunca mandou mensagem (link parado)
+//  b) Alguém mandou mensagem e a outra parte não respondeu
+// Máximo 1 lembrete por chat a cada `followup_chat_intervalo_lembrete_horas`.
+async function followUpChats() {
+  console.log('[Job] Follow-up de chats...');
   try {
     const agora = new Date();
+    const nuncaIniciadoHoras = await getConfig('followup_chat_nunca_iniciado_horas');
+    const semRespostaHoras = await getConfig('followup_chat_sem_resposta_horas');
+    const intervaloLembreteHoras = await getConfig('followup_chat_intervalo_lembrete_horas');
 
-    // ── PRESTADOR NÃO RESPONDEU EM 2H → LEMBRETE ─────────────
-    const limite2h = new Date(agora.getTime() - 2 * 60 * 60 * 1000);
-    const { data: semResposta2h } = await supabase
-      .from('orcs')
-      .select('*, prestadores(nome, telefone)')
-      .eq('status', 'PRESTADOR NOTIFICADO')
-      .eq('lembrete_enviado', false)
-      .lt('atualizado_em', limite2h.toISOString());
+    const { data: chats } = await supabase
+      .from('chat_negociacao')
+      .select(`
+        id, link_token, criado_em, ultimo_lembrete_em,
+        orcs ( codigo, nome_cliente, telefone_cliente, prestadores ( nome, telefone ) )
+      `)
+      .neq('status', 'finalizado');
 
-    for (const orc of (semResposta2h || [])) {
-      if (!orc.prestadores?.telefone) continue;
+    for (const chat of (chats || [])) {
+      const orc = chat.orcs;
+      if (!orc) continue;
 
-      console.log(`[Job] Enviando lembrete ao prestador: ${orc.codigo}`);
+      // Já mandamos lembrete recentemente? Pula esse chat por enquanto.
+      if (chat.ultimo_lembrete_em) {
+        const horasDesdeLembrete = (agora - new Date(chat.ultimo_lembrete_em)) / 3600000;
+        if (horasDesdeLembrete < intervaloLembreteHoras) continue;
+      }
 
-      await enviarMensagem(orc.prestadores.telefone,
-        `⏰ *Lembrete — Serviço Seguro*\n\n` +
-        `${orc.prestadores.nome}, você recebeu um lead que ainda não foi respondido.\n\n` +
-        `📋 ORC: *${orc.codigo}*\n` +
-        `🔧 Serviço: ${orc.servico_nome || 'Ver detalhes no sistema'}\n\n` +
-        `Por favor, responda se tem disponibilidade para atender este cliente.\n\n` +
-        `_Serviço Seguro_ 🛡️`
+      const { data: mensagens } = await supabase
+        .from('chat_mensagens')
+        .select('remetente, criado_em')
+        .eq('chat_id', chat.id)
+        .order('criado_em', { ascending: false })
+        .limit(1);
+
+      const linkBase = `${FRONTEND_URL}/chat/${chat.link_token}`;
+
+      // (a) Chat nunca iniciado
+      if (!mensagens?.length) {
+        const horasDesdeCriacao = (agora - new Date(chat.criado_em)) / 3600000;
+        if (horasDesdeCriacao < nuncaIniciadoHoras) continue;
+
+        if (orc.telefone_cliente) {
+          await enviarMensagem(orc.telefone_cliente,
+            `💬 ${orc.nome_cliente || 'Olá'}! Seu chat com o profissional do *${orc.codigo}* ainda está aberto.\n\n` +
+            `🔗 ${linkBase}?papel=cliente`
+          );
+        }
+        if (orc.prestadores?.telefone) {
+          await enviarMensagem(orc.prestadores.telefone,
+            `💬 ${orc.prestadores.nome}, você tem um chat aguardando no *${orc.codigo}*.\n\n` +
+            `🔗 ${linkBase}?papel=prestador`
+          );
+        }
+
+        await supabase.from('chat_negociacao')
+          .update({ ultimo_lembrete_em: agora.toISOString() })
+          .eq('id', chat.id);
+        console.log(`[Job] Chat nunca iniciado, lembrete enviado: ${orc.codigo}`);
+        continue;
+      }
+
+      // (b) Mensagem sem resposta
+      const ultima = mensagens[0];
+      const horasSemResposta = (agora - new Date(ultima.criado_em)) / 3600000;
+      if (horasSemResposta < semRespostaHoras) continue;
+
+      const devedor = ultima.remetente === 'cliente'
+        ? { telefone: orc.prestadores?.telefone, nome: orc.prestadores?.nome, papel: 'prestador' }
+        : { telefone: orc.telefone_cliente, nome: orc.nome_cliente, papel: 'cliente' };
+
+      if (!devedor.telefone) continue;
+
+      await enviarMensagem(devedor.telefone,
+        `💬 ${devedor.nome || ''}, você tem uma mensagem esperando resposta no chat do *${orc.codigo}*.\n\n` +
+        `🔗 ${linkBase}?papel=${devedor.papel}`
       );
 
-      // Marcar lembrete como enviado
-      await supabase.from('orcs').update({
-        lembrete_enviado: true,
-        atualizado_em: new Date().toISOString()
-      }).eq('id', orc.id);
+      await supabase.from('chat_negociacao')
+        .update({ ultimo_lembrete_em: agora.toISOString() })
+        .eq('id', chat.id);
+      console.log(`[Job] Lembrete de mensagem sem resposta (${devedor.papel}): ${orc.codigo}`);
+    }
+  } catch (err) {
+    console.error('[Job] Erro follow-up chats:', err.message);
+  }
+}
 
-      console.log(`[Job] ✅ Lembrete enviado para ${orc.prestadores.nome}`);
+// ── JOB 3: FOLLOW-UP DE CONTRATOS ────────────────────────────
+// Cobre 2 situações:
+//  a) Negociação finalizada no chat, mas contrato ainda não gerado → alerta o admin
+//  b) Contrato gerado, falta assinatura de cliente e/ou prestador → lembra quem falta
+async function followUpContratos() {
+  console.log('[Job] Follow-up de contratos...');
+  try {
+    const agora = new Date();
+    const toleranciaHoras = await getConfig('followup_contrato_finalizado_tolerancia_horas');
+    const assinaturaHoras = await getConfig('followup_assinatura_horas');
+
+    // (a) Finalizado sem contrato gerado
+    const limiteFinalizado = new Date(agora.getTime() - toleranciaHoras * 3600000);
+    const { data: chatsFinalizados } = await supabase
+      .from('chat_negociacao')
+      .select(`id, orc_id, finalizado_em, lembrete_contrato_enviado, orcs ( codigo, nome_cliente, prestadores ( nome ) )`)
+      .eq('status', 'finalizado')
+      .eq('lembrete_contrato_enviado', false)
+      .not('finalizado_em', 'is', null)
+      .lt('finalizado_em', limiteFinalizado.toISOString());
+
+    for (const chat of (chatsFinalizados || [])) {
+      const { data: contratoExistente } = await supabase
+        .from('contratos')
+        .select('id')
+        .eq('orc_id', chat.orc_id)
+        .maybeSingle();
+
+      if (!contratoExistente) {
+        const orc = chat.orcs;
+        const adminNum = process.env.ADMIN_WHATSAPP;
+        if (adminNum) {
+          await enviarMensagem(adminNum,
+            `⚠️ *Negociação finalizada sem contrato gerado*\n\n` +
+            `ORC: ${orc?.codigo}\n` +
+            `Cliente: ${orc?.nome_cliente}\n` +
+            `Prestador: ${orc?.prestadores?.nome}\n\n` +
+            `Verifique no painel — ninguém gerou o contrato após a finalização.`
+          );
+        }
+        console.log(`[Job] Alerta de contrato pendente enviado: ${orc?.codigo}`);
+      }
+
+      // marca como tratado de qualquer forma (gerado ou alertado), pra não repetir
+      await supabase.from('chat_negociacao')
+        .update({ lembrete_contrato_enviado: true })
+        .eq('id', chat.id);
     }
 
-    // ── PRESTADOR NÃO RESPONDEU EM 4H → SEM RESPOSTA ─────────
-    const limite4h = new Date(agora.getTime() - 4 * 60 * 60 * 1000);
-    const { data: semResposta4h } = await supabase
-      .from('orcs')
-      .select('*, prestadores(nome, telefone)')
-      .eq('status', 'PRESTADOR NOTIFICADO')
-      .eq('lembrete_enviado', true)
-      .lt('atualizado_em', limite4h.toISOString());
+    // (b) Contrato gerado, falta assinatura (cliente e/ou prestador)
+    const limiteAssinatura = new Date(agora.getTime() - assinaturaHoras * 3600000);
+    const { data: contratosPendentes } = await supabase
+      .from('contratos')
+      .select('*, orcs(codigo, nome_cliente, telefone_cliente, prestadores(nome, telefone))')
+      .or('assinado_cliente.eq.false,assinado_prestador.eq.false')
+      .lt('criado_em', limiteAssinatura.toISOString());
 
-    for (const orc of (semResposta4h || [])) {
-      await supabase.from('orcs').update({
-        status: 'SEM RESPOSTA PRESTADOR'
-      }).eq('id', orc.id);
+    for (const c of (contratosPendentes || [])) {
+      const orc = c.orcs;
+      if (!orc) continue;
+      const link = `${FRONTEND_URL}/contrato.html?orc=${orc.id}&codigo=${orc.codigo}`;
 
-      console.log(`[Job] ${orc.codigo} → SEM RESPOSTA PRESTADOR`);
-
-      // Avisar admin
-      const adminNum = process.env.ADMIN_WHATSAPP;
-      if (adminNum) {
-        await enviarMensagem(adminNum,
-          `⚠️ *Prestador sem resposta*\n\n` +
-          `ORC: ${orc.codigo}\n` +
-          `Prestador: ${orc.prestadores?.nome}\n` +
-          `Telefone: ${orc.prestadores?.telefone}\n\n` +
-          `O lembrete foi enviado mas não houve resposta.\n` +
-          `Por favor, verifique no painel.`
+      if (!c.assinado_cliente && orc.telefone_cliente) {
+        await enviarMensagem(orc.telefone_cliente,
+          `${orc.nome_cliente}, seu contrato (${orc.codigo}) aguarda assinatura:\n🔗 ${link}`
+        );
+      }
+      if (!c.assinado_prestador && orc.prestadores?.telefone) {
+        await enviarMensagem(orc.prestadores.telefone,
+          `${orc.prestadores.nome}, seu contrato (${orc.codigo}) aguarda assinatura:\n🔗 ${link}`
         );
       }
     }
+  } catch (err) {
+    console.error('[Job] Erro follow-up contratos:', err.message);
+  }
+}
 
-    // ── CLIENTE NÃO CONCLUIU ANAMNESE EM 48H ─────────────────
-    const limite48h = new Date(agora.getTime() - 48 * 60 * 60 * 1000);
-    const { data: sessoesSemResposta } = await supabase
+// ── JOB 4: LIMPEZA DE SESSÕES DE ANAMNESE ABANDONADAS ────────
+// (antes vivia dentro do antigo job "verificarSemResposta"; o job de
+// limpeza semanal estava sem nenhuma lógica — agora faz isso de fato)
+async function limpezaSessoes() {
+  console.log('[Job] Limpeza de sessões abandonadas...');
+  try {
+    const limite48h = new Date(Date.now() - 48 * 3600000);
+    const { data: sessoesAbandonadas } = await supabase
       .from('sessoes_whatsapp')
-      .select('*')
+      .select('id, telefone')
       .lt('atualizado_em', limite48h.toISOString());
 
-    for (const sessao of (sessoesSemResposta || [])) {
-      // Limpar sessão abandonada
+    for (const sessao of (sessoesAbandonadas || [])) {
       await supabase.from('sessoes_whatsapp').delete().eq('id', sessao.id);
       console.log(`[Job] Sessão abandonada removida: ${sessao.telefone}`);
     }
-
+    console.log(`[Job] Limpeza: ${(sessoesAbandonadas||[]).length} sessões removidas`);
   } catch (err) {
-    console.error('[Job] Erro sem resposta:', err.message);
+    console.error('[Job] Erro limpeza:', err.message);
   }
 }
 
-// ── JOB 3: LEMBRETE ASSINATURA ────────────────────────────────
-async function lembreteAssinatura() {
-  console.log('[Job] Lembretes de assinatura...');
-  try {
-    const limite = new Date();
-    limite.setHours(limite.getHours() - 24);
-
-    const { data } = await supabase
-      .from('contratos')
-      .select('*, orcs(codigo, nome_cliente, telefone_cliente, prestadores(nome, telefone))')
-      .eq('assinado_cliente', false)
-      .lt('criado_em', limite.toISOString());
-
-    for (const c of (data || [])) {
-      const orc = c.orcs;
-      if (!orc) continue;
-      const link = `${process.env.FRONTEND_URL}/contrato.html?orc=${orc.id}&codigo=${orc.codigo}`;
-      if (orc.telefone_cliente) {
-        await enviarMensagem(orc.telefone_cliente,
-          `${orc.nome_cliente}, seu contrato aguarda assinatura:\n🔗 ${link}`
-        );
-      }
-    }
-  } catch (err) {
-    console.error('[Job] Erro lembrete:', err.message);
-  }
-}
-
-// ── JOB 4: LIMPEZA ───────────────────────────────────────────
-async function limpezaSessoes() {
-  console.log('[Job] Limpeza executada');
-}
-
-// ── JOB 5: LEMBRETE DIÁRIO AOS PRESTADORES ──────────────────
-async function lembretesDiariosPrestadores() {
-  console.log('[Job] Enviando lembretes diários aos prestadores...');
-  try {
-    const { data: orcs } = await supabase
-      .from('orcs')
-      .select('id, codigo, prestador_id, nome_cliente, disponibilidade_cliente, prestadores(nome, telefone), servicos(titulo)')
-      .in('status', ['PRESTADOR NOTIFICADO', 'AGUARDANDO PRESTADOR', 'ANAMNESE CONCLUÍDA'])
-      .not('prestador_id', 'is', null);
-
-    if (!orcs?.length) return;
-
-    // Agrupar por prestador
-    const porPrestador = {};
-    for (const orc of orcs) {
-      if (!orc.prestador_id || !orc.prestadores?.telefone) continue;
-      if (!porPrestador[orc.prestador_id]) {
-        porPrestador[orc.prestador_id] = {
-          nome: orc.prestadores.nome,
-          telefone: orc.prestadores.telefone,
-          orcs: []
-        };
-      }
-      porPrestador[orc.prestador_id].orcs.push(orc);
-    }
-
-    for (const [prestadorId, info] of Object.entries(porPrestador)) {
-      const lista = info.orcs.map((o, i) =>
-        `${i + 1}️⃣ *${o.codigo}* — ${o.servicos?.titulo || 'Serviço'}
-` +
-        `   👤 ${o.nome_cliente}
-` +
-        `   📅 Disponível: ${o.disponibilidade_cliente || 'A combinar'}`
-      ).join('\n\n');
-
-      await enviarMensagem(info.telefone,
-        `👷 Bom dia, *${info.nome}*!
-
-` +
-        `Você tem *${info.orcs.length}* pedido${info.orcs.length > 1 ? 's' : ''} aguardando:
-
-` +
-        `${lista}
-
-` +
-        `Responda com o número e horário.
-` +
-        `Ex: *"1 - terça às 14h"*
-
-` +
-        `Sem disponibilidade? Responda *"Cancelar 1"* ou *"Cancelar ${info.orcs[0]?.codigo}"*
-
-` +
-        `_Serviço Seguro_ 🛡️`
-      );
-
-      console.log(`[Job] Lembrete enviado para ${info.nome} (${info.orcs.length} ORCs)`);
-    }
-  } catch (err) {
-    console.error('[Job] Erro lembrete diário:', err.message);
-  }
-}
-
-module.exports = { iniciarJobs, followUpPosVisita };
+module.exports = { iniciarJobs, followUpPosVisita, followUpChats, followUpContratos, limpezaSessoes };
