@@ -71,14 +71,38 @@ ficam no histórico).
 
 ## Jobs automáticos (`jobs/index.js`)
 
-1. **Follow-up pós-visita** — a cada 6h
-2. **Verificar sem resposta** — a cada 6h:
-   - Prestador sem responder 2h → envia 1 lembrete (`lembrete_enviado=true` evita duplicar)
-   - Sem responder mais 2h após o lembrete (4h total) → status `SEM RESPOSTA PRESTADOR`, avisa admin
-   - Sessões de anamnese abandonadas há 48h → deletadas
-3. **Contratos expirados** — diário às 9h
-4. **Limpeza de dados antigos** — semanal
-5. **Lembrete diário aos prestadores** — 8h, lista todos os ORCs pendentes agrupados por prestador
+> Reestruturado em 21/06/2026: o ping-pong de horário por texto saiu de cena,
+> follow-up agora gira em torno da atividade do **chat de negociação**
+> (ver `docs/feature-chat-negociacao.md`).
+
+1. **Follow-up pós-visita** — diário, 9h. Sem alteração: avisa cliente e prestador
+   no dia seguinte a uma visita agendada (`status = VISITA AGENDADA`).
+2. **Follow-up de chats** — a cada 4h. Por chat ainda não `finalizado`:
+   - Chat criado e ninguém mandou a 1ª mensagem em `followup_chat_nunca_iniciado_horas`
+     (padrão 6h) → avisa cliente e prestador, reforçando o link
+   - Alguém mandou mensagem e a outra parte não respondeu em
+     `followup_chat_sem_resposta_horas` (padrão 6h) → avisa só quem está devendo resposta
+   - Em ambos os casos, no máximo 1 lembrete a cada `followup_chat_intervalo_lembrete_horas`
+     (padrão 24h) por chat, controlado pela coluna `ultimo_lembrete_em`
+3. **Follow-up de contratos** — diário, 14h:
+   - Chat `finalizado` há mais de `followup_contrato_finalizado_tolerancia_horas`
+     (padrão 2h) sem contrato gerado → alerta o **admin** via WhatsApp (não o cliente/prestador)
+   - Contrato gerado há mais de `followup_assinatura_horas` (padrão 24h) com assinatura
+     pendente → lembra **cliente e/ou prestador**, individualmente, conforme quem falta assinar
+4. **Limpeza de sessões abandonadas** — a cada 6h: sessões de anamnese
+   (`sessoes_whatsapp`) sem atividade há 48h são deletadas. (Antes vivia dentro do
+   job de "sem resposta"; antes disso o job de limpeza semanal existia mas não fazia nada.)
+
+Todos os limiares de tempo do follow-up são lidos da tabela `configuracoes`
+(mesma tabela dos prompts de IA), com fallback pro valor padrão se a chave
+não existir. Editável via `PUT /api/config/:chave`.
+
+### ⚠️ Pendência conhecida
+O job de **lembrete diário de prestadores** (lista numerada, "responda 1 - terça às 14h")
+foi removido porque dependia de o prestador responder em texto livre interpretado
+pela IA — isso não existe mais agora que a negociação acontece no chat com botões.
+Se ainda for necessário um resumo diário do que está pendente, ele deveria ser
+reconstruído como uma lista de **links de chat**, sem pedir resposta em texto.
 
 ---
 
