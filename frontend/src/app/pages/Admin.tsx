@@ -16,20 +16,17 @@ const ADMIN_SENHA = 'admin123';
 
 // ── FASES DO KANBAN ───────────────────────────────────────────
 const FASES = [
-  { id: 'novo', label: 'Novo', icon: Plus, color: '#378ADD', bg: '#E6F1FB', text: '#0C447C', statuses: ['NOVO'], alert: false },
-  { id: 'atendimento', label: 'Em atendimento', icon: MessageSquare, color: '#7F77DD', bg: '#EEEDFE', text: '#3C3489', statuses: ['EM ANAMNESE'], alert: false },
-  { id: 'qualificado', label: 'Qualificado', icon: CheckCircle2, color: '#3B6D11', bg: '#EAF3DE', text: '#27500A', statuses: ['ANAMNESE CONCLUÍDA'], alert: false },
-  { id: 'prestador', label: 'Com prestador', icon: UserPlus, color: '#854F0B', bg: '#FAEEDA', text: '#633806', statuses: ['PRESTADOR NOTIFICADO', 'AGUARDANDO PRESTADOR'], alert: false },
-  { id: 'agendado', label: 'Agendado', icon: Calendar, color: '#185FA5', bg: '#E6F1FB', text: '#042C53', statuses: ['VISITA AGENDADA', 'ORÇAMENTO ONLINE'], alert: false },
-  { id: 'posvisita', label: 'Pós-visita', icon: Clock, color: '#0F6E56', bg: '#E1F5EE', text: '#04342C', statuses: ['VISITA REALIZADA', 'AGUARDANDO DECISÃO'], alert: false },
+  { id: 'anamnese', label: 'Anamnese', icon: MessageSquare, color: '#7F77DD', bg: '#EEEDFE', text: '#3C3489', statuses: ['NOVO', 'EM ANAMNESE'], alert: false },
+  { id: 'chat', label: 'Chat ativo', icon: CheckCircle2, color: '#185FA5', bg: '#E6F1FB', text: '#042C53', statuses: ['ANAMNESE CONCLUÍDA', 'PRESTADOR NOTIFICADO', 'AGUARDANDO PRESTADOR'], alert: false },
   { id: 'contrato', label: 'Contrato', icon: FileText, color: '#534AB7', bg: '#EEEDFE', text: '#26215C', statuses: ['FECHADO', 'CONTRATO GERADO', 'AGUARDANDO ASSINATURA'], alert: false },
-  { id: 'concluido', label: 'Concluído', icon: Trophy, color: '#3B6D11', bg: '#EAF3DE', text: '#173404', statuses: ['CONTRATO ASSINADO', 'SERVIÇO CONCLUÍDO', 'ENCERRADO'], alert: false },
-  { id: 'atencao', label: 'Atenção', icon: AlertTriangle, color: '#A32D2D', bg: '#FCEBEB', text: '#501313', statuses: ['DIVERGÊNCIA DE VALOR', 'SEM RESPOSTA CLIENTE', 'SEM RESPOSTA PRESTADOR'], alert: true },
-  { id: 'cancelado', label: 'Encerrado', icon: X, color: '#5F5E5A', bg: '#F1EFE8', text: '#2C2C2A', statuses: ['NÃO FECHOU', 'CANCELADO'], alert: false },
+  { id: 'concluido', label: 'Concluído', icon: Trophy, color: '#3B6D11', bg: '#EAF3DE', text: '#173404', statuses: ['CONTRATO ASSINADO', 'SERVIÇO CONCLUÍDO'], alert: false },
+  { id: 'atencao', label: 'Atenção', icon: AlertTriangle, color: '#A32D2D', bg: '#FCEBEB', text: '#501313', statuses: ['DIVERGÊNCIA DE VALOR', 'SEM RESPOSTA PRESTADOR', 'SEM RESPOSTA CLIENTE'], alert: true },
+  { id: 'cancelado', label: 'Encerrado', icon: X, color: '#5F5E5A', bg: '#F1EFE8', text: '#2C2C2A', statuses: ['NÃO FECHOU', 'CANCELADO', 'ENCERRADO'], alert: false },
 ];
 
 const navItems = [
   { id: 'kanban', label: 'Leads — Kanban', icon: LayoutDashboard },
+  { id: 'chats', label: 'Histórico de Chats', icon: MessageSquare },
   { id: 'dashboard', label: 'Dashboard', icon: ClipboardList },
   { id: 'prestadores', label: 'Prestadores', icon: Users },
   { id: 'usuarios', label: 'Contratantes', icon: Users },
@@ -65,6 +62,8 @@ export function Admin() {
   const [orcSelecionado, setOrcSelecionado] = useState<ORC | null>(null);
   const [mensagens, setMensagens] = useState<any[]>([]);
   const [msgLoading, setMsgLoading] = useState(false);
+  const [chatDoOrc, setChatDoOrc] = useState<any | null>(null);
+  const [mensagensChat, setMensagensChat] = useState<any[]>([]);
 
   // Modal estados para adicionar serviço e prestador
   const [modalServico, setModalServico] = useState(false);
@@ -108,18 +107,40 @@ export function Admin() {
     setOrcsLoading(false);
   }
 
-  // ── CARREGAR MENSAGENS DO ORC ─────────────────────────────
+  // ── CARREGAR CHAT E MENSAGENS DO ORC ────────────────────────
   async function carregarMensagens(orcId: string) {
     setMsgLoading(true);
     try {
-      const { data } = await supabase
+      // Buscar o chat de negociação desse ORC
+      const { data: chat } = await supabase
+        .from('chat_negociacao')
+        .select('*')
+        .eq('orc_id', orcId)
+        .order('criado_em', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      setChatDoOrc(chat || null);
+
+      if (chat?.id) {
+        const { data: msgs } = await supabase
+          .from('chat_mensagens')
+          .select('*')
+          .eq('chat_id', chat.id)
+          .order('criado_em', { ascending: true });
+        setMensagensChat(msgs || []);
+      } else {
+        setMensagensChat([]);
+      }
+      // Manter mensagens da anamnese também (conversa com IA)
+      const { data: msgsAnamnese } = await supabase
         .from('mensagens')
         .select('*')
         .eq('orc_id', orcId)
         .order('criado_em', { ascending: true });
-      setMensagens(data || []);
+      setMensagens(msgsAnamnese || []);
     } catch (e) {
       setMensagens([]);
+      setMensagensChat([]);
     }
     setMsgLoading(false);
   }
@@ -170,7 +191,29 @@ export function Admin() {
   async function carregarDados(pagina: string) {
     setLoading(true);
     try {
-      if (pagina === 'dashboard') {
+      if (pagina === 'chats') {
+        const { data } = await supabase
+          .from('chat_negociacao')
+          .select(`
+            id, link_token, status, criado_em, finalizado_em,
+            orcs ( codigo, nome_cliente, servico_nome, prestadores ( nome ) )
+          `)
+          .order('criado_em', { ascending: false })
+          .limit(200);
+        // Buscar contagem de mensagens por chat
+        const chatIds = (data || []).map((c: any) => c.id);
+        const contagensMap: Record<string, number> = {};
+        if (chatIds.length) {
+          const { data: contagens } = await supabase
+            .from('chat_mensagens')
+            .select('chat_id')
+            .in('chat_id', chatIds);
+          (contagens || []).forEach((m: any) => {
+            contagensMap[m.chat_id] = (contagensMap[m.chat_id] || 0) + 1;
+          });
+        }
+        setDados({ chats: (data || []).map((c: any) => ({ ...c, total_mensagens: contagensMap[c.id] || 0 })) });
+      } else if (pagina === 'dashboard') {
         const [o, p, u, c] = await Promise.all([
           supabase.from('orcs').select('id, status'),
           supabase.from('prestadores').select('id, ativo, verificado'),
@@ -719,64 +762,103 @@ export function Admin() {
                       )}
                     </div>
 
-                    {/* COLUNA DIREITA — conversa bruta */}
-                    <div className="lg:col-span-2">
-                      <div className="bg-white rounded-2xl border overflow-hidden h-full flex flex-col">
-                        <div className="px-5 py-4 border-b flex items-center justify-between">
+                    {/* COLUNA DIREITA — chat entre usuários */}
+                    <div className="lg:col-span-2 space-y-4">
+                      {/* Chat de negociação */}
+                      <div className="bg-white rounded-2xl border overflow-hidden flex flex-col">
+                        <div className="px-5 py-4 border-b flex items-center justify-between flex-wrap gap-2">
                           <div className="flex items-center gap-2">
-                            <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                            <span className="font-bold text-primary text-sm">Conversa bruta</span>
-                            <span className="text-xs text-muted-foreground">— referência e investigação</span>
+                            <MessageSquare className="h-4 w-4 text-primary" />
+                            <span className="font-bold text-primary text-sm">Chat entre usuários</span>
+                            <span className="text-xs text-muted-foreground">{mensagensChat.length} mensagens</span>
                           </div>
-                          <span className="text-xs text-muted-foreground">{mensagens.length} mensagens</span>
+                          {chatDoOrc && (
+                            <div className="flex items-center gap-2">
+                              <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
+                                chatDoOrc.status === 'finalizado' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'
+                              }`}>{chatDoOrc.status}</span>
+                              <a
+                                href={`${window.location.origin}/chat/${chatDoOrc.link_token}?papel=cliente`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-xs text-primary underline"
+                              >
+                                🔗 Abrir chat
+                              </a>
+                            </div>
+                          )}
                         </div>
 
-                        <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-3 min-h-0" style={{ maxHeight: '500px' }}>
+                        <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-3 min-h-0" style={{ maxHeight: '400px' }}>
                           {msgLoading ? (
                             <div className="flex justify-center py-8">
                               <div className="animate-spin w-6 h-6 border-2 border-primary border-t-transparent rounded-full" />
                             </div>
-                          ) : mensagens.length === 0 ? (
-                            <div className="text-center py-12 text-muted-foreground">
+                          ) : !chatDoOrc ? (
+                            <div className="text-center py-10 text-muted-foreground">
                               <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                              <p className="text-sm">Nenhuma mensagem registrada ainda.</p>
+                              <p className="text-sm">Chat ainda não foi gerado para este ORC.</p>
+                            </div>
+                          ) : mensagensChat.length === 0 ? (
+                            <div className="text-center py-10 text-muted-foreground">
+                              <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                              <p className="text-sm">Nenhuma mensagem no chat ainda.</p>
+                              <p className="text-xs mt-1">O link foi enviado mas ninguém escreveu ainda.</p>
                             </div>
                           ) : (
-                            mensagens.map((msg: any, i: number) => {
+                            mensagensChat.map((msg: any, i: number) => {
                               const isCliente = msg.remetente === 'cliente';
-                              const isIA = msg.remetente === 'ia';
-                              const isSistema = msg.remetente === 'sistema';
                               return (
                                 <div key={i} className={`flex ${isCliente ? 'justify-end' : 'justify-start'}`}>
-                                  {isSistema ? (
-                                    <div className="self-center bg-slate-100 text-slate-500 text-xs px-4 py-1.5 rounded-full">
-                                      🤖 Sistema: {msg.conteudo}
+                                  <div className="max-w-[75%]">
+                                    <div className={`text-xs font-semibold mb-1 ${isCliente ? 'text-right text-blue-600' : 'text-left text-green-700'}`}>
+                                      {isCliente ? `👤 ${orcSelecionado.nome_cliente}` : `👷 ${orcSelecionado.prestadores?.nome || 'Prestador'}`}
                                     </div>
-                                  ) : (
-                                    <div className={`max-w-[75%]`}>
-                                      <div className={`text-xs font-semibold mb-1 ${isCliente ? 'text-right text-blue-600' : 'text-left text-success'}`}>
-                                        {isCliente ? orcSelecionado.nome_cliente : '🤖 Agente IA'}
-                                      </div>
-                                      <div className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
-                                        isCliente
-                                          ? 'bg-primary text-white rounded-tr-sm'
-                                          : 'bg-slate-100 text-foreground rounded-tl-sm'
-                                      }`}>
-                                        {msg.conteudo}
-                                      </div>
-                                      {msg.criado_em && (
-                                        <div className={`text-xs text-muted-foreground mt-1 ${isCliente ? 'text-right' : 'text-left'}`}>
-                                          {new Date(msg.criado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                                        </div>
-                                      )}
+                                    <div className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
+                                      isCliente ? 'bg-primary text-white rounded-tr-sm' : 'bg-slate-100 text-foreground rounded-tl-sm'
+                                    }`}>
+                                      {msg.tipo === 'texto' && msg.conteudo}
+                                      {msg.tipo === 'imagem' && <img src={msg.conteudo} alt="imagem" className="rounded-xl max-w-full max-h-48 object-cover" />}
+                                      {msg.tipo === 'audio' && <audio controls src={msg.conteudo} className="max-w-full" />}
                                     </div>
-                                  )}
+                                    <div className={`text-xs text-muted-foreground mt-1 ${isCliente ? 'text-right' : 'text-left'}`}>
+                                      {new Date(msg.criado_em).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                                    </div>
+                                  </div>
                                 </div>
                               );
                             })
                           )}
                         </div>
                       </div>
+
+                      {/* Anamnese com IA — colapsável */}
+                      {mensagens.length > 0 && (
+                        <details className="bg-slate-50 border border-border rounded-2xl overflow-hidden">
+                          <summary className="px-5 py-3 cursor-pointer text-xs font-semibold text-muted-foreground flex items-center gap-2 select-none">
+                            <Sparkles className="h-3.5 w-3.5" /> Anamnese com IA ({mensagens.length} msgs) — clique para expandir
+                          </summary>
+                          <div className="p-5 flex flex-col gap-2 max-h-64 overflow-y-auto">
+                            {mensagens.map((msg: any, i: number) => {
+                              const isCliente = msg.remetente === 'cliente';
+                              const isSistema = msg.remetente === 'sistema';
+                              return (
+                                <div key={i} className={`flex ${isCliente ? 'justify-end' : 'justify-start'}`}>
+                                  {isSistema ? (
+                                    <div className="self-center bg-slate-200 text-slate-500 text-xs px-3 py-1 rounded-full">
+                                      Sistema: {msg.conteudo}
+                                    </div>
+                                  ) : (
+                                    <div className={`max-w-[80%] px-3 py-2 rounded-xl text-xs ${isCliente ? 'bg-blue-100 text-blue-900' : 'bg-white border text-slate-700'}`}>
+                                      {msg.conteudo}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </details>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -787,6 +869,68 @@ export function Admin() {
           {loading && aba !== 'kanban' && (
             <div className="flex justify-center py-16">
               <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+            </div>
+          )}
+
+          {/* HISTÓRICO DE CHATS */}
+          {!loading && aba === 'chats' && (
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-sm text-muted-foreground">{(dados.chats || []).length} chats registrados</span>
+              </div>
+              <div className="bg-white rounded-2xl border overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className={tbl}>
+                    <thead><tr>
+                      {['ORC', 'Serviço', 'Cliente', 'Prestador', 'Status', 'Mensagens', 'Link', 'Data'].map(h => (
+                        <th key={h} className={th}>{h}</th>
+                      ))}
+                    </tr></thead>
+                    <tbody>
+                      {(dados.chats || []).map((c: any) => {
+                        const frontendUrl = window.location.origin;
+                        const statusColor: Record<string, string> = {
+                          conversando: 'bg-blue-100 text-blue-800',
+                          aguardando_orcamento: 'bg-amber-100 text-amber-800',
+                          orcamento_enviado: 'bg-purple-100 text-purple-800',
+                          finalizado: 'bg-green-100 text-green-800',
+                        };
+                        return (
+                          <tr key={c.id} className="hover:bg-slate-50">
+                            <td className={td}><span className="font-mono font-bold text-primary text-xs">{c.orcs?.codigo || '—'}</span></td>
+                            <td className={td + ' text-xs text-muted-foreground max-w-[140px] truncate'}>{c.orcs?.servico_nome || '—'}</td>
+                            <td className={td}><span className="text-sm font-medium">{c.orcs?.nome_cliente || '—'}</span></td>
+                            <td className={td}><span className="text-sm">{c.orcs?.prestadores?.nome || '—'}</span></td>
+                            <td className={td}>
+                              <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${statusColor[c.status] || 'bg-slate-100 text-slate-600'}`}>
+                                {c.status}
+                              </span>
+                            </td>
+                            <td className={td + ' text-center'}>
+                              <span className="text-sm font-bold text-primary">{c.total_mensagens}</span>
+                            </td>
+                            <td className={td}>
+                              <div className="flex gap-2">
+                                <a href={`${frontendUrl}/chat/${c.link_token}?papel=cliente`} target="_blank" rel="noreferrer"
+                                  className="text-xs text-blue-600 underline">👤 Cliente</a>
+                                <a href={`${frontendUrl}/chat/${c.link_token}?papel=prestador`} target="_blank" rel="noreferrer"
+                                  className="text-xs text-green-700 underline">👷 Prestador</a>
+                              </div>
+                            </td>
+                            <td className={td + ' text-xs text-muted-foreground whitespace-nowrap'}>
+                              {c.criado_em ? new Date(c.criado_em).toLocaleDateString('pt-BR') : '—'}
+                              {c.finalizado_em && <div className="text-green-600">Finalizado {new Date(c.finalizado_em).toLocaleDateString('pt-BR')}</div>}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {(dados.chats || []).length === 0 && (
+                        <tr><td colSpan={8} className="text-center py-12 text-muted-foreground text-sm">Nenhum chat registrado ainda.</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           )}
 

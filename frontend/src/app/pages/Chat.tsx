@@ -107,9 +107,16 @@ export function Chat() {
       const msgs = await apiCall(`/api/chat/${token}/mensagens`);
       setMensagens(msgs);
 
-      // Detectar papel pela URL ou localStorage
-      const papelSalvo = localStorage.getItem(`chat_papel_${token}`) as Papel;
-      if (papelSalvo) setPapel(papelSalvo);
+      // Prioridade: ?papel= na URL, depois localStorage
+      const params = new URLSearchParams(window.location.search);
+      const papelUrl = params.get('papel') as Papel;
+      if (papelUrl === 'cliente' || papelUrl === 'prestador') {
+        setPapel(papelUrl);
+        localStorage.setItem(`chat_papel_${token}`, papelUrl);
+      } else {
+        const papelSalvo = localStorage.getItem(`chat_papel_${token}`) as Papel;
+        if (papelSalvo) setPapel(papelSalvo);
+      }
     } catch {
       setErro('Chat não encontrado ou link inválido.');
     }
