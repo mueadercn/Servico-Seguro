@@ -38,6 +38,9 @@ router.post('/', async (req, res) => {
       tipo,
       valor,
       comissao,
+      prazo: prazo || 'A combinar',
+      pagamento: pagamento || 'A combinar',
+      garantia: garantia || '90 dias',
       hash_documento: hashDocumento,
     }).select().single();
 

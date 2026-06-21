@@ -395,7 +395,7 @@ export function Chat() {
           <CheckCircle2 className="mx-auto text-green-500 mb-2" size={32} />
           <p className="font-semibold text-gray-800">Contrato gerado!</p>
           <p className="text-sm text-gray-500 mt-1">Ambas as partes precisam assinar para formalizar.</p>
-          <a href={`/contrato?orc=${chat.orc_id}`}
+          <a href={`/contrato?orc=${chat.orc_id}&papel=${papel}`}
             className="mt-4 inline-block px-6 py-2.5 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 transition">
             <FileText className="inline mr-2" size={16} />Assinar contrato
           </a>

@@ -211,16 +211,27 @@ export function ClientDashboard() {
                     </div>
                   </div>
                   <div className="p-5">
-                    <div className="grid grid-cols-3 gap-4 text-sm">
+                    <div className="grid grid-cols-3 gap-4 text-sm mb-4">
                       <div><div className="text-xs text-muted-foreground mb-1">Valor</div><div className="font-bold text-success">R$ {Number(c.valor).toLocaleString('pt-BR',{minimumFractionDigits:2})}</div></div>
-                      <div><div className="text-xs text-muted-foreground mb-1">Sua assinatura</div><div>{c.assinado_cliente ? '✅' : '⏳ Pendente'}</div></div>
+                      <div><div className="text-xs text-muted-foreground mb-1">Sua assinatura</div><div>{c.assinado_cliente ? '✅ Assinado' : '⏳ Pendente'}</div></div>
                       <div><div className="text-xs text-muted-foreground mb-1">Data</div><div>{c.criado_em ? new Date(c.criado_em).toLocaleDateString('pt-BR') : '—'}</div></div>
                     </div>
-                    {!c.assinado_cliente && (
-                      <Link to={`/contrato?id=${c.id}`} className="inline-flex items-center gap-2 mt-4 bg-primary text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors">
-                        ✍️ Assinar contrato
-                      </Link>
-                    )}
+                    <div className="flex gap-2 flex-wrap">
+                      {!c.assinado_cliente ? (
+                        <Link to={`/contrato?orc=${c.orc_id}&papel=cliente`} className="inline-flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors">
+                          ✍️ Assinar contrato
+                        </Link>
+                      ) : (
+                        <Link to={`/contrato?orc=${c.orc_id}&papel=cliente`} className="inline-flex items-center gap-2 border border-border px-4 py-2 rounded-xl text-sm font-semibold hover:bg-slate-50 transition-colors">
+                          Ver contrato
+                        </Link>
+                      )}
+                      <a href={`${import.meta.env.VITE_API_URL || 'https://servi-o-seguro-production.up.railway.app'}/api/contratos/${c.id}/pdf`}
+                        target="_blank" rel="noreferrer"
+                        className="inline-flex items-center gap-2 border border-border px-4 py-2 rounded-xl text-sm font-semibold hover:bg-slate-50 transition-colors">
+                        📄 Baixar PDF
+                      </a>
+                    </div>
                   </div>
                 </div>
               ))}

@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router';
-import { ArrowLeft, Shield, FileText, CheckCircle2, Download } from 'lucide-react';
+import { ArrowLeft, Shield, FileText, CheckCircle2, Download, ChevronDown, ChevronUp } from 'lucide-react';
 import { Logo } from '../components/Logo';
 import { supabase, apiCall } from '../../lib/supabase';
+
+const API_URL = import.meta.env.VITE_API_URL || 'https://servi-o-seguro-production.up.railway.app';
 
 export function Contrato() {
   const [params] = useSearchParams();
   const orcId = params.get('orc');
-  const orcCodigo = params.get('codigo') || 'ORC-NOVO';
+  const papel = (params.get('papel') || 'cliente') as 'cliente' | 'prestador';
 
   const [step, setStep] = useState(1);
   const [tipo, setTipo] = useState('');
@@ -15,11 +17,15 @@ export function Contrato() {
   const [comissao, setComissao] = useState({ valor: 0, pct: '' });
   const [comissaoTabela, setComissaoTabela] = useState<any[]>([]);
   const [contratoId, setContratoId] = useState('');
+  const [contratoData, setContratoData] = useState<any>(null);
   const [aceite, setAceite] = useState(false);
   const [cpfSeguro, setCpfSeguro] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loadingInicial, setLoadingInicial] = useState(true);
   const [concluido, setConcluido] = useState(false);
   const [erro, setErro] = useState('');
+  const [mostrarClausulas, setMostrarClausulas] = useState(false);
+  const [jaSigned, setJaSigned] = useState(false);
 
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
 
@@ -28,33 +34,72 @@ export function Contrato() {
   }, []);
 
   async function carregarDados() {
+    setLoadingInicial(true);
     try {
-      const { data } = await supabase.from('comissoes').select('*').eq('ativo', true).order('ordem');
-      if (data) setComissaoTabela(data);
-    } catch (e) {}
+      const { data: comissoes } = await supabase.from('comissoes').select('*').eq('ativo', true).order('ordem');
+      if (comissoes) setComissaoTabela(comissoes);
+    } catch {}
 
     if (orcId) {
       try {
-        const { data } = await supabase.from('orcs').select('*, prestadores(*), usuarios(*)').eq('id', orcId).limit(1);
-        if (data?.[0]) {
-          const o = data[0];
+        // Buscar ORC com dados do prestador e usuário
+        const { data: orcRows } = await supabase
+          .from('orcs')
+          .select('*, prestadores(*), usuarios(*)')
+          .eq('id', orcId)
+          .limit(1);
+        const o = orcRows?.[0];
+        if (o) {
           set('contNome', o.nome_cliente || '');
           set('contCpf', o.usuarios?.cpf || '');
           set('prestNome', o.prestadores?.nome || '');
           set('prestCpf', o.prestadores?.cpf || '');
           set('servico', o.resumo_anamnese || '');
-          if (o.valor_final) { set('valor', String(o.valor_final)); calcComissao(String(o.valor_final)); }
+          if (o.valor_final) { set('valor', String(o.valor_final)); }
         }
-      } catch (e) {}
+
+        // Verificar se já existe contrato para esse ORC
+        const { data: existente } = await supabase
+          .from('contratos')
+          .select('*')
+          .eq('orc_id', orcId)
+          .maybeSingle();
+
+        if (existente) {
+          setContratoId(existente.id);
+          setContratoData(existente);
+          setTipo(existente.tipo || 'carta_aceite');
+          // Preenche o form com dados do contrato existente (para mostrar no passo 3)
+          if (existente.valor) set('valor', String(existente.valor));
+          if (existente.prazo) set('prazo', existente.prazo);
+          if (existente.pagamento) set('pagamento', existente.pagamento);
+          if (existente.garantia) set('garantia', existente.garantia);
+          const jaAssinadoPorMim = papel === 'prestador'
+            ? existente.assinado_prestador
+            : existente.assinado_cliente;
+          setJaSigned(!!jaAssinadoPorMim);
+          const comCalc = calcularComissaoValor(existente.valor || 0, comissoes || []);
+          setComissao(existente.comissao
+            ? { valor: existente.comissao, pct: calcularPct(existente.valor, existente.comissao) }
+            : comCalc);
+          setStep(3);
+        }
+      } catch {}
     }
+    setLoadingInicial(false);
   }
 
-  function calcComissao(val: string) {
-    const v = parseFloat(val) || 0;
-    if (!v) { setComissao({ valor: 0, pct: '' }); return; }
+  function calcularPct(valor: number, comissao: number): string {
+    if (!valor || !comissao) return '';
+    const pct = (comissao / valor) * 100;
+    return pct.toFixed(0) + '%';
+  }
+
+  function calcularComissaoValor(v: number, tabela: any[]) {
+    if (!v) return { valor: 0, pct: '' };
     let cv = 0, cp = '';
-    if (comissaoTabela.length) {
-      const f = comissaoTabela.find(c => v >= c.valor_min && (c.valor_max === null || v <= c.valor_max));
+    if (tabela.length) {
+      const f = tabela.find((c: any) => v >= c.valor_min && (c.valor_max === null || v <= c.valor_max));
       if (f) { cv = f.tipo === 'fixo' ? f.valor : (v * f.valor) / 100; cp = f.tipo === 'fixo' ? 'Taxa fixa' : f.valor + '%'; }
     } else {
       if (v <= 100) { cv = 10; cp = 'Taxa fixa'; }
@@ -63,7 +108,12 @@ export function Contrato() {
       else if (v <= 5000) { cv = v * 0.04; cp = '4%'; }
       else { cv = v * 0.03; cp = '3%'; }
     }
-    setComissao({ valor: cv, pct: cp });
+    return { valor: cv, pct: cp };
+  }
+
+  function calcComissao(val: string) {
+    const v = parseFloat(val) || 0;
+    setComissao(calcularComissaoValor(v, comissaoTabela));
   }
 
   async function gerarContrato() {
@@ -72,20 +122,43 @@ export function Contrato() {
     try {
       const result = await apiCall('/api/contratos', {
         method: 'POST',
-        body: { orc_id: orcId, tipo, valor: parseFloat(form.valor), comissao: comissao.valor, cont_nome: form.contNome, cont_cpf: form.contCpf, prest_nome: form.prestNome, prest_cpf: form.prestCpf, servico_desc: form.servico, prazo: form.prazo, pagamento: form.pagamento, garantia: form.garantia }
+        body: {
+          orc_id: orcId,
+          tipo,
+          valor: parseFloat(form.valor),
+          comissao: comissao.valor,
+          cont_nome: form.contNome,
+          cont_cpf: form.contCpf,
+          prest_nome: form.prestNome,
+          prest_cpf: form.prestCpf,
+          servico_desc: form.servico,
+          prazo: form.prazo || 'A combinar',
+          pagamento: form.pagamento || 'A combinar',
+          garantia: form.garantia || '90 dias',
+        }
       });
-      if (result.ok) { setContratoId(result.contrato.id); setStep(3); }
+      if (result.ok) {
+        setContratoId(result.contrato.id);
+        setContratoData(result.contrato);
+        setStep(3);
+      }
     } catch (e: any) { setErro(e.message); }
     setLoading(false);
   }
 
   async function assinar() {
-    setLoading(true);
+    setLoading(true); setErro('');
     try {
-      const ip = await fetch('https://api.ipify.org?format=json').then(r => r.json()).then(d => d.ip).catch(() => 'unknown');
+      const ip = await fetch('https://api.ipify.org?format=json')
+        .then(r => r.json()).then(d => d.ip).catch(() => 'unknown');
       await apiCall(`/api/contratos/${contratoId}/assinar`, {
         method: 'POST',
-        body: { parte: 'cliente', ip, cpf_verificado: tipo === 'servico_seguro' && cpfSeguro.length === 11, biometria_verificada: false }
+        body: {
+          parte: papel,
+          ip,
+          cpf_verificado: tipo === 'servico_seguro' && cpfSeguro.length === 11,
+          biometria_verificada: false,
+        }
       });
       setConcluido(true);
     } catch (e: any) { setErro(e.message); }
@@ -94,18 +167,48 @@ export function Contrato() {
 
   const fmtBRL = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
+  const comFmt = fmtBRL(comissao.valor);
+  const garantia = contratoData?.garantia || form.garantia || '90 dias';
+  const pagamento = contratoData?.pagamento || form.pagamento || 'A combinar';
+  const prazo = contratoData?.prazo || form.prazo || 'A combinar';
+
+  const clausulas = [
+    ['1. OBRIGAÇÕES DO PRESTADOR', 'O prestador compromete-se a executar o serviço descrito com qualidade, pontualidade e dentro do prazo estipulado, utilizando materiais e técnicas adequadas ao escopo contratado.'],
+    ['2. OBRIGAÇÕES DO CONTRATANTE', 'O contratante compromete-se a efetuar o pagamento conforme acordado e a disponibilizar acesso ao local do serviço nos horários combinados, bem como fornecer todas as informações necessárias à execução.'],
+    ['3. GARANTIA', `O prestador garante o serviço executado pelo período de ${garantia} a partir da data de conclusão, comprometendo-se a corrigir eventuais defeitos decorrentes da execução sem custo adicional.`],
+    ['4. RESCISÃO', 'Em caso de desistência após assinatura deste contrato, a parte desistente fica sujeita a multa de 20% sobre o valor total do serviço, salvo acordo mútuo entre as partes.'],
+    ['5. COMISSÃO DA PLATAFORMA', `O PRESTADOR compromete-se a pagar à Serviço Seguro Plataforma Digital LTDA a comissão de ${comFmt} (${comissao.pct || calcularPct(parseFloat(form.valor||'0'), comissao.valor)}), no prazo máximo de 5 (cinco) dias úteis após a conclusão do serviço. O não pagamento implicará suspensão do perfil e multa de 2% ao mês.`],
+    ['6. MEDIAÇÃO', 'A plataforma Serviço Seguro atuará como mediadora em caso de disputas, tendo acesso ao histórico completo das interações, acordos e documentos registrados na plataforma.'],
+    ['7. CUSTÓDIA DIGITAL', 'Todas as interações entre as partes realizadas pela plataforma ficam registradas com timestamp e hash criptográfico, constituindo prova eletrônica nos termos da Lei 14.063/2020.'],
+    ['8. FORO', 'Fica eleito o foro da comarca de Santa Maria/RS para dirimir quaisquer controvérsias oriundas deste instrumento, com renúncia expressa a qualquer outro, por mais privilegiado que seja.'],
+  ];
+
+  if (loadingInicial) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
   if (concluido) return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
       <div className="bg-white rounded-2xl border p-8 max-w-md w-full text-center">
         <div className="text-5xl mb-4">🎉</div>
-        <h2 className="text-2xl font-bold text-primary mb-2">{tipo === 'carta_aceite' ? '📜 Carta Aceite Assinada!' : '🛡️ Contrato Seguro Assinado!'}</h2>
-        <p className="text-muted-foreground mb-6">Contrato registrado com validade jurídica. Código: <strong className="text-primary">{orcCodigo}</strong></p>
-        <div className="flex gap-3 justify-center">
-          <a href={`${import.meta.env.VITE_API_URL}/api/contratos/${contratoId}/pdf`} target="_blank"
+        <h2 className="text-2xl font-bold text-primary mb-2">
+          {tipo === 'carta_aceite' ? '📜 Carta Aceite Assinada!' : '🛡️ Contrato Seguro Assinado!'}
+        </h2>
+        <p className="text-muted-foreground mb-6">
+          Assinatura registrada com validade jurídica.
+        </p>
+        <div className="flex gap-3 justify-center flex-wrap">
+          <a href={`${API_URL}/api/contratos/${contratoId}/pdf`} target="_blank" rel="noreferrer"
             className="inline-flex items-center gap-2 bg-primary text-white px-5 py-2.5 rounded-xl font-semibold text-sm hover:bg-primary/90">
             <Download className="h-4 w-4" /> Baixar PDF
           </a>
-          <Link to="/" className="inline-flex items-center gap-2 border border-border px-5 py-2.5 rounded-xl font-semibold text-sm hover:bg-slate-50">← Voltar</Link>
+          <Link to="/" className="inline-flex items-center gap-2 border border-border px-5 py-2.5 rounded-xl font-semibold text-sm hover:bg-slate-50">
+            ← Voltar
+          </Link>
         </div>
       </div>
     </div>
@@ -117,18 +220,22 @@ export function Contrato() {
         <Link to="/" className="text-white/70 hover:text-white"><ArrowLeft className="h-5 w-5" /></Link>
         <Logo className="h-8" />
         <div className="flex-1">
-          <div className="font-bold text-white text-sm">Gerar Contrato</div>
-          <div className="text-white/60 text-xs">{orcCodigo}</div>
+          <div className="font-bold text-white text-sm">Contrato Digital</div>
+          <div className="text-white/60 text-xs">
+            {papel === 'prestador' ? '👷 Profissional' : '👤 Cliente'}
+          </div>
         </div>
       </div>
 
       <div className="max-w-2xl mx-auto p-4">
-        {/* STEPS */}
-        <div className="flex gap-1 mb-6 mt-2">
-          {[1,2,3].map(i => (
-            <div key={i} className={`flex-1 h-1.5 rounded-full transition-all ${step >= i ? 'bg-primary' : 'bg-border'}`} />
-          ))}
-        </div>
+        {/* STEPS — só mostrar se não for contrato existente */}
+        {!contratoData && (
+          <div className="flex gap-1 mb-6 mt-2">
+            {[1,2,3].map(i => (
+              <div key={i} className={`flex-1 h-1.5 rounded-full transition-all ${step >= i ? 'bg-primary' : 'bg-border'}`} />
+            ))}
+          </div>
+        )}
 
         {erro && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-xl mb-4">❌ {erro}</div>}
 
@@ -208,60 +315,147 @@ export function Contrato() {
           </div>
         )}
 
-        {/* STEP 3: ASSINAR */}
+        {/* STEP 3: VER E ASSINAR */}
         {step === 3 && (
-          <div className="bg-white rounded-2xl border p-6">
-            <h2 className="font-bold text-primary text-lg mb-4">✍️ Assinar Contrato</h2>
+          <div className="space-y-4">
+            {/* Cabeçalho do contrato */}
+            <div className="bg-white rounded-2xl border p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <FileText className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <h2 className="font-bold text-primary text-lg">
+                    {tipo === 'carta_aceite' ? '📜 Carta Aceite' : '🛡️ Contrato Seguro'}
+                  </h2>
+                  <p className="text-xs text-muted-foreground">Leia com atenção antes de assinar</p>
+                </div>
+                <a href={`${API_URL}/api/contratos/${contratoId}/pdf`} target="_blank" rel="noreferrer"
+                  className="ml-auto inline-flex items-center gap-1.5 text-xs border border-border px-3 py-1.5 rounded-lg font-semibold hover:bg-slate-50 transition">
+                  <Download className="h-3.5 w-3.5" /> PDF
+                </a>
+              </div>
 
-            <div className="bg-slate-50 border border-border rounded-xl p-4 mb-5 text-sm">
-              <div className="grid grid-cols-2 gap-3">
-                {[['Tipo', tipo === 'carta_aceite' ? '📜 Carta Aceite' : '🛡️ Contrato Seguro'],
-                  ['Contratante', form.contNome], ['Prestador', form.prestNome],
-                  ['Valor', fmtBRL(parseFloat(form.valor)||0)],
-                  ['Comissão', fmtBRL(comissao.valor)], ['Pagamento', form.pagamento]].map(([l,v]) => (
-                  <div key={l}><div className="text-xs text-muted-foreground mb-0.5">{l}</div><div className="font-semibold">{v}</div></div>
+              {/* Resumo */}
+              <div className="bg-slate-50 rounded-xl p-4 text-sm grid grid-cols-2 gap-3">
+                {[
+                  ['Tipo', tipo === 'carta_aceite' ? '📜 Carta Aceite' : '🛡️ Contrato Seguro'],
+                  ['Contratante', form.contNome || contratoData?.cont_nome || '—'],
+                  ['Prestador', form.prestNome || contratoData?.prest_nome || '—'],
+                  ['Valor total', fmtBRL(parseFloat(String(contratoData?.valor || form.valor || 0)))],
+                  ['Comissão plataforma', comFmt],
+                  ['Prazo', prazo],
+                  ['Pagamento', pagamento],
+                  ['Garantia', garantia],
+                ].map(([l, v]) => (
+                  <div key={l}>
+                    <div className="text-xs text-muted-foreground mb-0.5">{l}</div>
+                    <div className="font-semibold text-sm">{v}</div>
+                  </div>
                 ))}
               </div>
             </div>
 
-            {tipo === 'carta_aceite' ? (
-              <div>
-                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-700 mb-4">
-                  📜 Ao marcar e clicar em assinar, você concorda eletronicamente com todos os termos. Lei 14.063/2020.
+            {/* Cláusulas */}
+            <div className="bg-white rounded-2xl border overflow-hidden">
+              <button
+                onClick={() => setMostrarClausulas(!mostrarClausulas)}
+                className="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-slate-50 transition">
+                <span className="font-bold text-primary">📋 Cláusulas e Condições</span>
+                {mostrarClausulas ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+              </button>
+              {mostrarClausulas && (
+                <div className="px-6 pb-6 space-y-4 max-h-80 overflow-y-auto border-t pt-4">
+                  {clausulas.map(([titulo, texto]) => (
+                    <div key={titulo}>
+                      <p className="text-xs font-bold text-primary mb-1">{titulo}</p>
+                      <p className="text-xs text-muted-foreground leading-relaxed">{texto}</p>
+                    </div>
+                  ))}
                 </div>
-                <label className="flex items-start gap-3 mb-5 cursor-pointer">
-                  <input type="checkbox" checked={aceite} onChange={e => setAceite(e.target.checked)} className="mt-1 accent-primary" />
-                  <span className="text-sm text-muted-foreground">Li e concordo com todos os termos deste contrato. As informações são verdadeiras.</span>
-                </label>
-                <button onClick={assinar} disabled={!aceite || loading}
-                  className="w-full py-3.5 bg-success text-white rounded-xl font-bold hover:bg-success/90 disabled:opacity-50 transition-colors">
-                  {loading ? 'Assinando...' : '✅ Assinar Contrato'}
-                </button>
-              </div>
-            ) : (
-              <div>
-                <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-sm text-green-700 mb-4">
-                  🛡️ Contrato Seguro requer verificação de CPF e biometria facial.
+              )}
+            </div>
+
+            {/* Status de assinaturas — só mostrar se contrato existente */}
+            {contratoData && (
+              <div className="bg-white rounded-2xl border p-4">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Status das assinaturas</p>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className={`px-3 py-2.5 rounded-xl ${contratoData.assinado_cliente ? 'bg-green-50 text-green-700' : 'bg-slate-50 text-muted-foreground'}`}>
+                    👤 Cliente: {contratoData.assinado_cliente
+                      ? `✓ Assinado ${contratoData.assinado_cliente_em ? new Date(contratoData.assinado_cliente_em).toLocaleDateString('pt-BR') : ''}`
+                      : 'Aguardando'}
+                  </div>
+                  <div className={`px-3 py-2.5 rounded-xl ${contratoData.assinado_prestador ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'}`}>
+                    👷 Prestador: {contratoData.assinado_prestador
+                      ? `✓ Assinado ${contratoData.assinado_prestador_em ? new Date(contratoData.assinado_prestador_em).toLocaleDateString('pt-BR') : ''}`
+                      : 'Aguardando'}
+                  </div>
                 </div>
-                <div><label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Confirme seu CPF</label>
-                  <input type="text" value={cpfSeguro} onChange={e => setCpfSeguro(e.target.value.replace(/\D/g,''))} placeholder="00000000000" maxLength={11}
-                    className="w-full border border-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-primary mb-4" />
-                </div>
-                <Link to={`/biometria?retorno=contrato&contrato=${contratoId}`}
-                  className="w-full py-3 bg-primary text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 mb-3 hover:bg-primary/90">
-                  🤳 Verificar identidade (biometria)
-                </Link>
-                <label className="flex items-start gap-3 mb-4 cursor-pointer">
-                  <input type="checkbox" checked={aceite} onChange={e => setAceite(e.target.checked)} className="mt-1 accent-primary" />
-                  <span className="text-sm text-muted-foreground">Identidade verificada. Li e concordo com todos os termos.</span>
-                </label>
-                <button onClick={assinar} disabled={!aceite || cpfSeguro.length !== 11 || loading}
-                  className="w-full py-3.5 bg-success text-white rounded-xl font-bold hover:bg-success/90 disabled:opacity-50 transition-colors">
-                  {loading ? 'Assinando...' : '🛡️ Assinar Contrato Seguro'}
-                </button>
               </div>
             )}
-            <button onClick={() => setStep(2)} className="w-full mt-3 py-2.5 border border-border rounded-xl text-sm font-semibold hover:bg-slate-50">← Voltar</button>
+
+            {/* Área de assinatura */}
+            <div className="bg-white rounded-2xl border p-6">
+              {jaSigned ? (
+                <div className="text-center py-4">
+                  <CheckCircle2 className="mx-auto text-green-500 mb-3" size={36} />
+                  <p className="font-bold text-gray-800">Você já assinou este contrato!</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {papel === 'prestador'
+                      ? (contratoData?.assinado_cliente ? 'O cliente também assinou. Contrato válido!' : 'Aguardando assinatura do cliente.')
+                      : (contratoData?.assinado_prestador ? 'O profissional também assinou. Contrato válido!' : 'Aguardando assinatura do profissional.')}
+                  </p>
+                  <a href={`${API_URL}/api/contratos/${contratoId}/pdf`} target="_blank" rel="noreferrer"
+                    className="mt-4 inline-flex items-center gap-2 bg-primary text-white px-5 py-2.5 rounded-xl font-semibold text-sm hover:bg-primary/90">
+                    <Download className="h-4 w-4" /> Baixar PDF do contrato
+                  </a>
+                </div>
+              ) : tipo === 'carta_aceite' ? (
+                <div>
+                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-700 mb-4">
+                    📜 Ao marcar e clicar em assinar, você concorda eletronicamente com todos os termos acima. Lei 14.063/2020.
+                  </div>
+                  <label className="flex items-start gap-3 mb-5 cursor-pointer">
+                    <input type="checkbox" checked={aceite} onChange={e => setAceite(e.target.checked)} className="mt-1 accent-primary" />
+                    <span className="text-sm text-muted-foreground">Li e concordo com todas as cláusulas deste contrato. As informações prestadas são verdadeiras.</span>
+                  </label>
+                  {erro && <p className="text-xs text-red-500 mb-3">{erro}</p>}
+                  <button onClick={assinar} disabled={!aceite || loading}
+                    className="w-full py-3.5 bg-success text-white rounded-xl font-bold hover:bg-success/90 disabled:opacity-50 transition-colors">
+                    {loading ? 'Assinando...' : '✅ Assinar Contrato'}
+                  </button>
+                </div>
+              ) : (
+                <div>
+                  <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-sm text-green-700 mb-4">
+                    🛡️ Contrato Seguro requer verificação de CPF e biometria facial.
+                  </div>
+                  <div className="mb-3">
+                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Confirme seu CPF</label>
+                    <input type="text" value={cpfSeguro} onChange={e => setCpfSeguro(e.target.value.replace(/\D/g,''))} placeholder="00000000000" maxLength={11}
+                      className="w-full border border-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-primary mb-4" />
+                  </div>
+                  <Link to={`/biometria?retorno=contrato&contrato=${contratoId}`}
+                    className="w-full py-3 bg-primary text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 mb-3 hover:bg-primary/90">
+                    🤳 Verificar identidade (biometria)
+                  </Link>
+                  <label className="flex items-start gap-3 mb-4 cursor-pointer">
+                    <input type="checkbox" checked={aceite} onChange={e => setAceite(e.target.checked)} className="mt-1 accent-primary" />
+                    <span className="text-sm text-muted-foreground">Identidade verificada. Li e concordo com todos os termos.</span>
+                  </label>
+                  {erro && <p className="text-xs text-red-500 mb-3">{erro}</p>}
+                  <button onClick={assinar} disabled={!aceite || cpfSeguro.length !== 11 || loading}
+                    className="w-full py-3.5 bg-success text-white rounded-xl font-bold hover:bg-success/90 disabled:opacity-50 transition-colors">
+                    {loading ? 'Assinando...' : '🛡️ Assinar Contrato Seguro'}
+                  </button>
+                </div>
+              )}
+
+              {!contratoData && (
+                <button onClick={() => setStep(2)} className="w-full mt-3 py-2.5 border border-border rounded-xl text-sm font-semibold hover:bg-slate-50">← Voltar</button>
+              )}
+            </div>
           </div>
         )}
       </div>
