@@ -16,6 +16,7 @@ const usuariosRoutes = require('./routes/usuarios');
 const servicosRoutes = require('./routes/servicos');
 const adminRoutes = require('./routes/admin');
 const chatRoutes = require('./routes/chat');
+const avaliarRoutes = require('./routes/avaliar');
 
 // Jobs
 const { iniciarJobs } = require('./jobs');
@@ -61,6 +62,7 @@ app.use('/api/usuarios', usuariosRoutes);
 app.use('/api/servicos', servicosRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/avaliar', avaliarRoutes);
 
 // ── ERROR HANDLER ─────────────────────────────────────────────
 app.use((err, req, res, next) => {

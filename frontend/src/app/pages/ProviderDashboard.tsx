@@ -41,6 +41,7 @@ export function ProviderDashboard() {
   const [salvando, setSalvando] = useState(false);
   const [erroForm, setErroForm] = useState('');
   const [uploadingFoto, setUploadingFoto] = useState(false);
+  const [concluindoOrc, setConcluindoOrc] = useState<string | null>(null);
 
   async function uploadFoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -115,6 +116,19 @@ export function ProviderDashboard() {
       carregarTudo();
     } catch (e: any) { setErroForm(e.message); }
     setSalvando(false);
+  }
+
+  async function marcarConcluido(orcId: string) {
+    if (!confirm('Confirmar que o serviço foi concluído? Isso enviará um link de avaliação para você e para o cliente via WhatsApp.')) return;
+    setConcluindoOrc(orcId);
+    try {
+      await apiCall(`/api/avaliar/concluir/${orcId}`, { method: 'POST' });
+      alert('✅ Serviço marcado como concluído! Os links de avaliação foram enviados por WhatsApp.');
+      carregarTudo();
+    } catch (e: any) {
+      alert('Erro: ' + (e.message || 'Não foi possível marcar como concluído.'));
+    }
+    setConcluindoOrc(null);
   }
 
   async function toggleServico(id: string, ativo: boolean) {
@@ -558,6 +572,14 @@ export function ProviderDashboard() {
                               className="text-center text-xs px-4 py-2 border border-border rounded-xl font-semibold hover:bg-slate-50 transition">
                               📄 Baixar PDF
                             </a>
+                            {ambosAssinaram && c.orcs?.status === 'CONTRATO ASSINADO' && (
+                              <button
+                                onClick={() => marcarConcluido(c.orc_id)}
+                                disabled={concluindoOrc === c.orc_id}
+                                className="text-center text-xs px-4 py-2 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 transition disabled:opacity-50">
+                                {concluindoOrc === c.orc_id ? '⏳...' : '✅ Marcar como concluído'}
+                              </button>
+                            )}
                           </div>
                         </div>
                         {/* Detalhes assinaturas */}

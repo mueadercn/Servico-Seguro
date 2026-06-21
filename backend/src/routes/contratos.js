@@ -210,7 +210,7 @@ router.get('/prestador/:prestadorId', async (req, res) => {
     if (!orcIds.length) return res.json([]);
     const { data, error } = await supabase
       .from('contratos')
-      .select('*, orcs(codigo, nome_cliente, resumo_anamnese)')
+      .select('*, orcs(codigo, nome_cliente, resumo_anamnese, status, servico_concluido)')
       .in('orc_id', orcIds)
       .order('criado_em', { ascending: false });
     if (error) throw error;

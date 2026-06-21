@@ -11,6 +11,7 @@ import { Contrato } from "./pages/Contrato";
 import { Biometria } from "./pages/Biometria";
 import { Admin } from "./pages/Admin";
 import { Chat } from "./pages/Chat";
+import { Avaliar } from "./pages/Avaliar";
 import { NotFound } from "./pages/NotFound";
 
 export const router = createBrowserRouter([
@@ -30,6 +31,7 @@ export const router = createBrowserRouter([
       { path: "admin", Component: Admin },
       { path: "admin/*", Component: Admin },
       { path: "chat/:token", Component: Chat },
+      { path: "avaliar/:token", Component: Avaliar },
       { path: "*", Component: NotFound },
     ],
   },
