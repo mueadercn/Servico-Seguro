@@ -443,7 +443,7 @@ async function mostrarOrcsCliente(numero, telefone) {
 
   const { data: orcs } = await supabase
     .from('orcs')
-    .select('codigo, status, servicos(titulo)')
+    .select('id, codigo, status, servicos(titulo)')
     .or(`telefone_cliente.eq.${numLimpo},telefone_cliente.eq.+55${numLimpo}`)
     .not('status', 'in', '("ENCERRADO","NÃO FECHOU","CANCELADO","CONTRATO ASSINADO")')
     .order('criado_em', { ascending: false })
@@ -457,6 +457,19 @@ async function mostrarOrcsCliente(numero, telefone) {
     );
     return;
   }
+
+  // Buscar links de chat ativos para esses ORCs
+  const orcIds = orcs.map(o => o.id);
+  const { data: chats } = await supabase
+    .from('chat_negociacao')
+    .select('orc_id, link_token')
+    .in('orc_id', orcIds)
+    .neq('status', 'finalizado');
+
+  const chatPorOrc = {};
+  (chats || []).forEach(c => { chatPorOrc[c.orc_id] = c.link_token; });
+
+  const frontendUrl = process.env.FRONTEND_URL || 'https://venerable-kitten-a7b2cd.netlify.app';
 
   const statusLabel = {
     'NOVO': '🆕 Novo',
@@ -473,23 +486,20 @@ async function mostrarOrcsCliente(numero, telefone) {
     'DIVERGÊNCIA DE VALOR': '⚠️ Verificando valores',
   };
 
-  // ORCs que o cliente pode cancelar (prestador ainda não respondeu)
-  const cancelaveis = ['ANAMNESE CONCLUÍDA', 'PRESTADOR NOTIFICADO', 'AGUARDANDO PRESTADOR', 'SEM RESPOSTA PRESTADOR'];
-
   const lista = orcs.map((o, i) => {
-    const podeCancelar = cancelaveis.includes(o.status);
+    const linkToken = chatPorOrc[o.id];
+    const linkChat = linkToken
+      ? `\n   💬 ${frontendUrl}/chat/${linkToken}?papel=cliente`
+      : '';
     return `${i + 1}️⃣ *${o.codigo}*\n` +
-    `🔧 ${o.servicos?.titulo || 'Serviço'}\n` +
-    `${statusLabel[o.status] || o.status}` +
-    (podeCancelar ? `\n   _Para cancelar: responda "Cancelar ${i + 1}"_` : '');
+      `🔧 ${o.servicos?.titulo || 'Serviço'}\n` +
+      `${statusLabel[o.status] || o.status}` +
+      linkChat;
   }).join('\n\n');
-
-  const temCancelavel = orcs.some(o => cancelaveis.includes(o.status));
 
   await enviarMensagem(numero,
     `Você tem *${orcs.length}* pedido${orcs.length > 1 ? 's' : ''} em andamento:\n\n` +
     `${lista}\n\n` +
-    (temCancelavel ? `⚠️ _Cancelamentos só são possíveis enquanto o profissional não tiver respondido._\n\n` : '') +
     `_Qualquer dúvida, estamos aqui!_ 😊`
   );
 }
