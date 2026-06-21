@@ -179,6 +179,137 @@ router.post('/:token/upload', async (req, res) => {
   res.json({ url: urlData.publicUrl });
 });
 
+// ── CRIAR CONTRATO A PARTIR DO CHAT ──────────────────────────
+router.post('/:token/contrato', async (req, res) => {
+  const { token } = req.params;
+  const { valor, prazo, garantia, pagamento, tipo } = req.body;
+
+  if (!valor || !tipo) {
+    return res.status(400).json({ error: 'valor e tipo são obrigatórios' });
+  }
+
+  const { data: chat } = await supabase
+    .from('chat_negociacao')
+    .select('id, orc_id, status')
+    .eq('link_token', token)
+    .single();
+
+  if (!chat) return res.status(404).json({ error: 'Chat não encontrado' });
+  if (chat.status !== 'finalizado') {
+    return res.status(400).json({ error: 'Ambas as partes precisam confirmar finalização antes de gerar o contrato' });
+  }
+
+  // Buscar dados completos do ORC
+  const { data: orc } = await supabase
+    .from('orcs')
+    .select('*, prestadores(nome, cpf, telefone)')
+    .eq('id', chat.orc_id)
+    .single();
+
+  if (!orc) return res.status(404).json({ error: 'ORC não encontrado' });
+
+  // Verificar se já existe contrato para esse ORC
+  const { data: contratoExistente } = await supabase
+    .from('contratos')
+    .select('id')
+    .eq('orc_id', orc.id)
+    .maybeSingle();
+
+  if (contratoExistente) {
+    return res.json({ ok: true, contrato_id: contratoExistente.id, existente: true });
+  }
+
+  const crypto = require('crypto');
+  const hashDocumento = crypto.createHash('sha256')
+    .update(JSON.stringify({ orc_id: orc.id, valor, tipo, timestamp: new Date().toISOString() }))
+    .digest('hex');
+
+  const { data: contrato, error } = await supabase
+    .from('contratos')
+    .insert({
+      orc_id: orc.id,
+      tipo: tipo || 'carta_aceite',
+      valor: parseFloat(valor),
+      prazo: prazo || 'A combinar',
+      pagamento: pagamento || 'A combinar',
+      garantia: garantia || '90 dias',
+      hash_documento: hashDocumento,
+    })
+    .select()
+    .single();
+
+  if (error) return res.status(500).json({ error: error.message });
+
+  await supabase.from('orcs').update({ status: 'CONTRATO GERADO' }).eq('id', orc.id);
+
+  await supabase.from('custodia_log').insert({
+    orc_id: orc.id,
+    acao: 'CONTRATO_GERADO',
+    agente: 'chat',
+    dados: { tipo, valor, hash: hashDocumento, chat_token: token }
+  });
+
+  res.json({ ok: true, contrato_id: contrato.id });
+});
+
+// ── ASSINAR CONTRATO VIA CHAT ─────────────────────────────────
+router.post('/:token/contrato/assinar', async (req, res) => {
+  const { token } = req.params;
+  const { papel, ip } = req.body; // papel: 'cliente' | 'prestador'
+
+  if (!['cliente', 'prestador'].includes(papel)) {
+    return res.status(400).json({ error: 'papel deve ser cliente ou prestador' });
+  }
+
+  const { data: chat } = await supabase
+    .from('chat_negociacao')
+    .select('orc_id')
+    .eq('link_token', token)
+    .single();
+
+  if (!chat) return res.status(404).json({ error: 'Chat não encontrado' });
+
+  const { data: contrato } = await supabase
+    .from('contratos')
+    .select('*')
+    .eq('orc_id', chat.orc_id)
+    .single();
+
+  if (!contrato) return res.status(404).json({ error: 'Contrato não encontrado. Gere o contrato primeiro.' });
+
+  const timestamp = new Date().toISOString();
+  const update = papel === 'cliente'
+    ? { assinado_cliente: true, assinado_cliente_em: timestamp, ip_cliente: ip || 'desconhecido' }
+    : { assinado_prestador: true, assinado_prestador_em: timestamp, ip_prestador: ip || 'desconhecido' };
+
+  const { data: contratoAtualizado, error } = await supabase
+    .from('contratos')
+    .update(update)
+    .eq('id', contrato.id)
+    .select()
+    .single();
+
+  if (error) return res.status(500).json({ error: error.message });
+
+  await supabase.from('custodia_log').insert({
+    orc_id: chat.orc_id,
+    acao: `ASSINATURA_${papel.toUpperCase()}`,
+    agente: papel,
+    ip: ip || 'desconhecido',
+    dados: { timestamp, hash: contrato.hash_documento }
+  });
+
+  if (contratoAtualizado.assinado_cliente && contratoAtualizado.assinado_prestador) {
+    await supabase.from('orcs').update({ status: 'CONTRATO ASSINADO' }).eq('id', chat.orc_id);
+  }
+
+  res.json({
+    ok: true,
+    contrato: contratoAtualizado,
+    ambosAssinaram: contratoAtualizado.assinado_cliente && contratoAtualizado.assinado_prestador
+  });
+});
+
 // ── CRIAR CHAT (usado internamente pelo whatsapp.js) ──────────
 async function criarChatParaOrc(orcId) {
   const token = crypto.randomBytes(16).toString('hex');

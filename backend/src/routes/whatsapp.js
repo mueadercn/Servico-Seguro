@@ -330,20 +330,23 @@ async function handleAnamnese(sessao, numero, texto, temImagem = false) {
       ));
 
       // ── GERAR LINK DO CHAT ───────────────────────────────────
-      let linkChat = null;
+      let linkChatCliente = null;
+      let linkChatPrestador = null;
       try {
         const chatCriado = await criarChatParaOrc(novoOrc.id);
         const frontendUrl = process.env.FRONTEND_URL || 'https://classy-cucurucho-4e3455.netlify.app';
-        linkChat = `${frontendUrl}/chat/${chatCriado.link_token}`;
-        console.log(`[ORC] Link do chat gerado: ${linkChat}`);
+        const base = `${frontendUrl}/chat/${chatCriado.link_token}`;
+        linkChatCliente = `${base}?papel=cliente`;
+        linkChatPrestador = `${base}?papel=prestador`;
+        console.log(`[ORC] Links do chat gerados`);
       } catch (chatErr) {
         console.error('[ORC] Erro ao criar chat:', chatErr.message);
       }
 
       // ── ENVIAR LINK AO CLIENTE ───────────────────────────────
-      if (linkChat) {
+      if (linkChatCliente) {
         await enviarMensagem(numero,
-          `🔗 *Acesse o chat para negociar diretamente com o profissional:*\n\n${linkChat}\n\n` +
+          `🔗 *Acesse o chat para negociar diretamente com o profissional:*\n\n${linkChatCliente}\n\n` +
           `_Pelo chat você pode combinar horário, enviar fotos e fechar o contrato com segurança._`
         );
       }
@@ -368,8 +371,8 @@ async function handleAnamnese(sessao, numero, texto, temImagem = false) {
             `📅 Disponibilidade: ${dispCliente}\n\n` +
             `*Resumo:*\n${resumo || 'Detalhes a confirmar'}\n\n`;
 
-          if (linkChat) {
-            msgPrestador += `💬 *Acesse o chat para responder ao cliente:*\n${linkChat}`;
+          if (linkChatPrestador) {
+            msgPrestador += `💬 *Acesse o chat para responder ao cliente:*\n${linkChatPrestador}`;
           }
 
           const envioPrestador = await enviarMensagem(prestador.telefone, msgPrestador);
