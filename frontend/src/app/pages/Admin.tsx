@@ -111,27 +111,11 @@ export function Admin() {
   async function carregarMensagens(orcId: string) {
     setMsgLoading(true);
     try {
-      // Buscar o chat de negociação desse ORC
-      const { data: chat } = await supabase
-        .from('chat_negociacao')
-        .select('*')
-        .eq('orc_id', orcId)
-        .order('criado_em', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      // Chat via backend (bypassa RLS)
+      const { chat, mensagens: msgsChat } = await apiCall(`/api/chat/orc/${orcId}`);
       setChatDoOrc(chat || null);
-
-      if (chat?.id) {
-        const { data: msgs } = await supabase
-          .from('chat_mensagens')
-          .select('*')
-          .eq('chat_id', chat.id)
-          .order('criado_em', { ascending: true });
-        setMensagensChat(msgs || []);
-      } else {
-        setMensagensChat([]);
-      }
-      // Manter mensagens da anamnese também (conversa com IA)
+      setMensagensChat(msgsChat || []);
+      // Mensagens da anamnese (conversa com IA)
       const { data: msgsAnamnese } = await supabase
         .from('mensagens')
         .select('*')
