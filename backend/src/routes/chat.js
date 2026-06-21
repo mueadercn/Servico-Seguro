@@ -135,7 +135,7 @@ router.patch('/:token/status', async (req, res) => {
   const { token } = req.params;
   const { status } = req.body;
 
-  const statusValidos = ['conversando', 'aguardando_orcamento', 'orcamento_enviado'];
+  const statusValidos = ['conversando', 'aguardando_orcamento', 'orcamento_enviado', 'elaborando_contrato', 'contrato_gerado'];
   if (!statusValidos.includes(status)) {
     return res.status(400).json({ error: 'Status inválido' });
   }
@@ -244,8 +244,8 @@ router.post('/:token/contrato', async (req, res) => {
     .single();
 
   if (!chat) return res.status(404).json({ error: 'Chat não encontrado' });
-  if (chat.status !== 'finalizado') {
-    return res.status(400).json({ error: 'Ambas as partes precisam confirmar finalização antes de gerar o contrato' });
+  if (!['finalizado', 'elaborando_contrato'].includes(chat.status)) {
+    return res.status(400).json({ error: 'A negociação precisa ser finalizada antes de gerar o contrato' });
   }
 
   // Buscar dados completos do ORC
@@ -265,10 +265,22 @@ router.post('/:token/contrato', async (req, res) => {
     .maybeSingle();
 
   if (contratoExistente) {
+    // Marcar chat como contrato gerado e retornar
+    await supabase.from('chat_negociacao').update({ status: 'contrato_gerado' }).eq('link_token', token);
     return res.json({ ok: true, contrato_id: contratoExistente.id, existente: true });
   }
 
-  const crypto = require('crypto');
+  // Buscar percentual de comissão da plataforma
+  const { data: comissaoRow } = await supabase
+    .from('comissoes')
+    .select('valor')
+    .order('criado_em', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const percentualComissao = comissaoRow?.valor || 10;
+  const valorNum = parseFloat(valor);
+  const comissaoValor = parseFloat((valorNum * percentualComissao / 100).toFixed(2));
+
   const hashDocumento = crypto.createHash('sha256')
     .update(JSON.stringify({ orc_id: orc.id, valor, tipo, timestamp: new Date().toISOString() }))
     .digest('hex');
@@ -278,7 +290,8 @@ router.post('/:token/contrato', async (req, res) => {
     .insert({
       orc_id: orc.id,
       tipo: tipo || 'carta_aceite',
-      valor: parseFloat(valor),
+      valor: valorNum,
+      comissao: comissaoValor,
       prazo: prazo || 'A combinar',
       pagamento: pagamento || 'A combinar',
       garantia: garantia || '90 dias',
@@ -290,15 +303,16 @@ router.post('/:token/contrato', async (req, res) => {
   if (error) return res.status(500).json({ error: error.message });
 
   await supabase.from('orcs').update({ status: 'CONTRATO GERADO' }).eq('id', orc.id);
+  await supabase.from('chat_negociacao').update({ status: 'contrato_gerado' }).eq('link_token', token);
 
   await supabase.from('custodia_log').insert({
     orc_id: orc.id,
     acao: 'CONTRATO_GERADO',
     agente: 'chat',
-    dados: { tipo, valor, hash: hashDocumento, chat_token: token }
+    dados: { tipo, valor: valorNum, comissao: comissaoValor, percentual: percentualComissao, hash: hashDocumento, chat_token: token }
   });
 
-  res.json({ ok: true, contrato_id: contrato.id });
+  res.json({ ok: true, contrato_id: contrato.id, comissao: comissaoValor, percentual: percentualComissao });
 });
 
 // ── ASSINAR CONTRATO VIA CHAT ─────────────────────────────────

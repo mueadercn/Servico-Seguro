@@ -66,11 +66,12 @@ export function Chat() {
     carregarChat();
   }, [token]);
 
-  // Polling a cada 3s para novas mensagens (Supabase Realtime requer RLS configurado)
+  // Polling mensagens a cada 3s + estado do chat a cada 5s
   useEffect(() => {
     if (!chat?.id) return;
-    const interval = setInterval(buscarMensagens, 3000);
-    return () => clearInterval(interval);
+    const intMsg = setInterval(buscarMensagens, 3000);
+    const intChat = setInterval(buscarEstadoChat, 5000);
+    return () => { clearInterval(intMsg); clearInterval(intChat); };
   }, [chat?.id]);
 
   useEffect(() => {
@@ -128,6 +129,14 @@ export function Chat() {
       ultimaMsgRef.current = ultima;
       setMensagens(msgs);
       setTimeout(() => chatRef.current?.scrollTo(0, chatRef.current.scrollHeight), 100);
+    } catch { /* silencia */ }
+  }
+
+  async function buscarEstadoChat() {
+    if (!token) return;
+    try {
+      const data = await apiCall(`/api/chat/${token}`);
+      setChat(prev => prev ? { ...prev, status: data.status, finalizado_cliente: data.finalizado_cliente, finalizado_prestador: data.finalizado_prestador } : prev);
     } catch { /* silencia */ }
   }
 
@@ -229,6 +238,15 @@ export function Chat() {
     }
   }
 
+  async function abrirFormContrato() {
+    // Avisa o outro lado que o contrato está sendo elaborado
+    try {
+      await apiCall(`/api/chat/${token}/status`, { method: 'PATCH', body: { status: 'elaborando_contrato' } });
+      setChat(prev => prev ? { ...prev, status: 'elaborando_contrato' } : prev);
+    } catch { /* continua mesmo se falhar */ }
+    setPainelFinalizar(true);
+  }
+
   async function gerarContrato() {
     if (!formulario.valor) { setErroFinalizar('Informe o valor combinado.'); return; }
     try {
@@ -242,7 +260,8 @@ export function Chat() {
           tipo: 'carta_aceite',
         },
       });
-      window.location.href = `/contrato?orc=${chat?.orc_id}`;
+      setChat(prev => prev ? { ...prev, status: 'contrato_gerado' } : prev);
+      setPainelFinalizar(false);
     } catch (e: any) {
       setErroFinalizar(e.message || 'Erro ao gerar contrato.');
     }
@@ -371,12 +390,28 @@ export function Chat() {
       </div>
 
       {/* Rodapé */}
-      {chat.status === 'finalizado' ? (
+      {chat.status === 'contrato_gerado' ? (
+        <div className="bg-white border-t px-4 py-6 text-center max-w-2xl w-full mx-auto">
+          <CheckCircle2 className="mx-auto text-green-500 mb-2" size={32} />
+          <p className="font-semibold text-gray-800">Contrato gerado!</p>
+          <p className="text-sm text-gray-500 mt-1">Ambas as partes precisam assinar para formalizar.</p>
+          <a href={`/contrato?orc=${chat.orc_id}`}
+            className="mt-4 inline-block px-6 py-2.5 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 transition">
+            <FileText className="inline mr-2" size={16} />Assinar contrato
+          </a>
+        </div>
+      ) : chat.status === 'elaborando_contrato' && !painelFinalizar ? (
+        <div className="bg-white border-t px-4 py-6 text-center max-w-2xl w-full mx-auto">
+          <div className="animate-spin w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-3" />
+          <p className="font-semibold text-gray-700">Contrato sendo elaborado...</p>
+          <p className="text-sm text-gray-400 mt-1">Aguarde enquanto {outroNome} preenche os detalhes.</p>
+        </div>
+      ) : chat.status === 'finalizado' || chat.status === 'elaborando_contrato' ? (
         <div className="bg-white border-t px-4 py-6 text-center max-w-2xl w-full mx-auto">
           <CheckCircle2 className="mx-auto text-green-500 mb-2" size={32} />
           <p className="font-semibold text-gray-800">Negociação finalizada!</p>
-          <p className="text-sm text-gray-500 mt-1">Preencha os detalhes para gerar o contrato.</p>
-          <button onClick={() => setPainelFinalizar(true)}
+          <p className="text-sm text-gray-500 mt-1">Qualquer das partes pode gerar o contrato.</p>
+          <button onClick={abrirFormContrato}
             className="mt-4 px-6 py-2.5 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition">
             <FileText className="inline mr-2" size={16} />Gerar contrato
           </button>
