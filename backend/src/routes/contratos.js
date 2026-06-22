@@ -32,23 +32,12 @@ router.post('/', async (req, res) => {
     const hashDocumento = gerarHash(dadosContrato);
     dadosContrato.hashDocumento = hashDocumento;
 
-    // Bloquear duplicatas — um ORC só pode ter um contrato
-    if (orc_id) {
-      const { data: existente } = await supabase.from('contratos').select('id').eq('orc_id', orc_id).maybeSingle();
-      if (existente) {
-        return res.status(409).json({ ok: false, error: 'Já existe um contrato para este orçamento.', contrato_id: existente.id });
-      }
-    }
-
     // Salvar no banco
     const { data, error } = await supabase.from('contratos').insert({
       orc_id: orc_id || null,
       tipo,
       valor,
       comissao,
-      prazo: prazo || 'A combinar',
-      pagamento: pagamento || 'A combinar',
-      garantia: garantia || '90 dias',
       hash_documento: hashDocumento,
     }).select().single();
 
@@ -84,15 +73,20 @@ router.post('/', async (req, res) => {
 // POST /api/contratos/:id/assinar
 router.post('/:id/assinar', async (req, res) => {
   try {
-    const { parte, ip, cpf_verificado, biometria_verificada, user_agent, geolocalizacao, telefone } = req.body;
+    const { parte, ip, cpf_verificado, biometria_verificada } = req.body;
+    // parte: 'cliente' | 'prestador'
 
     const timestamp = new Date().toISOString();
     const update = parte === 'cliente'
       ? { assinado_cliente: true, assinado_cliente_em: timestamp, ip_cliente: ip }
       : { assinado_prestador: true, assinado_prestador_em: timestamp, ip_prestador: ip };
 
-    if (parte === 'cliente' && cpf_verificado !== undefined) update.cpf_verificado = cpf_verificado;
-    if (biometria_verificada !== undefined) update.biometria_verificada = biometria_verificada;
+    if (parte === 'cliente' && cpf_verificado !== undefined) {
+      update.cpf_verificado = cpf_verificado;
+    }
+    if (biometria_verificada !== undefined) {
+      update.biometria_verificada = biometria_verificada;
+    }
 
     const { data, error } = await supabase
       .from('contratos')
@@ -103,103 +97,67 @@ router.post('/:id/assinar', async (req, res) => {
 
     if (error) throw error;
 
-    // Log custódia com evidências digitais completas
+    // Log custódia
     await supabase.from('custodia_log').insert({
       orc_id: data.orc_id,
       acao: `ASSINATURA_${parte.toUpperCase()}`,
       agente: parte,
       ip,
-      dados: {
-        timestamp, cpf_verificado, biometria_verificada, hash: data.hash_documento,
-        user_agent: user_agent || null,
-        geolocalizacao: geolocalizacao || null,
-        telefone: telefone || null,
-      }
+      dados: { timestamp, cpf_verificado, biometria_verificada, hash: data.hash_documento }
     });
 
-    // Se ambos assinaram, atualizar ORC
+    // Se ambos assinaram, atualizar ORC e iniciar rastreamento de comissão
     if (data.assinado_cliente && data.assinado_prestador) {
       if (data.orc_id) {
-        await supabase.from('orcs').update({ status: 'CONTRATO ASSINADO' }).eq('id', data.orc_id);
+        await supabase.from('orcs').update({
+          status: 'CONTRATO ASSINADO'
+        }).eq('id', data.orc_id);
       }
 
+      // Marcar assinado_em e status_comissao pendente
+      await supabase.from('contratos').update({
+        assinado_em: new Date().toISOString(),
+        status_comissao: 'pendente'
+      }).eq('id', data.id);
+
+      // Enviar confirmação para ambos via WhatsApp
       const { data: orc } = await supabase
-        .from('orcs').select('*, prestadores(*)').eq('id', data.orc_id).single();
+        .from('orcs').select('*, prestadores(*)')
+        .eq('id', data.orc_id).single();
 
       if (orc) {
         const msgConcluido = `✅ Contrato assinado por ambas as partes!\n\n` +
           `📋 Código: ${orc.codigo}\n` +
-          `🛡️ Contrato de Prestação de Serviços\n\n` +
+          `🛡️ Tipo: ${data.tipo === 'carta_aceite' ? 'Carta Aceite' : 'Contrato Seguro'}\n\n` +
           `Bom serviço! _Serviço Seguro_ 🛡️`;
 
         if (orc.telefone_cliente) await enviarMensagem(orc.telefone_cliente, msgConcluido);
         if (orc.prestadores?.telefone) await enviarMensagem(orc.prestadores.telefone, msgConcluido);
+
+        // T+0: lembrete de comissão imediato ao prestador
+        try {
+          const { data: cfgTemplate } = await supabase
+            .from('configuracoes').select('valor').eq('chave', 'comissao_mensagem_template').maybeSingle();
+          const templateComissao = cfgTemplate?.valor || null;
+          const comissaoValor = data.comissao ? `R$ ${Number(data.comissao).toFixed(2)}` : 'o valor combinado';
+          const msgComissao = templateComissao
+            ? templateComissao
+                .replace('{NOME}', orc.prestadores?.nome || 'Prestador')
+                .replace('{VALOR}', comissaoValor)
+                .replace('{ORC}', orc.codigo || '')
+            : `💰 *Comissão Serviço Seguro*\n\n` +
+              `Parabéns, ${orc.prestadores?.nome}! O contrato *${orc.codigo}* foi assinado.\n\n` +
+              `A comissão da plataforma é de ${comissaoValor}.\n\n` +
+              `Por favor, realize o pagamento via PIX para confirmar sua parceria conosco.`;
+
+          if (orc.prestadores?.telefone) await enviarMensagem(orc.prestadores.telefone, msgComissao);
+        } catch (e) {
+          console.error('[Contrato] Erro ao enviar msg comissão T+0:', e.message);
+        }
       }
     }
 
     res.json({ ok: true, contrato: data, ambosAssinaram: data.assinado_cliente && data.assinado_prestador });
-  } catch (err) {
-    res.status(500).json({ ok: false, error: err.message });
-  }
-});
-
-// ── RETIFICAR CONTRATO ────────────────────────────────────────
-// PUT /api/contratos/:id/retificar
-router.put('/:id/retificar', async (req, res) => {
-  try {
-    const { valor, comissao, prazo, pagamento, garantia, servico_desc, retificado_por } = req.body;
-
-    const { data: atual, error: errBusca } = await supabase
-      .from('contratos').select('*').eq('id', req.params.id).single();
-
-    if (errBusca || !atual) return res.status(404).json({ ok: false, error: 'Contrato não encontrado.' });
-    if (atual.assinado_cliente && atual.assinado_prestador) {
-      return res.status(400).json({ ok: false, error: 'Contrato totalmente assinado não pode ser retificado.' });
-    }
-
-    const assinaturasCanceladas = [];
-    if (atual.assinado_cliente) assinaturasCanceladas.push('cliente');
-    if (atual.assinado_prestador) assinaturasCanceladas.push('prestador');
-
-    // Histórico de retificações
-    const retificacoes = Array.isArray(atual.retificacoes) ? atual.retificacoes : [];
-    retificacoes.push({
-      data: new Date().toISOString(),
-      por: retificado_por || 'desconhecido',
-      campos_antes: {
-        valor: atual.valor, prazo: atual.prazo, pagamento: atual.pagamento,
-        garantia: atual.garantia, comissao: atual.comissao,
-      },
-      assinaturas_canceladas: assinaturasCanceladas,
-    });
-
-    const { data, error } = await supabase.from('contratos').update({
-      valor: valor !== undefined ? parseFloat(valor) : atual.valor,
-      comissao: comissao !== undefined ? parseFloat(comissao) : atual.comissao,
-      prazo: prazo || atual.prazo,
-      pagamento: pagamento || atual.pagamento,
-      garantia: garantia || atual.garantia,
-      // Zerar assinaturas
-      assinado_cliente: false,
-      assinado_prestador: false,
-      assinado_cliente_em: null,
-      assinado_prestador_em: null,
-      ip_cliente: null,
-      ip_prestador: null,
-      cpf_verificado: false,
-      retificacoes,
-    }).eq('id', req.params.id).select().single();
-
-    if (error) throw error;
-
-    await supabase.from('custodia_log').insert({
-      orc_id: atual.orc_id,
-      acao: 'RETIFICACAO',
-      agente: retificado_por || 'usuario',
-      dados: { campos_alterados: { valor, prazo, pagamento, garantia }, assinaturas_canceladas: assinaturasCanceladas }
-    });
-
-    res.json({ ok: true, contrato: data });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
   }
@@ -222,46 +180,30 @@ router.get('/:id/pdf', async (req, res) => {
 
     const orc = contrato.orcs;
 
-    // Buscar logs de assinatura para evidências digitais
-    const { data: logs } = await supabase
-      .from('custodia_log')
-      .select('acao, dados, ip')
-      .eq('orc_id', orc?.id)
-      .in('acao', ['ASSINATURA_CLIENTE', 'ASSINATURA_PRESTADOR'])
-      .order('criado_em', { ascending: false });
-
-    const logCliente = logs?.find(l => l.acao === 'ASSINATURA_CLIENTE');
-    const logPrestador = logs?.find(l => l.acao === 'ASSINATURA_PRESTADOR');
-
     const dadosPDF = {
+      tipo: contrato.tipo,
       codigo: orc?.codigo || req.params.id,
       contNome: orc?.nome_cliente || 'Contratante',
       contCpf: orc?.usuarios?.cpf || '',
-      contTelefone: orc?.usuarios?.telefone || orc?.telefone_cliente || '',
       prestNome: orc?.prestadores?.nome || 'Prestador',
       prestCpf: orc?.prestadores?.cpf || '',
-      prestTelefone: orc?.prestadores?.telefone || '',
       servico: orc?.resumo_anamnese || 'Serviço contratado',
       valor: contrato.valor,
       comissaoValor: contrato.comissao,
       comissaoPct: calcularPct(contrato.valor, contrato.comissao),
-      prazo: contrato.prazo || 'A combinar',
-      pagamento: contrato.pagamento || 'Conforme acordado',
-      garantia: contrato.garantia || '90 dias',
+      prazo: 'A combinar',
+      pagamento: 'Conforme acordado',
+      garantia: '90 dias',
       dataGeracao: new Date(contrato.criado_em).toLocaleString('pt-BR'),
       hashDocumento: contrato.hash_documento,
       assinadoCliente: contrato.assinado_cliente,
       assinadoPrestador: contrato.assinado_prestador,
       ipCliente: contrato.ip_cliente,
       ipPrestador: contrato.ip_prestador,
-      timestampCliente: contrato.assinado_cliente_em ? new Date(contrato.assinado_cliente_em).toLocaleString('pt-BR') : null,
-      timestampPrestador: contrato.assinado_prestador_em ? new Date(contrato.assinado_prestador_em).toLocaleString('pt-BR') : null,
-      uaCliente: logCliente?.dados?.user_agent || null,
-      uaPrestador: logPrestador?.dados?.user_agent || null,
-      geoCliente: logCliente?.dados?.geolocalizacao || null,
-      geoPrestador: logPrestador?.dados?.geolocalizacao || null,
-      telCliente: logCliente?.dados?.telefone || null,
-      telPrestador: logPrestador?.dados?.telefone || null,
+      timestampCliente: contrato.assinado_cliente_em
+        ? new Date(contrato.assinado_cliente_em).toLocaleString('pt-BR') : null,
+      timestampPrestador: contrato.assinado_prestador_em
+        ? new Date(contrato.assinado_prestador_em).toLocaleString('pt-BR') : null,
     };
 
     const pdfBuffer = await gerarPDF(dadosPDF);
@@ -284,43 +226,6 @@ router.get('/:id/pdf', async (req, res) => {
   }
 });
 
-// ── CONTRATO POR ORC ─────────────────────────────────────────
-// GET /api/contratos/orc/:orcId
-router.get('/orc/:orcId', async (req, res) => {
-  try {
-    const { data, error } = await supabase
-      .from('contratos')
-      .select('*')
-      .eq('orc_id', req.params.orcId)
-      .maybeSingle();
-    if (error) throw error;
-    res.json(data || null);
-  } catch (err) {
-    res.status(500).json({ ok: false, error: err.message });
-  }
-});
-
-// ── CONTRATOS DO PRESTADOR ────────────────────────────────────
-// GET /api/contratos/prestador/:prestadorId
-router.get('/prestador/:prestadorId', async (req, res) => {
-  try {
-    const { prestadorId } = req.params;
-    const { data: orcs } = await supabase
-      .from('orcs').select('id').eq('prestador_id', prestadorId);
-    const orcIds = (orcs || []).map(o => o.id);
-    if (!orcIds.length) return res.json([]);
-    const { data, error } = await supabase
-      .from('contratos')
-      .select('*, orcs(codigo, nome_cliente, resumo_anamnese, status, servico_concluido)')
-      .in('orc_id', orcIds)
-      .order('criado_em', { ascending: false });
-    if (error) throw error;
-    res.json(data || []);
-  } catch (err) {
-    res.status(500).json({ ok: false, error: err.message });
-  }
-});
-
 // ── BUSCAR CONTRATO ───────────────────────────────────────────
 // GET /api/contratos/:id
 router.get('/:id', async (req, res) => {
@@ -338,40 +243,28 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// ── EDITAR CONTRATO (admin — somente não assinados) ──────────
-// PUT /api/contratos/:id
-router.put('/:id', async (req, res) => {
-  try {
-    const { tipo, valor, prazo, pagamento, garantia, comissao } = req.body;
-
-    const { data: atual, error: errBusca } = await supabase
-      .from('contratos').select('assinado_cliente, assinado_prestador').eq('id', req.params.id).single();
-
-    if (errBusca || !atual) return res.status(404).json({ ok: false, error: 'Contrato não encontrado.' });
-    if (atual.assinado_cliente || atual.assinado_prestador) {
-      return res.status(400).json({ ok: false, error: 'Não é possível editar um contrato já assinado por alguma das partes.' });
-    }
-
-    const update = {};
-    if (tipo) update.tipo = tipo;
-    if (valor !== undefined) update.valor = parseFloat(valor);
-    if (prazo) update.prazo = prazo;
-    if (pagamento) update.pagamento = pagamento;
-    if (garantia) update.garantia = garantia;
-    if (comissao !== undefined) update.comissao = parseFloat(comissao);
-
-    const { data, error } = await supabase.from('contratos').update(update).eq('id', req.params.id).select().single();
-    if (error) throw error;
-    res.json({ ok: true, contrato: data });
-  } catch (err) {
-    res.status(500).json({ ok: false, error: err.message });
-  }
-});
-
 function calcularPct(valor, comissao) {
   if (!valor || !comissao) return '';
   const pct = (comissao / valor * 100).toFixed(1);
   return `${pct}% sobre o valor do serviço`;
 }
+
+// ── CONTRATOS POR PRESTADOR ───────────────────────────────────
+// GET /api/contratos/prestador/:prestadorId
+router.get('/prestador/:prestadorId', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('contratos')
+      .select('id, valor, comissao, status_comissao, comissao_paga_em, assinado_cliente, assinado_prestador, assinado_em, criado_em, tipo, orcs(codigo, nome_cliente, prestador_id)')
+      .eq('orcs.prestador_id', req.params.prestadorId)
+      .order('criado_em', { ascending: false });
+    if (error) throw error;
+    // Filtrar apenas os que pertencem a esse prestador (JOIN Supabase não filtra automaticamente inline)
+    const meus = (data || []).filter(c => c.orcs?.prestador_id === req.params.prestadorId);
+    res.json(meus);
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
 
 module.exports = router;

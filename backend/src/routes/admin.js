@@ -255,35 +255,6 @@ router.post('/biometria/verificar', async (req, res) => {
 });
 
 // GET /api/admin/biometria — lista status de verificação
-// GET /api/admin/prestadores/:id/docs — gera URLs assinadas (1h) para selfie e documento
-router.get('/prestadores/:id/docs', async (req, res) => {
-  try {
-    const { data: p, error } = await supabase
-      .from('prestadores')
-      .select('selfie_url, doc_identidade_url')
-      .eq('id', req.params.id)
-      .single();
-    if (error) throw error;
-
-    async function assinar(url) {
-      if (!url) return null;
-      // Extrai o path relativo dentro do bucket
-      const match = url.match(/\/storage\/v1\/object\/public\/chat-arquivos\/(.+)/);
-      if (!match) return url;
-      const { data, error: sErr } = await supabase.storage
-        .from('chat-arquivos')
-        .createSignedUrl(match[1], 3600);
-      if (sErr) return null;
-      return data.signedUrl;
-    }
-
-    const [selfie, doc] = await Promise.all([assinar(p.selfie_url), assinar(p.doc_identidade_url)]);
-    res.json({ ok: true, selfie_url: selfie, doc_url: doc });
-  } catch (err) {
-    res.status(500).json({ ok: false, error: err.message });
-  }
-});
-
 router.get('/biometria', async (req, res) => {
   try {
     const { data, error } = await supabase
@@ -304,20 +275,48 @@ router.get('/biometria', async (req, res) => {
   }
 });
 
+// ── COMISSÕES PENDENTES (contratos) ───────────────────────────
+// GET /api/admin/comissoes-contratos
+router.get('/comissoes-contratos', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('contratos')
+      .select('id, comissao, status_comissao, comissao_paga_em, assinado_em, criado_em, orcs(codigo, nome_cliente, prestadores(nome, telefone))')
+      .in('status_comissao', ['pendente', 'pago'])
+      .eq('assinado_cliente', true)
+      .eq('assinado_prestador', true)
+      .order('criado_em', { ascending: false });
+    if (error) throw error;
+    res.json({ ok: true, comissoes: data || [] });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// PATCH /api/admin/comissoes-contratos/:id — marcar como pago ou isento
+router.patch('/comissoes-contratos/:id', async (req, res) => {
+  try {
+    const { status_comissao } = req.body;
+    if (!['pago', 'pendente', 'isento'].includes(status_comissao)) {
+      return res.status(400).json({ ok: false, error: 'Status inválido' });
+    }
+    const update = { status_comissao };
+    if (status_comissao === 'pago') update.comissao_paga_em = new Date().toISOString();
+    const { data, error } = await supabase.from('contratos').update(update).eq('id', req.params.id).select().single();
+    if (error) throw error;
+    res.json({ ok: true, contrato: data });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 // ── SUPORTE ───────────────────────────────────────────────────
-// POST /api/admin/suporte — público, qualquer visitante pode enviar
+// POST /api/admin/suporte — público, recebe mensagem de contato
 router.post('/suporte', async (req, res) => {
   try {
     const { nome, email, telefone, assunto, mensagem } = req.body;
-    if (!mensagem?.trim()) return res.status(400).json({ ok: false, error: 'Mensagem obrigatória' });
-    const { error } = await supabase.from('suporte_mensagens').insert({
-      nome: nome || null,
-      email: email || null,
-      telefone: telefone || null,
-      assunto: assunto || 'Contato',
-      mensagem: mensagem.trim(),
-      status: 'novo',
-    });
+    if (!mensagem) return res.status(400).json({ ok: false, error: 'Mensagem obrigatória' });
+    const { error } = await supabase.from('suporte_mensagens').insert({ nome, email, telefone, assunto, mensagem });
     if (error) throw error;
     res.json({ ok: true });
   } catch (err) {
@@ -325,27 +324,24 @@ router.post('/suporte', async (req, res) => {
   }
 });
 
-// GET /api/admin/suporte — lista para o admin
+// GET /api/admin/suporte
 router.get('/suporte', async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from('suporte_mensagens')
-      .select('*')
-      .order('criado_em', { ascending: false });
+    const { data, error } = await supabase.from('suporte_mensagens').select('*').order('criado_em', { ascending: false });
     if (error) throw error;
-    res.json({ ok: true, mensagens: data });
+    res.json({ ok: true, mensagens: data || [] });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
   }
 });
 
-// PATCH /api/admin/suporte/:id — atualiza status (novo → lido → resolvido)
+// PATCH /api/admin/suporte/:id
 router.patch('/suporte/:id', async (req, res) => {
   try {
     const { status } = req.body;
-    const { error } = await supabase.from('suporte_mensagens').update({ status }).eq('id', req.params.id);
+    const { data, error } = await supabase.from('suporte_mensagens').update({ status }).eq('id', req.params.id).select().single();
     if (error) throw error;
-    res.json({ ok: true });
+    res.json({ ok: true, mensagem: data });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
   }

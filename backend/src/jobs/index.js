@@ -3,7 +3,7 @@ const path = require('path');
 const supabase = require(path.join(__dirname, '../services/supabase'));
 const { enviarMensagem, templates } = require(path.join(__dirname, '../services/whatsapp'));
 
-const FRONTEND_URL = (process.env.FRONTEND_URL || 'https://servico-seguro.netlify.app').replace(/\/$/, '');
+const FRONTEND_URL = process.env.FRONTEND_URL || 'https://venerable-kitten-a7b2cd.netlify.app';
 
 // ── CONFIGURAÇÕES DO FOLLOW-UP (editáveis via /api/config, tabela `configuracoes`) ──
 // Cada uma tem um valor padrão caso ainda não exista na tabela (primeira vez rodando).
@@ -48,7 +48,10 @@ function iniciarJobs() {
   // Limpeza de sessões de anamnese abandonadas — a cada 6h
   cron.schedule('0 */6 * * *', limpezaSessoes);
 
-  console.log('[Jobs] ✅ 4 jobs registrados');
+  // Follow-up de comissões pendentes — todo dia às 10:00
+  cron.schedule('0 10 * * *', followUpComissoes, { timezone: 'America/Sao_Paulo' });
+
+  console.log('[Jobs] ✅ 5 jobs registrados');
 }
 
 // ── JOB 1: FOLLOW-UP PÓS-VISITA (sem alteração) ──────────────
@@ -255,6 +258,69 @@ async function followUpContratos() {
   }
 }
 
+// ── JOB 5: FOLLOW-UP DE COMISSÕES PENDENTES ──────────────────
+// Envia WhatsApp ao prestador lembrando de pagar a comissão
+// T+0 (na assinatura, via contratos.js), T+2 dias, T+3 dias, T+7 dias
+// Para quando status_comissao = 'pago' ou 'isento'
+async function followUpComissoes() {
+  console.log('[Job] Follow-up de comissões...');
+  try {
+    const agora = new Date();
+
+    // Buscar template configurável (ou usar padrão)
+    let templateComissao = null;
+    const { data: cfgTemplate } = await supabase
+      .from('configuracoes')
+      .select('valor')
+      .eq('chave', 'comissao_mensagem_template')
+      .maybeSingle();
+    templateComissao = cfgTemplate?.valor || null;
+
+    // Contratos assinados com comissão pendente
+    const { data: contratos } = await supabase
+      .from('contratos')
+      .select('*, orcs(codigo, nome_cliente, prestadores(nome, telefone))')
+      .eq('assinado_cliente', true)
+      .eq('assinado_prestador', true)
+      .eq('status_comissao', 'pendente');
+
+    const DIAS_LEMBRETE = [2, 3, 7]; // dias após assinatura para lembrar
+
+    for (const c of (contratos || [])) {
+      const orc = c.orcs;
+      const prestador = orc?.prestadores;
+      if (!prestador?.telefone) continue;
+
+      const dataAssinatura = new Date(c.assinado_em || c.criado_em);
+      const diasDesdeAssinatura = (agora - dataAssinatura) / 86400000;
+
+      // Verifica se hoje é um dos dias-alvo de lembrete
+      const ehDiaLembrete = DIAS_LEMBRETE.some(d => {
+        return diasDesdeAssinatura >= d && diasDesdeAssinatura < d + 1;
+      });
+
+      if (!ehDiaLembrete) continue;
+
+      const comissaoValor = c.comissao ? `R$ ${Number(c.comissao).toFixed(2)}` : 'o valor combinado';
+      const msg = templateComissao
+        ? templateComissao
+            .replace('{NOME}', prestador.nome || 'Prestador')
+            .replace('{VALOR}', comissaoValor)
+            .replace('{ORC}', orc?.codigo || '')
+        : `💰 *Comissão Serviço Seguro*\n\n` +
+          `Olá, ${prestador.nome}! Lembrando que o contrato *${orc?.codigo}* foi assinado.\n\n` +
+          `A comissão da plataforma é de ${comissaoValor}.\n\n` +
+          `Por favor, realize o pagamento via PIX para confirmar sua parceria conosco. ` +
+          `Em caso de dúvidas, entre em contato com o suporte.`;
+
+      await enviarMensagem(prestador.telefone, msg);
+      console.log(`[Job] Lembrete de comissão enviado para ${prestador.nome} (${orc?.codigo})`);
+    }
+  } catch (err) {
+    console.error('[Job] Erro follow-up comissões:', err.message);
+  }
+}
+
 // ── JOB 4: LIMPEZA DE SESSÕES DE ANAMNESE ABANDONADAS ────────
 // (antes vivia dentro do antigo job "verificarSemResposta"; o job de
 // limpeza semanal estava sem nenhuma lógica — agora faz isso de fato)
@@ -277,4 +343,4 @@ async function limpezaSessoes() {
   }
 }
 
-module.exports = { iniciarJobs, followUpPosVisita, followUpChats, followUpContratos, limpezaSessoes };
+module.exports = { iniciarJobs, followUpPosVisita, followUpChats, followUpContratos, limpezaSessoes, followUpComissoes };
