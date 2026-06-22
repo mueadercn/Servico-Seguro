@@ -1702,9 +1702,19 @@ export function Admin() {
                                         className="text-[11px] font-bold px-2.5 py-1 rounded-[8px] border border-[#e2e8f0] text-[#64748b] hover:bg-[#f1f5f9] transition-colors">
                                         Isento
                                       </button>
-                                      <button onClick={async () => { await apiCall(`/api/admin/comissoes-contratos/${c.id}/disparar`, 'POST'); alert('Mensagem enviada!'); }}
-                                        className="text-[11px] font-bold px-2.5 py-1 rounded-[8px] bg-[#E6F1FB] text-[#0C447C] hover:bg-[#d0e8f7] transition-colors">
-                                        Enviar WhatsApp
+                                      <button onClick={async (e) => {
+                                        const btn = e.currentTarget;
+                                        btn.disabled = true;
+                                        btn.textContent = 'Enviando...';
+                                        try {
+                                          const res = await fetch(`https://servi-o-seguro-production.up.railway.app/api/admin/comissoes-contratos/${c.id}/disparar`, { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+                                          const json = await res.json();
+                                          if (json.ok) { btn.textContent = '✓ Enviado!'; setTimeout(() => { btn.textContent = 'Disparo WhatsApp'; btn.disabled = false; }, 2500); }
+                                          else { alert('Erro: ' + (json.error || 'falha no envio')); btn.textContent = 'Disparo WhatsApp'; btn.disabled = false; }
+                                        } catch (err: any) { alert('Erro de conexão: ' + err.message); btn.textContent = 'Disparo WhatsApp'; btn.disabled = false; }
+                                      }}
+                                        className="text-[11px] font-bold px-2.5 py-1 rounded-[8px] bg-[#E6F1FB] text-[#0C447C] hover:bg-[#d0e8f7] transition-colors disabled:opacity-50">
+                                        Disparo WhatsApp
                                       </button>
                                     </>
                                   )}
