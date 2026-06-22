@@ -576,10 +576,10 @@ export function Home() {
             </div>
 
             <div className="p-5 space-y-4">
-              {(servicoSelecionado.aceita_orcamento_online || servicoSelecionado.prestadores?.aceita_orcamento_online) && (
+              {servicoSelecionado.prestadores?.aceita_orcamento_online && (
                 <div className="rounded-[12px] px-4 py-3 text-sm"
                   style={{ background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1d4ed8' }}>
-                  💬 <strong>Orçamento sem visita</strong> — com fotos e detalhes o profissional orça remotamente.
+                  ✅ <strong>Orçamento sem visita disponível</strong> — este profissional orça remotamente com fotos.
                 </div>
               )}
 
@@ -619,7 +619,12 @@ export function Home() {
                     </div>
                   )}
                   <div>
-                    <div className="font-[700]" style={{ color: '#030213' }}>{servicoSelecionado.prestadores?.nome}</div>
+                    <Link to={`/perfil/${servicoSelecionado.prestadores?.id}`}
+                      className="font-[700] hover:underline"
+                      style={{ color: '#030213' }}
+                      onClick={() => setServicoSelecionado(null)}>
+                      {servicoSelecionado.prestadores?.nome}
+                    </Link>
                     {servicoSelecionado.prestadores?.cidade && (
                       <div className="text-xs flex items-center gap-1 mt-0.5" style={{ color: '#717182' }}>
                         <MapPin className="h-3 w-3" />{servicoSelecionado.prestadores.cidade}
@@ -667,9 +672,6 @@ export function Home() {
                 </a>
               </div>
 
-              <p className="text-xs text-center" style={{ color: '#94a3b8' }}>
-                Ambos os canais são atendidos pela nossa IA 🤖
-              </p>
             </div>
           </div>
         </div>

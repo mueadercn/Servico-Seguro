@@ -2,6 +2,37 @@ const express = require('express');
 const router = express.Router();
 const supabase = require('../services/supabase');
 
+// ── VALIDAÇÕES ────────────────────────────────────────────────
+function validarCPF(cpf) {
+  const c = cpf.replace(/\D/g, '');
+  if (c.length !== 11 || /^(\d)\1+$/.test(c)) return false;
+  let sum = 0;
+  for (let i = 0; i < 9; i++) sum += parseInt(c[i]) * (10 - i);
+  let r = (sum * 10) % 11;
+  if (r === 10 || r === 11) r = 0;
+  if (r !== parseInt(c[9])) return false;
+  sum = 0;
+  for (let i = 0; i < 10; i++) sum += parseInt(c[i]) * (11 - i);
+  r = (sum * 10) % 11;
+  if (r === 10 || r === 11) r = 0;
+  return r === parseInt(c[10]);
+}
+
+function validarCNPJ(cnpj) {
+  const c = cnpj.replace(/\D/g, '');
+  if (c.length !== 14 || /^(\d)\1+$/.test(c)) return false;
+  const calc = (n, weights) => {
+    let sum = 0;
+    for (let i = 0; i < weights.length; i++) sum += parseInt(n[i]) * weights[i];
+    const r = sum % 11;
+    return r < 2 ? 0 : 11 - r;
+  };
+  return (
+    calc(c, [5,4,3,2,9,8,7,6,5,4,3,2]) === parseInt(c[12]) &&
+    calc(c, [6,5,4,3,2,9,8,7,6,5,4,3,2]) === parseInt(c[13])
+  );
+}
+
 // ── LOGIN PRESTADOR ───────────────────────────────────────────
 // POST /api/auth/prestador/login
 router.post('/prestador/login', async (req, res) => {
@@ -79,9 +110,18 @@ router.post('/contratante/login', async (req, res) => {
 // POST /api/auth/prestador/cadastro
 router.post('/prestador/cadastro', async (req, res) => {
   try {
-    const { nome, email, telefone, cpf, cidade, bio, aceita_online, senha, categorias } = req.body;
+    const { nome, email, telefone, cpf, cnpj, razao_social, tipo_pessoa, cidade, bio, aceita_online, senha, categorias } = req.body;
     if (!nome || !email || !telefone || !senha) {
       return res.status(400).json({ ok: false, error: 'Campos obrigatórios: nome, email, telefone, senha' });
+    }
+
+    // Validar documento
+    const tipoPessoa = tipo_pessoa || 'pf';
+    if (tipoPessoa === 'pf' && cpf) {
+      if (!validarCPF(cpf)) return res.status(400).json({ ok: false, error: 'CPF inválido. Verifique os dígitos.' });
+    }
+    if (tipoPessoa === 'pj' && cnpj) {
+      if (!validarCNPJ(cnpj)) return res.status(400).json({ ok: false, error: 'CNPJ inválido. Verifique os dígitos.' });
     }
 
     // Verificar email duplicado
@@ -94,7 +134,11 @@ router.post('/prestador/cadastro', async (req, res) => {
       .from('prestadores')
       .insert({
         nome, email: email.toLowerCase(), telefone,
-        cpf: cpf || null, cidade: cidade || 'Santa Maria',
+        cpf: tipoPessoa === 'pf' ? (cpf || null) : null,
+        cnpj: tipoPessoa === 'pj' ? (cnpj || null) : null,
+        razao_social: tipoPessoa === 'pj' ? (razao_social || nome) : null,
+        tipo_pessoa: tipoPessoa,
+        cidade: cidade || 'Santa Maria',
         estado: 'RS', bio: bio || null,
         aceita_orcamento_online: aceita_online || false,
         ativo: true, verificado: false
@@ -103,6 +147,13 @@ router.post('/prestador/cadastro', async (req, res) => {
 
     if (pErr) throw pErr;
     const prestadorId = pData[0].id;
+
+    // Associar categorias
+    if (categorias?.length) {
+      await supabase.from('prestador_categorias').insert(
+        categorias.map((cid) => ({ prestador_id: prestadorId, categoria_id: cid }))
+      );
+    }
 
     // Criar auth
     const senhaHash = Buffer.from(senha).toString('base64');
@@ -129,6 +180,10 @@ router.post('/contratante/cadastro', async (req, res) => {
     const { nome, email, telefone, cpf, cidade, senha } = req.body;
     if (!nome || !email || !telefone || !senha) {
       return res.status(400).json({ ok: false, error: 'Campos obrigatórios: nome, email, telefone, senha' });
+    }
+
+    if (cpf && !validarCPF(cpf)) {
+      return res.status(400).json({ ok: false, error: 'CPF inválido. Verifique os dígitos.' });
     }
 
     const { data: exist } = await supabase

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router';
 import { Send, CheckCircle2, FileText, Image, X, Mic, MicOff, Lock, Shield } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+import { supabase, getPrestador, getContratante } from '../../lib/supabase';
 import { apiCall } from '../../lib/supabase';
 
 const TEAL = 'oklch(0.6 0.118 184.704)';
@@ -92,6 +92,20 @@ export function Chat() {
 
   useEffect(() => {
     if (!token) return;
+    // Auth guard: se o papel já está na URL, exigir login
+    const papelUrl = getPapelFromUrl();
+    if (papelUrl) {
+      const p = getPrestador();
+      const c = getContratante();
+      if (papelUrl === 'prestador' && !p?.id) {
+        window.location.href = `/auth?redirect=/chat/${token}?papel=prestador&tipo=prestador`;
+        return;
+      }
+      if (papelUrl === 'cliente' && !c?.id) {
+        window.location.href = `/auth?redirect=/chat/${token}?papel=cliente`;
+        return;
+      }
+    }
     carregarChat();
   }, [token]);
 
@@ -275,7 +289,7 @@ export function Chat() {
           prazo: formulario.prazo || 'A combinar',
           garantia: formulario.garantia || '90 dias',
           pagamento: formulario.pagamento || 'A combinar',
-          tipo: 'carta_aceite',
+          tipo: 'contrato_padrao',
         },
       });
       setChat(prev => prev ? { ...prev, status: 'contrato_gerado' } : prev);

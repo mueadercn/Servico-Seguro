@@ -20,14 +20,15 @@ function gerarPDF(dadosContrato) {
     doc.on('error', reject);
 
     const {
-      tipo, codigo, contNome, contCpf, contTelefone, prestNome, prestCpf, prestTelefone,
+      codigo, contNome, contCpf, contTelefone, prestNome, prestCpf, prestTelefone,
       servico, valor, comissaoValor, comissaoPct,
       prazo, pagamento, garantia, dataGeracao, hashDocumento,
       assinadoCliente, assinadoPrestador, ipCliente, ipPrestador,
-      timestampCliente, timestampPrestador
+      timestampCliente, timestampPrestador,
+      uaCliente, uaPrestador, geoCliente, geoPrestador, telCliente, telPrestador,
     } = dadosContrato;
 
-    const tipoLabel = tipo === 'carta_aceite' ? 'CARTA ACEITE' : 'CONTRATO SEGURO';
+    const tipoLabel = 'CONTRATO DE PRESTAÇÃO DE SERVIÇOS';
     const AZUL = '#1B2F6E';
     const VERDE = '#1A7A4A';
 
@@ -158,8 +159,40 @@ function gerarPDF(dadosContrato) {
     doc.fillColor('#333').font('Helvetica-Bold').fontSize(8)
       .text('PRESTADOR DE SERVIÇO', 340, yAssinatura + 58);
 
+    // ── EVIDÊNCIAS DIGITAIS ───────────────────────────────────
+    if (assinadoCliente || assinadoPrestador) {
+      if (doc.y > 550) doc.addPage();
+      secao(doc, 'EVIDÊNCIAS DIGITAIS (Lei 14.063/2020)', AZUL);
+
+      if (assinadoCliente) {
+        doc.fillColor(AZUL).font('Helvetica-Bold').fontSize(9).text('ASSINATURA DO CONTRATANTE:');
+        if (timestampCliente) linha(doc, 'Timestamp', timestampCliente);
+        if (ipCliente) linha(doc, 'IP', ipCliente);
+        if (telCliente) linha(doc, 'Telefone', telCliente);
+        if (geoCliente) linha(doc, 'Geolocalização', `Lat ${geoCliente.lat?.toFixed(5)}, Lng ${geoCliente.lng?.toFixed(5)} (±${Math.round(geoCliente.accuracy || 0)}m)`);
+        if (uaCliente) {
+          doc.fillColor('#777').font('Helvetica').fontSize(8).text('User-Agent:', 50, doc.y);
+          doc.fillColor('#333').font('Courier').fontSize(7).text(uaCliente, { indent: 10, lineGap: 2 });
+        }
+        doc.moveDown(0.5);
+      }
+
+      if (assinadoPrestador) {
+        doc.fillColor(AZUL).font('Helvetica-Bold').fontSize(9).text('ASSINATURA DO PRESTADOR:');
+        if (timestampPrestador) linha(doc, 'Timestamp', timestampPrestador);
+        if (ipPrestador) linha(doc, 'IP', ipPrestador);
+        if (telPrestador) linha(doc, 'Telefone', telPrestador);
+        if (geoPrestador) linha(doc, 'Geolocalização', `Lat ${geoPrestador.lat?.toFixed(5)}, Lng ${geoPrestador.lng?.toFixed(5)} (±${Math.round(geoPrestador.accuracy || 0)}m)`);
+        if (uaPrestador) {
+          doc.fillColor('#777').font('Helvetica').fontSize(8).text('User-Agent:', 50, doc.y);
+          doc.fillColor('#333').font('Courier').fontSize(7).text(uaPrestador, { indent: 10, lineGap: 2 });
+        }
+        doc.moveDown(0.5);
+      }
+    }
+
     // ── HASH / RODAPÉ ─────────────────────────────────────────
-    doc.moveDown(5);
+    doc.moveDown(3);
     doc.rect(50, doc.y, doc.page.width - 100, 35).fill('#F7F9FC');
     doc.fillColor('#888').font('Courier').fontSize(7)
       .text(`🔒 Hash SHA-256: ${hashDocumento}`, 55, doc.y - 28, { width: doc.page.width - 110 });
