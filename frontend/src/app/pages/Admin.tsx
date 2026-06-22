@@ -73,6 +73,7 @@ export function Admin() {
   const [modalEditContrato, setModalEditContrato] = useState(false);
   const [editandoContratoId, setEditandoContratoId] = useState('');
   const [prestadorDetalhe, setPrestadorDetalhe] = useState<any>(null);
+  const [docsAssinados, setDocsAssinados] = useState<{ selfie_url: string | null; doc_url: string | null } | null>(null);
   const [formContrato, setFormContrato] = useState({ tipo: '', valor: '', prazo: '', pagamento: '', garantia: '', comissao: '' });
   const [erroContrato, setErroContrato] = useState('');
 
@@ -393,7 +394,16 @@ export function Admin() {
 
   async function toggleVerificado(id: string, atual: boolean) {
     await supabase.from('prestadores').update({ verificado: !atual }).eq('id', id);
-    carregarDados('biometria');
+    carregarDados('prestadores');
+  }
+
+  async function abrirDetalhe(p: any) {
+    setPrestadorDetalhe(p);
+    setDocsAssinados(null);
+    try {
+      const res = await apiCall(`/api/admin/prestadores/${p.id}/docs`);
+      if (res.ok) setDocsAssinados({ selfie_url: res.selfie_url, doc_url: res.doc_url });
+    } catch {}
   }
 
   const statusBadge = (s: string) => {
@@ -1299,7 +1309,7 @@ export function Admin() {
                           <td className={td}>
                             <div className="flex gap-2">
                               {(p.selfie_url || p.doc_identidade_url) && (
-                                <button onClick={() => setPrestadorDetalhe(p)}
+                                <button onClick={() => abrirDetalhe(p)}
                                   className="text-xs px-3 py-1 rounded-[8px] font-semibold"
                                   style={{ background: '#E6F1FB', color: '#0C447C' }}>
                                   Ver docs
@@ -1814,14 +1824,14 @@ export function Admin() {
       {/* MODAL DETALHE PRESTADOR — Verificação de documentos */}
       {prestadorDetalhe && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
-          onClick={e => { if (e.target === e.currentTarget) setPrestadorDetalhe(null); }}>
+          onClick={e => { if (e.target === e.currentTarget) { setPrestadorDetalhe(null); setDocsAssinados(null); } }}>
           <div className="bg-white rounded-[20px] shadow-[0_24px_60px_-24px_rgba(3,2,19,0.45)] w-full max-w-lg overflow-y-auto max-h-[90vh]">
             <div className="px-6 py-4 border-b border-[#e2e8f0] flex items-center justify-between">
               <div>
                 <h3 className="font-extrabold text-[#030213]">{prestadorDetalhe.nome}</h3>
                 <p className="text-xs text-[#64748b] mt-0.5">Verificação de documentos</p>
               </div>
-              <button onClick={() => setPrestadorDetalhe(null)}
+              <button onClick={() => { setPrestadorDetalhe(null); setDocsAssinados(null); }}
                 className="p-2 hover:bg-[#f8fafc] rounded-[10px] transition-colors text-[#64748b]">
                 <X className="h-5 w-5" />
               </button>
@@ -1840,28 +1850,28 @@ export function Admin() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-xs font-semibold text-[#64748b] mb-2">Selfie</p>
-                  {prestadorDetalhe.selfie_url ? (
-                    <a href={prestadorDetalhe.selfie_url} target="_blank" rel="noopener noreferrer">
-                      <img src={prestadorDetalhe.selfie_url} alt="Selfie"
+                  {docsAssinados === null ? (
+                    <div className="w-full aspect-square rounded-[12px] border border-[#e2e8f0] flex items-center justify-center text-[#94a3b8] text-xs">Carregando...</div>
+                  ) : docsAssinados.selfie_url ? (
+                    <a href={docsAssinados.selfie_url} target="_blank" rel="noopener noreferrer">
+                      <img src={docsAssinados.selfie_url} alt="Selfie"
                         className="w-full aspect-square object-cover rounded-[12px] border border-[#e2e8f0] hover:opacity-90 transition-opacity" />
                     </a>
                   ) : (
-                    <div className="w-full aspect-square rounded-[12px] border-2 border-dashed border-[#e2e8f0] flex items-center justify-center text-[#94a3b8] text-sm">
-                      Não enviado
-                    </div>
+                    <div className="w-full aspect-square rounded-[12px] border-2 border-dashed border-[#e2e8f0] flex items-center justify-center text-[#94a3b8] text-sm">Não enviado</div>
                   )}
                 </div>
                 <div>
                   <p className="text-xs font-semibold text-[#64748b] mb-2">Documento (RG/CNH)</p>
-                  {prestadorDetalhe.doc_identidade_url ? (
-                    <a href={prestadorDetalhe.doc_identidade_url} target="_blank" rel="noopener noreferrer">
-                      <img src={prestadorDetalhe.doc_identidade_url} alt="Documento"
+                  {docsAssinados === null ? (
+                    <div className="w-full aspect-square rounded-[12px] border border-[#e2e8f0] flex items-center justify-center text-[#94a3b8] text-xs">Carregando...</div>
+                  ) : docsAssinados.doc_url ? (
+                    <a href={docsAssinados.doc_url} target="_blank" rel="noopener noreferrer">
+                      <img src={docsAssinados.doc_url} alt="Documento"
                         className="w-full aspect-square object-cover rounded-[12px] border border-[#e2e8f0] hover:opacity-90 transition-opacity" />
                     </a>
                   ) : (
-                    <div className="w-full aspect-square rounded-[12px] border-2 border-dashed border-[#e2e8f0] flex items-center justify-center text-[#94a3b8] text-sm">
-                      Não enviado
-                    </div>
+                    <div className="w-full aspect-square rounded-[12px] border-2 border-dashed border-[#e2e8f0] flex items-center justify-center text-[#94a3b8] text-sm">Não enviado</div>
                   )}
                 </div>
               </div>
@@ -1888,7 +1898,7 @@ export function Admin() {
                     ✓ Aprovar — Perfil Verificado
                   </button>
                 )}
-                <button onClick={() => setPrestadorDetalhe(null)}
+                <button onClick={() => { setPrestadorDetalhe(null); setDocsAssinados(null); }}
                   className="px-5 py-2.5 rounded-[12px] font-semibold text-sm"
                   style={{ background: '#f1f5f9', color: '#64748b' }}>
                   Fechar

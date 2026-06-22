@@ -255,6 +255,35 @@ router.post('/biometria/verificar', async (req, res) => {
 });
 
 // GET /api/admin/biometria — lista status de verificação
+// GET /api/admin/prestadores/:id/docs — gera URLs assinadas (1h) para selfie e documento
+router.get('/prestadores/:id/docs', async (req, res) => {
+  try {
+    const { data: p, error } = await supabase
+      .from('prestadores')
+      .select('selfie_url, doc_identidade_url')
+      .eq('id', req.params.id)
+      .single();
+    if (error) throw error;
+
+    async function assinar(url) {
+      if (!url) return null;
+      // Extrai o path relativo dentro do bucket
+      const match = url.match(/\/storage\/v1\/object\/public\/chat-arquivos\/(.+)/);
+      if (!match) return url;
+      const { data, error: sErr } = await supabase.storage
+        .from('chat-arquivos')
+        .createSignedUrl(match[1], 3600);
+      if (sErr) return null;
+      return data.signedUrl;
+    }
+
+    const [selfie, doc] = await Promise.all([assinar(p.selfie_url), assinar(p.doc_identidade_url)]);
+    res.json({ ok: true, selfie_url: selfie, doc_url: doc });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 router.get('/biometria', async (req, res) => {
   try {
     const { data, error } = await supabase
