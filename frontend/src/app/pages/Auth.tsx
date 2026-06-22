@@ -96,28 +96,61 @@ export function Auth() {
     setLoading(true); setErro('');
     try {
       if (tipo === 'contratante') {
-        const { data: exist } = await supabase.from('contratante_auth').select('id').eq('email', form.email.toLowerCase()).limit(1);
-        if (exist?.length) { setErro('Email já cadastrado.'); setLoading(false); return; }
-        const { data: u } = await supabase.from('usuarios').insert({
+        const { data: existEmail } = await supabase.from('contratante_auth').select('id').eq('email', form.email.toLowerCase()).limit(1);
+        if (existEmail?.length) { setErro('Email já cadastrado.'); setLoading(false); return; }
+        if (form.telefone) {
+          const { data: existTel } = await supabase.from('usuarios').select('id').eq('telefone', form.telefone).limit(1);
+          if (existTel?.length) { setErro('Telefone já cadastrado em outra conta.'); setLoading(false); return; }
+        }
+        if (form.cpf) {
+          const cpfNum = form.cpf.replace(/\D/g, '');
+          const { data: existCpf } = await supabase.from('usuarios').select('id').eq('cpf', cpfNum).limit(1);
+          if (existCpf?.length) { setErro('CPF já cadastrado em outra conta.'); setLoading(false); return; }
+        }
+        const { data: u, error: uErr } = await supabase.from('usuarios').insert({
           nome: form.nome, email: form.email.toLowerCase(), telefone: form.telefone,
-          cpf: form.cpf || null, cidade: form.cidade, estado: 'RS', ativo: true
+          cpf: form.cpf ? form.cpf.replace(/\D/g, '') : null, cidade: form.cidade, estado: 'RS', ativo: true
         }).select('id');
+        if (uErr) {
+          if (uErr.code === '23505') setErro('Telefone ou CPF já cadastrado em outra conta.');
+          else throw uErr;
+          setLoading(false); return;
+        }
         if (!u?.length) throw new Error('Erro ao criar usuário');
         await supabase.from('contratante_auth').insert({ usuario_id: u[0].id, email: form.email.toLowerCase(), senha_hash: btoa(form.senha), ativo: true });
         afterSuccess('ss_contratante', { id: u[0].id, nome: form.nome, email: form.email, telefone: form.telefone });
       } else {
-        const { data: exist } = await supabase.from('prestador_auth').select('id').eq('email', form.email.toLowerCase()).limit(1);
-        if (exist?.length) { setErro('Email já cadastrado.'); setLoading(false); return; }
-        const { data: p } = await supabase.from('prestadores').insert({
+        const { data: existEmail } = await supabase.from('prestador_auth').select('id').eq('email', form.email.toLowerCase()).limit(1);
+        if (existEmail?.length) { setErro('Email já cadastrado.'); setLoading(false); return; }
+        if (form.telefone) {
+          const { data: existTel } = await supabase.from('prestadores').select('id').eq('telefone', form.telefone).limit(1);
+          if (existTel?.length) { setErro('Telefone já cadastrado em outra conta.'); setLoading(false); return; }
+        }
+        if (tipoPessoa === 'pf' && form.cpf) {
+          const cpfNum = form.cpf.replace(/\D/g, '');
+          const { data: existCpf } = await supabase.from('prestadores').select('id').eq('cpf', cpfNum).limit(1);
+          if (existCpf?.length) { setErro('CPF já cadastrado em outra conta.'); setLoading(false); return; }
+        }
+        if (tipoPessoa === 'pj' && form.cnpj) {
+          const cnpjNum = form.cnpj.replace(/\D/g, '');
+          const { data: existCnpj } = await supabase.from('prestadores').select('id').eq('cnpj', cnpjNum).limit(1);
+          if (existCnpj?.length) { setErro('CNPJ já cadastrado em outra conta.'); setLoading(false); return; }
+        }
+        const { data: p, error: pErr } = await supabase.from('prestadores').insert({
           nome: form.nome, email: form.email.toLowerCase(), telefone: form.telefone,
-          cpf: tipoPessoa === 'pf' ? (form.cpf || null) : null,
-          cnpj: tipoPessoa === 'pj' ? (form.cnpj || null) : null,
+          cpf: tipoPessoa === 'pf' ? (form.cpf ? form.cpf.replace(/\D/g, '') : null) : null,
+          cnpj: tipoPessoa === 'pj' ? (form.cnpj ? form.cnpj.replace(/\D/g, '') : null) : null,
           razao_social: tipoPessoa === 'pj' ? (form.razao_social || form.nome) : null,
           tipo_pessoa: tipoPessoa,
           cidade: form.cidade, estado: 'RS',
           bio: form.bio || null, ativo: true, verificado: false,
           aceita_orcamento_online: form.aceita_online
         }).select('id');
+        if (pErr) {
+          if (pErr.code === '23505') setErro('Telefone, CPF ou CNPJ já cadastrado em outra conta.');
+          else throw pErr;
+          setLoading(false); return;
+        }
         if (!p?.length) throw new Error('Erro ao criar prestador');
         if (form.categorias.length) {
           await supabase.from('prestador_categorias').insert(
@@ -127,7 +160,7 @@ export function Auth() {
         await supabase.from('prestador_auth').insert({ prestador_id: p[0].id, email: form.email.toLowerCase(), senha_hash: btoa(form.senha), ativo: true });
         afterSuccess('ss_prestador', { id: p[0].id, nome: form.nome, email: form.email, telefone: form.telefone });
       }
-    } catch (e: any) { setErro(e.message); }
+    } catch (e: any) { setErro(e.message || 'Erro ao criar conta. Tente novamente.'); }
     setLoading(false);
   }
 
