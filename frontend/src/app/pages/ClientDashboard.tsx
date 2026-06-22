@@ -94,11 +94,11 @@ export function ClientDashboard() {
     const perfilData = pRes.data?.[0];
     if (perfilData) setPerfil(perfilData);
 
-    // Busca também ORCs pelo telefone (criados via WhatsApp) usando o tel do banco
+    // Busca ORCs pelo telefone do banco (WhatsApp), tentando vários formatos
     const telBanco = perfilData?.telefone?.replace(/\D/g, '') || '';
     const oTelRes = telBanco
       ? await supabase.from('orcs').select('*')
-          .or(`telefone_cliente.eq.${telBanco},telefone_cliente.eq.+55${telBanco},telefone_cliente.eq.55${telBanco}`)
+          .or(`telefone_cliente.eq.${telBanco},telefone_cliente.eq.+55${telBanco},telefone_cliente.eq.55${telBanco},telefone_cliente.eq.55${telBanco.replace(/^55/, '')}`)
           .is('usuario_id', null)
           .order('criado_em', { ascending: false })
       : { data: [] };
@@ -107,12 +107,24 @@ export function ClientDashboard() {
     const byId = new Map((oRes.data || []).map((o: any) => [o.id, o]));
     for (const o of (oTelRes.data || [])) if (!byId.has(o.id)) byId.set(o.id, o);
     const orcData = [...byId.values()].sort((a, b) => new Date(b.criado_em).getTime() - new Date(a.criado_em).getTime());
-    setOrcs(orcData);
 
     if (orcData.length) {
       const ids = orcData.map((o: any) => o.id);
-      const { data: cData } = await supabase.from('contratos').select('*, orcs(codigo)').in('orc_id', ids);
-      setContratos(cData || []);
+      // Busca contratos e chats em paralelo
+      const [cRes, chatRes] = await Promise.all([
+        supabase.from('contratos').select('*, orcs(codigo)').in('orc_id', ids),
+        supabase.from('chat_negociacao').select('orc_id, link_token, status, finalizado_cliente, finalizado_prestador').in('orc_id', ids),
+      ]);
+      setContratos(cRes.data || []);
+      // Injeta link_token e chat_status no ORC para facilitar a UI
+      const chatMap = new Map((chatRes.data || []).map((c: any) => [c.orc_id, c]));
+      const orcComChat = orcData.map((o: any) => ({
+        ...o,
+        _chat: chatMap.get(o.id) || null,
+      }));
+      setOrcs(orcComChat);
+    } else {
+      setOrcs(orcData);
     }
     setLoading(false);
   }
@@ -271,7 +283,16 @@ export function ClientDashboard() {
                       <div key={o.id} className="px-6 py-4 hover:bg-[#fafbfc] transition-colors">
                         <div className="flex items-center justify-between mb-1.5">
                           <span className="font-mono font-bold text-sm text-[#030213]">{o.codigo}</span>
-                          <StatusBadge s={o.status} />
+                          <div className="flex items-center gap-2">
+                            <StatusBadge s={o.status} />
+                            {o._chat?.link_token && (
+                              <Link to={`/chat/${o._chat.link_token}?papel=cliente`}
+                                className="text-[10.5px] font-bold px-2 py-0.5 rounded-full"
+                                style={{ background: '#E6F1FB', color: '#0C447C' }}>
+                                💬 Chat
+                              </Link>
+                            )}
+                          </div>
                         </div>
                         <p className="text-sm text-[#64748b] leading-relaxed">{o.resumo_anamnese?.substring(0, 80) || 'Aguardando informações...'}</p>
                         <div className="text-xs text-[#94a3b8] mt-1">{o.criado_em ? new Date(o.criado_em).toLocaleDateString('pt-BR') : ''}</div>
@@ -310,24 +331,31 @@ export function ClientDashboard() {
                     </div>
                   </div>
                   {/* Actions */}
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    {o.chat_token && (
+                  <div className="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
+                    {o._chat?.link_token && (
                       <Link
-                        to={`/chat/${o.chat_token}?papel=cliente`}
+                        to={`/chat/${o._chat.link_token}?papel=cliente`}
                         className="text-xs font-bold px-3 py-1.5 rounded-[8px] border border-[#e2e8f0] text-[#030213] hover:bg-[#f8fafc] transition-colors"
                       >
-                        Ver chat
+                        💬 Chat
                       </Link>
                     )}
-                    {contratos.find((c: any) => c.orc_id === o.id && !c.assinado_cliente) && (
+                    {contratos.find((c: any) => c.orc_id === o.id && !c.assinado_cliente) ? (
                       <Link
                         to={`/contrato?orc=${o.id}&papel=cliente`}
                         className="text-xs font-bold px-3 py-1.5 rounded-[8px] text-white transition-opacity hover:opacity-90"
                         style={{ background: 'oklch(0.6 0.118 184.704)', color: '#030213' }}
                       >
-                        Assinar contrato
+                        ✍️ Assinar
                       </Link>
-                    )}
+                    ) : contratos.find((c: any) => c.orc_id === o.id) ? (
+                      <Link
+                        to={`/contrato?orc=${o.id}&papel=cliente`}
+                        className="text-xs font-bold px-3 py-1.5 rounded-[8px] border border-[#e2e8f0] text-[#64748b] hover:bg-[#f8fafc] transition-colors"
+                      >
+                        📄 Contrato
+                      </Link>
+                    ) : null}
                   </div>
                 </div>
               ))}
