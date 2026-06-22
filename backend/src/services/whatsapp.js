@@ -73,12 +73,12 @@ async function verificarInstancia() {
 
 // ── FORMATAR NÚMERO ───────────────────────────────────────────
 function formatarNumero(numero) {
-  // Remove tudo que não é dígito
   const digits = numero.replace(/\D/g, '');
-  // Remove prefixos problemáticos
-  if (digits.startsWith('55') && digits.length >= 12) return digits;
-  if (digits.startsWith('0')) return '55' + digits.slice(1);
+  // Já completo: DDI(55) + DDD(2) + número(8 ou 9) = 12 ou 13 dígitos
+  if (digits.startsWith('55') && (digits.length === 12 || digits.length === 13)) return digits;
+  // DDD + número local sem DDI: 10 ou 11 dígitos
   if (digits.length === 10 || digits.length === 11) return '55' + digits;
+  if (digits.startsWith('0')) return '55' + digits.slice(1);
   return digits;
 }
 
