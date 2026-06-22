@@ -520,10 +520,9 @@ export function Busca() {
                 >
                   <span className="text-xl">💬</span>
                   <span className="text-sm">Via Chat</span>
-                  <span className="text-xs opacity-80">IA coleta os detalhes</span>
+                  <span className="text-xs opacity-80">Sistema coleta os detalhes</span>
                 </Link>
               </div>
-              <p className="text-xs text-center text-[#94a3b8]">Ambos atendidos pela nossa IA 🤖</p>
             </div>
           </div>
         </div>

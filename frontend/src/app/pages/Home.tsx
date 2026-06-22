@@ -243,7 +243,7 @@ export function Home() {
             <span style={{ color: 'oklch(0.6 0.118 184.704)' }}>verificados</span> perto de você
           </h1>
           <p className="text-base mb-10" style={{ color: '#717182' }}>
-            Contrato digital, IA no atendimento e segurança jurídica em cada serviço.
+            Contrato digital, atendimento automatizado e segurança jurídica em cada serviço.
           </p>
 
           {/* Search card */}
@@ -312,7 +312,7 @@ export function Home() {
             {[
               { ic: '✅', t: 'Verificados', s: 'Identidade confirmada' },
               { ic: '🛡️', t: 'Contrato Digital', s: 'Validade jurídica' },
-              { ic: '⚡', t: 'IA no Atendimento', s: 'Orçamento rápido' },
+              { ic: '⚙️', t: 'Atendimento Automatizado', s: 'Orçamento rápido' },
               { ic: '⭐', t: 'Avaliações Reais', s: 'Por serviço executado' },
             ].map(seal => (
               <div key={seal.t}
@@ -480,9 +480,9 @@ export function Home() {
           </h2>
           <div className="grid md:grid-cols-3 gap-5">
             {[
-              { n: '1', title: 'Descreva o que precisa', desc: 'Nossa IA coleta os detalhes do serviço via WhatsApp ou chat — sem formulários chatos.' },
+              { n: '1', title: 'Descreva o que precisa', desc: 'Nosso sistema coleta os detalhes do serviço via WhatsApp ou chat — sem formulários chatos.' },
               { n: '2', title: 'Receba proposta qualificada', desc: 'O profissional já recebe tudo que precisa para enviar um orçamento preciso.' },
-              { n: '3', title: 'Assine e contrate com segurança', desc: 'Contrato digital com validade jurídica, biometria opcional e hash SHA-256.' },
+              { n: '3', title: 'Assine e contrate com segurança', desc: 'Contrato digital com validade jurídica, registro de conversa e hash SHA-256.' },
             ].map(step => (
               <div key={step.n}
                 className="p-6 rounded-[18px]"
@@ -532,7 +532,7 @@ export function Home() {
               <div className="text-3xl mb-4">👷</div>
               <h3 className="text-xl font-[800] tracking-tight mb-2" style={{ color: '#030213' }}>É profissional?</h3>
               <p className="text-sm mb-6" style={{ color: '#717182' }}>
-                Receba orçamentos qualificados pela IA e formalize seus serviços com contrato digital.
+                Receba orçamentos já qualificados e formalize seus serviços com contrato digital.
               </p>
               <Link to="/auth?tipo=prestador"
                 className="inline-flex items-center gap-2 text-sm font-bold px-5 py-2.5 rounded-[12px] text-white transition-opacity hover:opacity-90"

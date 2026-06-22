@@ -165,7 +165,7 @@ export function Auth() {
           {[
             { icon: '✅', title: 'Profissionais Verificados', desc: 'Todos passam por verificação de identidade' },
             { icon: '📄', title: 'Contrato Digital com validade jurídica', desc: 'Válido em qualquer instância judicial' },
-            { icon: '🤖', title: 'IA no Atendimento', desc: 'Orçamentos qualificados sem esforço' },
+            { icon: '⚙️', title: 'Atendimento Automatizado', desc: 'Orçamentos qualificados sem esforço' },
           ].map((f, i) => (
             <div key={f.title} className={`flex items-start gap-3 ${i < 2 ? 'mb-4' : ''}`}>
               <div className="w-[38px] h-[38px] rounded-[10px] flex items-center justify-center flex-shrink-0 text-base" style={{ background: TEAL_LIGHT }}>

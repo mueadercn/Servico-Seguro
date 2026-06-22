@@ -43,7 +43,7 @@ export function ComoFunciona() {
 
           <div className="space-y-4 mb-8">
             {[
-              { dor: 'Contratar alguém desconhecido e torcer para dar certo', solucao: 'Todos os profissionais passam por biometria facial e verificação de identidade' },
+              { dor: 'Contratar alguém desconhecido e torcer para dar certo', solucao: 'Todos os profissionais passam por verificação de identidade antes de aparecer na plataforma' },
               { dor: 'Combinar na hora e o profissional sumir depois', solucao: 'Tudo documentado na plataforma: conversa, orçamento e contrato com validade jurídica' },
               { dor: 'Pagar e o serviço ficar pela metade', solucao: 'Contrato com cláusulas de garantia e prazo — você tem respaldo legal se algo der errado' },
             ].map((item, i) => (
@@ -65,7 +65,7 @@ export function ComoFunciona() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {[
                 { n: '1', t: 'Busca', d: 'Encontre o profissional por categoria ou nome' },
-                { n: '2', t: 'Orçamento', d: 'Nossa IA coleta as informações e qualifica o pedido' },
+                { n: '2', t: 'Orçamento', d: 'Nosso sistema coleta as informações e qualifica o pedido automaticamente' },
                 { n: '3', t: 'Agenda', d: 'Confirme o horário diretamente pelo WhatsApp' },
                 { n: '4', t: 'Contrato', d: 'Assine digitalmente e tenha tudo documentado' },
               ].map(s => (
@@ -94,7 +94,7 @@ export function ComoFunciona() {
 
           <div className="space-y-4 mb-8">
             {[
-              { dor: 'Perder tempo com clientes que somem depois do orçamento', solucao: 'A IA filtra e qualifica o cliente antes de chegar até você — só chega quem está sério' },
+              { dor: 'Perder tempo com clientes que somem depois do orçamento', solucao: 'O sistema filtra e qualifica o cliente antes de chegar até você — só chega quem está sério' },
               { dor: 'Fazer serviço sem garantia de receber o combinado', solucao: 'Contrato digital que protege você juridicamente em caso de calote ou disputa' },
               { dor: 'Não conseguir comprovar sua qualidade para novos clientes', solucao: 'Avaliações verificadas que constroem sua reputação e te destacam na plataforma' },
             ].map((item, i) => (
@@ -115,7 +115,7 @@ export function ComoFunciona() {
             <h3 className="font-bold text-lg mb-4">O que você ganha na plataforma</h3>
             <div className="grid md:grid-cols-3 gap-4">
               {[
-                { ic: '🤖', t: 'IA no atendimento', d: 'Nunca perca um lead — a IA atende no WhatsApp enquanto você trabalha' },
+                { ic: '⚙️', t: 'Atendimento Automatizado', d: 'Nunca perca um lead — o sistema atende no WhatsApp enquanto você trabalha' },
                 { ic: '📋', t: 'Leads qualificados', d: 'Receba resumos prontos do que o cliente precisa, sem precisar perguntar tudo de novo' },
                 { ic: '🛡️', t: 'Proteção jurídica', d: 'Contrato que te protege de clientes que querem fugir do combinado' },
               ].map(f => (
@@ -135,31 +135,31 @@ export function ComoFunciona() {
             <h2 className="text-2xl font-bold text-primary mb-2">Contratos que valem de verdade</h2>
             <p className="text-muted-foreground text-sm">Lei 14.063/2020 — Assinatura eletrônica com validade jurídica</p>
           </div>
-          <div className="grid md:grid-cols-2 gap-5">
-            {[
-              { ic: '📜', nome: 'Carta Aceite', badge: 'Simples', cor: 'border-blue-200 bg-blue-50', badgeCor: 'bg-blue-100 text-blue-800',
-                items: ['Um clique para assinar', 'Válida em Juizados Especiais', 'Ideal para serviços até R$ 1.500', 'Sem burocracia'] },
-              { ic: '🛡️', nome: 'Contrato Seguro', badge: 'Máxima proteção', cor: 'border-green-200 bg-green-50', badgeCor: 'bg-success text-white',
-                items: ['CPF + biometria facial', 'Vale em qualquer instância judicial', 'Cláusulas de garantia e prazo', 'Hash criptográfico imutável'] },
-            ].map(c => (
-              <div key={c.nome} className={`rounded-2xl border p-6 ${c.cor}`}>
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <span className="text-2xl">{c.ic}</span>
-                    <span className="font-bold text-primary">{c.nome}</span>
-                  </div>
-                  <span className={`text-xs font-bold px-3 py-1 rounded-full ${c.badgeCor}`}>{c.badge}</span>
-                </div>
-                <ul className="space-y-2">
-                  {c.items.map(item => (
-                    <li key={item} className="flex items-center gap-2 text-sm text-foreground">
-                      <CheckCircle2 className="h-4 w-4 text-success flex-shrink-0" />
-                      {item}
-                    </li>
-                  ))}
-                </ul>
+          <div className="rounded-2xl border border-green-200 bg-green-50 p-6">
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-2">
+                <span className="text-2xl">🛡️</span>
+                <span className="font-bold text-primary text-lg">Contrato Digital de Prestação de Serviços</span>
               </div>
-            ))}
+              <span className="text-xs font-bold px-3 py-1 rounded-full bg-success text-white">Validade jurídica plena</span>
+            </div>
+            <p className="text-sm text-muted-foreground mb-5">Válido em qualquer instância judicial · Lei 14.063/2020</p>
+            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">O que comprova a autenticidade</p>
+            <ul className="grid sm:grid-cols-2 gap-2">
+              {[
+                'Registro completo da conversa de negociação',
+                'Número de telefone verificado das partes',
+                'Endereço IP + geolocalização no momento da assinatura',
+                'Timestamp imutável de cada ação',
+                'Hash SHA-256 do documento (prova de integridade)',
+                'CPF confirmado pelo signatário',
+              ].map(item => (
+                <li key={item} className="flex items-center gap-2 text-sm text-foreground">
+                  <CheckCircle2 className="h-4 w-4 text-success flex-shrink-0" />
+                  {item}
+                </li>
+              ))}
+            </ul>
           </div>
         </section>
 
