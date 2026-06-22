@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { ArrowLeft, Mail, Lock, User, Phone, Eye, EyeOff } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+import { supabase, getPrestador, getContratante } from '../../lib/supabase';
 
 const TEAL = 'oklch(0.6 0.118 184.704)';
 const TEAL_LIGHT = 'oklch(0.92 0.05 184)';
@@ -26,6 +26,12 @@ export function Auth() {
   });
 
   useEffect(() => {
+    // Redireciona quem já está logado
+    const p = getPrestador();
+    const c = getContratante();
+    if (p?.id) { navigate('/prestador'); return; }
+    if (c?.id) { navigate('/contratante'); return; }
+
     supabase.from('categorias').select('id,nome,icone').eq('ativa', true).order('nome')
       .then(({ data }) => { if (data) setCategorias(data); });
     if (params.get('tipo') === 'prestador') setMode('register');
@@ -38,7 +44,7 @@ export function Auth() {
     setLoading(true); setErro('');
     try {
       const tabela = tipo === 'prestador' ? 'prestador_auth' : 'contratante_auth';
-      const join = tipo === 'prestador' ? 'prestadores(nome)' : 'usuarios(nome)';
+      const join = tipo === 'prestador' ? 'prestadores(id,nome,email,telefone)' : 'usuarios(id,nome,email,telefone)';
       const { data, error } = await supabase.from(tabela)
         .select(`id, ${tipo === 'prestador' ? 'prestador_id' : 'usuario_id'}, senha_hash, ${join}`)
         .eq('email', form.email.toLowerCase())
@@ -49,9 +55,9 @@ export function Auth() {
       if (reg.senha_hash !== btoa(form.senha.trim())) { setErro('Senha incorreta.'); setLoading(false); return; }
 
       const idKey = tipo === 'prestador' ? 'prestador_id' : 'usuario_id';
-      const nomeData = tipo === 'prestador' ? (reg as any).prestadores : (reg as any).usuarios;
+      const perfil = tipo === 'prestador' ? (reg as any).prestadores : (reg as any).usuarios;
       const lsKey = tipo === 'prestador' ? 'ss_prestador' : 'ss_contratante';
-      localStorage.setItem(lsKey, JSON.stringify({ id: reg[idKey], nome: nomeData?.nome, email: form.email }));
+      localStorage.setItem(lsKey, JSON.stringify({ id: reg[idKey], nome: perfil?.nome, email: form.email, telefone: perfil?.telefone }));
 
       await supabase.from(tabela).update({ ultimo_acesso: new Date().toISOString() }).eq('id', reg.id);
       navigate(tipo === 'prestador' ? '/prestador' : '/contratante');
@@ -74,7 +80,7 @@ export function Auth() {
         }).select('id');
         if (!u?.length) throw new Error('Erro ao criar usuário');
         await supabase.from('contratante_auth').insert({ usuario_id: u[0].id, email: form.email.toLowerCase(), senha_hash: btoa(form.senha), ativo: true });
-        localStorage.setItem('ss_contratante', JSON.stringify({ id: u[0].id, nome: form.nome, email: form.email }));
+        localStorage.setItem('ss_contratante', JSON.stringify({ id: u[0].id, nome: form.nome, email: form.email, telefone: form.telefone }));
         navigate('/contratante');
       } else {
         const { data: exist } = await supabase.from('prestador_auth').select('id').eq('email', form.email.toLowerCase()).limit(1);
@@ -87,7 +93,7 @@ export function Auth() {
         }).select('id');
         if (!p?.length) throw new Error('Erro ao criar prestador');
         await supabase.from('prestador_auth').insert({ prestador_id: p[0].id, email: form.email.toLowerCase(), senha_hash: btoa(form.senha), ativo: true });
-        localStorage.setItem('ss_prestador', JSON.stringify({ id: p[0].id, nome: form.nome, email: form.email }));
+        localStorage.setItem('ss_prestador', JSON.stringify({ id: p[0].id, nome: form.nome, email: form.email, telefone: form.telefone }));
         navigate('/prestador');
       }
     } catch (e: any) { setErro(e.message); }

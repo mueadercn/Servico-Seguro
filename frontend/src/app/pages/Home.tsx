@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { Search, Shield, MapPin, ChevronRight, Star, CheckCircle2, X } from 'lucide-react';
+import { Search, Shield, MapPin, ChevronRight, Star, CheckCircle2, X, LogOut, LayoutDashboard } from 'lucide-react';
 import { Logo } from '../components/Logo';
-import { supabase } from '../../lib/supabase';
+import { supabase, getPrestador, getContratante, logout } from '../../lib/supabase';
 
 const CIDADE_PADRAO = 'Santa Maria';
 const WHATSAPP_NUMERO = '555591598658';
@@ -43,6 +43,23 @@ export function Home() {
   const [stats, setStats] = useState({ prestadores: 0, servicos: 0 });
   const [loading, setLoading] = useState(true);
   const [servicoSelecionado, setServicoSelecionado] = useState<any>(null);
+  const [userMenuAberto, setUserMenuAberto] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
+  const prestador = getPrestador();
+  const contratante = getContratante();
+  const usuarioLogado = prestador || contratante;
+  const dashboardUrl = prestador ? '/prestador' : '/contratante';
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuAberto(false);
+      }
+    }
+    if (userMenuAberto) document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [userMenuAberto]);
 
   useEffect(() => {
     carregarDados();
@@ -120,18 +137,84 @@ export function Home() {
               onMouseLeave={e => (e.currentTarget.style.color = '#717182')}>
               Como funciona
             </Link>
-            <Link to="/auth?tipo=prestador"
-              className="hidden md:block text-sm px-3 py-2 rounded-[10px] transition-colors"
-              style={{ color: '#717182' }}
-              onMouseEnter={e => (e.currentTarget.style.color = '#030213')}
-              onMouseLeave={e => (e.currentTarget.style.color = '#717182')}>
-              Sou profissional
-            </Link>
-            <Link to="/auth"
-              className="ml-2 text-sm font-bold px-4 py-2 rounded-[12px] text-white transition-opacity hover:opacity-90"
-              style={{ background: '#030213' }}>
-              Entrar
-            </Link>
+
+            {usuarioLogado ? (
+              /* ── LOGADO: avatar + menu dropdown ── */
+              <div className="relative ml-2" ref={userMenuRef}>
+                <button
+                  onClick={() => setUserMenuAberto(!userMenuAberto)}
+                  className="flex items-center gap-2.5 pl-1 pr-3 py-1 rounded-[12px] border transition-colors"
+                  style={{ borderColor: 'rgba(0,0,0,0.1)', background: userMenuAberto ? 'rgba(3,2,19,0.04)' : 'transparent' }}
+                >
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm text-white flex-shrink-0"
+                    style={{ background: '#030213' }}>
+                    {(usuarioLogado.nome || '?').charAt(0).toUpperCase()}
+                  </div>
+                  <div className="hidden sm:block text-left">
+                    <div className="text-xs font-bold leading-none" style={{ color: '#030213' }}>
+                      {usuarioLogado.nome?.split(' ')[0]}
+                    </div>
+                    <div className="text-[10px] mt-0.5" style={{ color: '#94a3b8' }}>
+                      {prestador ? 'Profissional' : 'Cliente'}
+                    </div>
+                  </div>
+                  <svg className="w-3.5 h-3.5 ml-0.5" style={{ color: '#94a3b8' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                {userMenuAberto && (
+                  <div
+                    className="absolute right-0 top-[calc(100%+8px)] w-52 overflow-hidden"
+                    style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.1)', borderRadius: 14, boxShadow: '0 16px 40px -12px rgba(3,2,19,0.2)', zIndex: 100 }}
+                  >
+                    <div className="px-4 py-3 border-b" style={{ borderColor: 'rgba(0,0,0,0.07)' }}>
+                      <div className="font-bold text-sm" style={{ color: '#030213' }}>{usuarioLogado.nome}</div>
+                      <div className="text-xs mt-0.5" style={{ color: '#94a3b8' }}>{usuarioLogado.email}</div>
+                    </div>
+                    <div className="p-1.5">
+                      <Link
+                        to={dashboardUrl}
+                        onClick={() => setUserMenuAberto(false)}
+                        className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-[9px] text-sm font-semibold transition-colors"
+                        style={{ color: '#030213' }}
+                        onMouseEnter={e => (e.currentTarget.style.background = 'rgba(3,2,19,0.04)')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                      >
+                        <LayoutDashboard className="w-4 h-4 opacity-60" />
+                        Meu painel
+                      </Link>
+                      <button
+                        onClick={() => { setUserMenuAberto(false); logout(); }}
+                        className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-[9px] text-sm font-semibold transition-colors text-left"
+                        style={{ color: '#b91c1c' }}
+                        onMouseEnter={e => (e.currentTarget.style.background = '#fef2f2')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                      >
+                        <LogOut className="w-4 h-4" />
+                        Sair da conta
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* ── NÃO LOGADO: botões de entrada ── */
+              <>
+                <Link to="/auth?tipo=prestador"
+                  className="hidden md:block text-sm px-3 py-2 rounded-[10px] transition-colors"
+                  style={{ color: '#717182' }}
+                  onMouseEnter={e => (e.currentTarget.style.color = '#030213')}
+                  onMouseLeave={e => (e.currentTarget.style.color = '#717182')}>
+                  Sou profissional
+                </Link>
+                <Link to="/auth"
+                  className="ml-2 text-sm font-bold px-4 py-2 rounded-[12px] text-white transition-opacity hover:opacity-90"
+                  style={{ background: '#030213' }}>
+                  Entrar
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </header>

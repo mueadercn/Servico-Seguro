@@ -49,8 +49,14 @@ export function FloatingChat() {
 
   const prestador = getPrestador();
   const contratante = getContratante();
-  const papel = prestador ? 'prestador' : contratante ? 'cliente' : null;
-  const userId = prestador?.id || contratante?.id;
+
+  // Valida que o objeto tem id válido (UUID) — evita dados corrompidos no localStorage
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const prestadorValido = prestador?.id && UUID_RE.test(prestador.id) ? prestador : null;
+  const contratanteValido = contratante?.id && UUID_RE.test(contratante.id) ? contratante : null;
+
+  const papel = prestadorValido ? 'prestador' : contratanteValido ? 'cliente' : null;
+  const userId = prestadorValido?.id || contratanteValido?.id;
 
   const rotasIgnoradas = ['/chat/', '/avaliar/', '/biometria', '/contrato'];
   const esconder = rotasIgnoradas.some(r => location.pathname.startsWith(r));
