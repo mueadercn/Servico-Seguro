@@ -20,7 +20,7 @@ function gerarPDF(dadosContrato) {
     doc.on('error', reject);
 
     const {
-      tipo, codigo, contNome, contCpf, prestNome, prestCpf,
+      tipo, codigo, contNome, contCpf, contTelefone, prestNome, prestCpf, prestTelefone,
       servico, valor, comissaoValor, comissaoPct,
       prazo, pagamento, garantia, dataGeracao, hashDocumento,
       assinadoCliente, assinadoPrestador, ipCliente, ipPrestador,
@@ -67,8 +67,8 @@ function gerarPDF(dadosContrato) {
     doc.moveDown(1);
     secao(doc, 'PARTES CONTRATANTES', AZUL);
 
-    linha(doc, 'CONTRATANTE', `${contNome}${contCpf ? ` — CPF: ${contCpf}` : ''}`);
-    linha(doc, 'PRESTADOR', `${prestNome}${prestCpf ? ` — CPF: ${prestCpf}` : ''}`);
+    linha(doc, 'CONTRATANTE', `${contNome}${contCpf ? ` — CPF: ${contCpf}` : ''}${contTelefone ? ` — Tel: ${contTelefone}` : ''}`);
+    linha(doc, 'PRESTADOR', `${prestNome}${prestCpf ? ` — CPF: ${prestCpf}` : ''}${prestTelefone ? ` — Tel: ${prestTelefone}` : ''}`);
     linha(doc, 'INTERMEDIADORA', 'Serviço Seguro Plataforma Digital LTDA');
 
     // ── SERVIÇO ───────────────────────────────────────────────

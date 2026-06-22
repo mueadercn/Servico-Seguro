@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router';
-import { ArrowLeft, FileText, CheckCircle2, Download, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, FileText, CheckCircle2, Download, ChevronDown, ChevronUp, Mail, Lock, User, Phone } from 'lucide-react';
 import { Logo } from '../components/Logo';
 import { supabase, apiCall } from '../../lib/supabase';
 
@@ -27,9 +27,24 @@ export function Contrato() {
   const [mostrarClausulas, setMostrarClausulas] = useState(true);
   const [jaSigned, setJaSigned] = useState(false);
 
+  // Auth gate — obrigatório para clientes antes de assinar
+  const [clienteLogado, setClienteLogado] = useState(false);
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [authForm, setAuthForm] = useState({ nome: '', email: '', telefone: '', cpf: '', senha: '' });
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authErro, setAuthErro] = useState('');
+
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
 
   useEffect(() => {
+    const c = localStorage.getItem('ss_contratante');
+    if (papel !== 'cliente' || c) {
+      setClienteLogado(true);
+      if (c) {
+        const u = JSON.parse(c);
+        if (u.nome && !form.contNome) set('contNome', u.nome);
+      }
+    }
     carregarDados();
   }, []);
 
@@ -115,6 +130,57 @@ export function Contrato() {
     setComissao(calcularComissaoValor(v, comissaoTabela));
   }
 
+  const setA = (k: string, v: string) => setAuthForm(f => ({ ...f, [k]: v }));
+
+  async function handleAuthLogin() {
+    if (!authForm.email || !authForm.senha) { setAuthErro('Preencha email e senha.'); return; }
+    setAuthLoading(true); setAuthErro('');
+    try {
+      const { data, error } = await supabase.from('contratante_auth')
+        .select('id, usuario_id, senha_hash, usuarios(nome, cpf, telefone)')
+        .eq('email', authForm.email.toLowerCase()).eq('ativo', true).limit(1);
+      if (error || !data?.length) { setAuthErro('Email não encontrado.'); setAuthLoading(false); return; }
+      const reg = data[0] as any;
+      if (reg.senha_hash !== btoa(authForm.senha.trim())) { setAuthErro('Senha incorreta.'); setAuthLoading(false); return; }
+      const u = { id: reg.usuario_id, nome: reg.usuarios?.nome, email: authForm.email };
+      localStorage.setItem('ss_contratante', JSON.stringify(u));
+      if (reg.usuarios?.nome) set('contNome', reg.usuarios.nome);
+      if (reg.usuarios?.cpf) set('contCpf', reg.usuarios.cpf);
+      if (orcId) await supabase.from('orcs').update({ usuario_id: reg.usuario_id }).eq('id', orcId);
+      setClienteLogado(true);
+    } catch (e: any) { setAuthErro(e.message); }
+    setAuthLoading(false);
+  }
+
+  async function handleAuthRegister() {
+    if (!authForm.nome || !authForm.email || !authForm.telefone || !authForm.senha) {
+      setAuthErro('Preencha nome, email, WhatsApp e senha.'); return;
+    }
+    if (authForm.senha.length < 6) { setAuthErro('Senha mínima de 6 caracteres.'); return; }
+    setAuthLoading(true); setAuthErro('');
+    try {
+      const { data: exist } = await supabase.from('contratante_auth').select('id').eq('email', authForm.email.toLowerCase()).limit(1);
+      if (exist?.length) { setAuthErro('Email já cadastrado. Faça login.'); setAuthMode('login'); setAuthLoading(false); return; }
+      const { data: u } = await supabase.from('usuarios').insert({
+        nome: authForm.nome, email: authForm.email.toLowerCase(),
+        telefone: authForm.telefone, cpf: authForm.cpf || null,
+        cidade: 'Santa Maria', estado: 'RS', ativo: true
+      }).select('id');
+      if (!u?.length) throw new Error('Erro ao criar usuário');
+      await supabase.from('contratante_auth').insert({
+        usuario_id: u[0].id, email: authForm.email.toLowerCase(),
+        senha_hash: btoa(authForm.senha), ativo: true
+      });
+      const userData = { id: u[0].id, nome: authForm.nome, email: authForm.email };
+      localStorage.setItem('ss_contratante', JSON.stringify(userData));
+      set('contNome', authForm.nome);
+      if (authForm.cpf) set('contCpf', authForm.cpf);
+      if (orcId) await supabase.from('orcs').update({ usuario_id: u[0].id }).eq('id', orcId);
+      setClienteLogado(true);
+    } catch (e: any) { setAuthErro(e.message); }
+    setAuthLoading(false);
+  }
+
   async function gerarContrato() {
     if (!form.contNome || !form.prestNome || !form.servico || !form.valor) { setErro('Preencha todos os campos obrigatórios.'); return; }
     setLoading(true); setErro('');
@@ -186,6 +252,100 @@ export function Contrato() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  // AUTH GATE — cliente precisa estar logado para ver/assinar o contrato
+  if (papel === 'cliente' && !clienteLogado) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col">
+        <div className="bg-primary px-4 py-4 flex items-center gap-3">
+          <Link to="/" className="text-white/70 hover:text-white"><ArrowLeft className="h-5 w-5" /></Link>
+          <Logo className="h-8" />
+          <div className="flex-1">
+            <div className="font-bold text-white text-sm">Contrato Digital</div>
+            <div className="text-white/60 text-xs">Identificação necessária</div>
+          </div>
+        </div>
+        <div className="flex-1 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl border shadow-sm w-full max-w-md">
+            <div className="p-6 border-b text-center">
+              <div className="text-3xl mb-2">🛡️</div>
+              <h2 className="font-bold text-primary text-lg">Identifique-se para continuar</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                Para assinar o contrato com validade jurídica, precisamos confirmar sua identidade.
+              </p>
+            </div>
+            <div className="p-6">
+              {/* TABS */}
+              <div className="flex bg-muted rounded-xl p-1 mb-5">
+                {[['login', 'Já tenho conta'], ['register', 'Criar conta']].map(([v, lb]) => (
+                  <button key={v} onClick={() => { setAuthMode(v as any); setAuthErro(''); }}
+                    className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${authMode === v ? 'bg-white shadow text-primary' : 'text-muted-foreground'}`}>
+                    {lb}
+                  </button>
+                ))}
+              </div>
+
+              {authErro && (
+                <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-xl mb-4">❌ {authErro}</div>
+              )}
+
+              {authMode === 'login' ? (
+                <div className="space-y-3">
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <input type="email" placeholder="seu@email.com" value={authForm.email} onChange={e => setA('email', e.target.value)}
+                      className="w-full pl-10 pr-4 py-3 border border-border rounded-xl text-sm outline-none focus:border-primary" />
+                  </div>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <input type="password" placeholder="Sua senha" value={authForm.senha} onChange={e => setA('senha', e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && handleAuthLogin()}
+                      className="w-full pl-10 pr-4 py-3 border border-border rounded-xl text-sm outline-none focus:border-primary" />
+                  </div>
+                  <button onClick={handleAuthLogin} disabled={authLoading}
+                    className="w-full py-3 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primary/90 disabled:opacity-50">
+                    {authLoading ? 'Entrando...' : '→ Entrar e continuar'}
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <input type="text" placeholder="Nome completo *" value={authForm.nome} onChange={e => setA('nome', e.target.value)}
+                      className="w-full pl-10 pr-4 py-3 border border-border rounded-xl text-sm outline-none focus:border-primary" />
+                  </div>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <input type="email" placeholder="Email *" value={authForm.email} onChange={e => setA('email', e.target.value)}
+                      className="w-full pl-10 pr-4 py-3 border border-border rounded-xl text-sm outline-none focus:border-primary" />
+                  </div>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <input type="tel" placeholder="WhatsApp * (usado no contrato)" value={authForm.telefone} onChange={e => setA('telefone', e.target.value)}
+                      className="w-full pl-10 pr-4 py-3 border border-border rounded-xl text-sm outline-none focus:border-primary" />
+                  </div>
+                  <input type="text" placeholder="CPF (opcional, mas recomendado)" value={authForm.cpf} onChange={e => setA('cpf', e.target.value)}
+                    className="w-full px-4 py-3 border border-border rounded-xl text-sm outline-none focus:border-primary" />
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <input type="password" placeholder="Senha (mín. 6 caracteres) *" value={authForm.senha} onChange={e => setA('senha', e.target.value)}
+                      className="w-full pl-10 pr-4 py-3 border border-border rounded-xl text-sm outline-none focus:border-primary" />
+                  </div>
+                  <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-xs text-blue-700">
+                    📱 Seu WhatsApp ficará registrado no contrato como prova de identidade.
+                  </div>
+                  <button onClick={handleAuthRegister} disabled={authLoading}
+                    className="w-full py-3 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primary/90 disabled:opacity-50">
+                    {authLoading ? 'Criando conta...' : '✓ Criar conta e continuar'}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
     );
   }

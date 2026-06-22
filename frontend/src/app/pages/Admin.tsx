@@ -80,6 +80,11 @@ export function Admin() {
   const [formContrato, setFormContrato] = useState({ tipo: '', valor: '', prazo: '', pagamento: '', garantia: '', comissao: '' });
   const [erroContrato, setErroContrato] = useState('');
 
+  // Detalhe de chat (aba chats)
+  const [chatSelecionado, setChatSelecionado] = useState<any | null>(null);
+  const [chatMsgsDetalhe, setChatMsgsDetalhe] = useState<any[]>([]);
+  const [chatMsgDetalhando, setChatMsgDetalhando] = useState(false);
+
   useEffect(() => {
     if (localStorage.getItem('ss_admin')) {
       setLogado(true);
@@ -175,6 +180,22 @@ export function Admin() {
     } catch (e) {
       console.warn('Erro ao deletar ORC:', e);
     }
+  }
+
+  async function abrirChatDetalhe(c: any) {
+    setChatSelecionado(c);
+    setChatMsgDetalhando(true);
+    try {
+      const { data } = await supabase
+        .from('chat_mensagens')
+        .select('*')
+        .eq('chat_id', c.id)
+        .order('criado_em', { ascending: true });
+      setChatMsgsDetalhe(data || []);
+    } catch {
+      setChatMsgsDetalhe([]);
+    }
+    setChatMsgDetalhando(false);
   }
 
   // ── CARREGAR DADOS ADMIN ──────────────────────────────────
@@ -892,63 +913,149 @@ export function Admin() {
 
           {/* HISTÓRICO DE CHATS */}
           {!loading && aba === 'chats' && (
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-sm text-muted-foreground">{(dados.chats || []).length} chats registrados</span>
-              </div>
-              <div className="bg-white rounded-2xl border overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className={tbl}>
-                    <thead><tr>
-                      {['ORC', 'Serviço', 'Cliente', 'Prestador', 'Status', 'Mensagens', 'Link', 'Data'].map(h => (
-                        <th key={h} className={th}>{h}</th>
-                      ))}
-                    </tr></thead>
-                    <tbody>
-                      {(dados.chats || []).map((c: any) => {
-                        const frontendUrl = window.location.origin;
-                        const statusColor: Record<string, string> = {
-                          conversando: 'bg-blue-100 text-blue-800',
-                          aguardando_orcamento: 'bg-amber-100 text-amber-800',
-                          orcamento_enviado: 'bg-purple-100 text-purple-800',
-                          finalizado: 'bg-green-100 text-green-800',
-                        };
-                        return (
-                          <tr key={c.id} className="hover:bg-slate-50">
-                            <td className={td}><span className="font-mono font-bold text-primary text-xs">{c.orcs?.codigo || '—'}</span></td>
-                            <td className={td + ' text-xs text-muted-foreground max-w-[140px] truncate'}>{c.orcs?.servicos?.titulo || c.orcs?.servico_nome || '—'}</td>
-                            <td className={td}><span className="text-sm font-medium">{c.orcs?.nome_cliente || '—'}</span></td>
-                            <td className={td}><span className="text-sm">{c.orcs?.prestadores?.nome || '—'}</span></td>
-                            <td className={td}>
-                              <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${statusColor[c.status] || 'bg-slate-100 text-slate-600'}`}>
-                                {c.status}
-                              </span>
-                            </td>
-                            <td className={td + ' text-center'}>
-                              <span className="text-sm font-bold text-primary">{c.total_mensagens}</span>
-                            </td>
-                            <td className={td}>
-                              <div className="flex gap-2">
-                                <a href={`${frontendUrl}/chat/${c.link_token}?papel=cliente`} target="_blank" rel="noreferrer"
-                                  className="text-xs text-blue-600 underline">👤 Cliente</a>
-                                <a href={`${frontendUrl}/chat/${c.link_token}?papel=prestador`} target="_blank" rel="noreferrer"
-                                  className="text-xs text-green-700 underline">👷 Prestador</a>
-                              </div>
-                            </td>
-                            <td className={td + ' text-xs text-muted-foreground whitespace-nowrap'}>
-                              {c.criado_em ? new Date(c.criado_em).toLocaleDateString('pt-BR') : '—'}
-                              {c.finalizado_em && <div className="text-green-600">Finalizado {new Date(c.finalizado_em).toLocaleDateString('pt-BR')}</div>}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                      {(dados.chats || []).length === 0 && (
-                        <tr><td colSpan={8} className="text-center py-12 text-muted-foreground text-sm">Nenhum chat registrado ainda.</td></tr>
-                      )}
-                    </tbody>
-                  </table>
+            <div className={chatSelecionado ? 'grid grid-cols-1 lg:grid-cols-2 gap-4' : ''}>
+              {/* TABELA */}
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <span className="text-sm text-muted-foreground">{(dados.chats || []).length} chats registrados — clique para ver detalhes</span>
+                  {chatSelecionado && <button onClick={() => setChatSelecionado(null)} className="text-xs text-muted-foreground hover:text-foreground">✕ Fechar painel</button>}
+                </div>
+                <div className="bg-white rounded-2xl border overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className={tbl}>
+                      <thead><tr>
+                        {['ORC', 'Serviço', 'Cliente', 'Prestador', 'Status', 'Msgs', 'Data'].map(h => (
+                          <th key={h} className={th}>{h}</th>
+                        ))}
+                      </tr></thead>
+                      <tbody>
+                        {(dados.chats || []).map((c: any) => {
+                          const statusColor: Record<string, string> = {
+                            conversando: 'bg-blue-100 text-blue-800',
+                            aguardando_orcamento: 'bg-amber-100 text-amber-800',
+                            orcamento_enviado: 'bg-purple-100 text-purple-800',
+                            elaborando_contrato: 'bg-violet-100 text-violet-800',
+                            contrato_gerado: 'bg-orange-100 text-orange-800',
+                            finalizado: 'bg-green-100 text-green-800',
+                          };
+                          const selecionado = chatSelecionado?.id === c.id;
+                          return (
+                            <tr key={c.id} onClick={() => abrirChatDetalhe(c)}
+                              className={`cursor-pointer transition-colors ${selecionado ? 'bg-primary/5 border-l-2 border-primary' : 'hover:bg-slate-50'}`}>
+                              <td className={td}><span className="font-mono font-bold text-primary text-xs">{c.orcs?.codigo || '—'}</span></td>
+                              <td className={td + ' text-xs text-muted-foreground max-w-[120px] truncate'}>{c.orcs?.servicos?.titulo || c.orcs?.servico_nome || '—'}</td>
+                              <td className={td}><span className="text-sm font-medium">{c.orcs?.nome_cliente || '—'}</span></td>
+                              <td className={td}><span className="text-sm">{c.orcs?.prestadores?.nome || '—'}</span></td>
+                              <td className={td}>
+                                <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${statusColor[c.status] || 'bg-slate-100 text-slate-600'}`}>
+                                  {c.status}
+                                </span>
+                              </td>
+                              <td className={td + ' text-center'}>
+                                <span className="text-sm font-bold text-primary">{c.total_mensagens}</span>
+                              </td>
+                              <td className={td + ' text-xs text-muted-foreground whitespace-nowrap'}>
+                                {c.criado_em ? new Date(c.criado_em).toLocaleDateString('pt-BR') : '—'}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        {(dados.chats || []).length === 0 && (
+                          <tr><td colSpan={7} className="text-center py-12 text-muted-foreground text-sm">Nenhum chat registrado ainda.</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
+
+              {/* PAINEL DETALHE DO CHAT */}
+              {chatSelecionado && (
+                <div className="space-y-4">
+                  {/* Meta info */}
+                  <div className="bg-white rounded-2xl border p-5">
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <span className="font-mono font-bold text-primary text-sm">{chatSelecionado.orcs?.codigo || '—'}</span>
+                        <div className="text-xs text-muted-foreground mt-0.5">{chatSelecionado.orcs?.servicos?.titulo || chatSelecionado.orcs?.servico_nome || '—'}</div>
+                      </div>
+                      <div className="flex gap-2">
+                        <a href={`${window.location.origin}/chat/${chatSelecionado.link_token}?papel=cliente`} target="_blank" rel="noreferrer"
+                          className="text-xs text-blue-600 underline">👤 Abrir cliente</a>
+                        <a href={`${window.location.origin}/chat/${chatSelecionado.link_token}?papel=prestador`} target="_blank" rel="noreferrer"
+                          className="text-xs text-green-700 underline">👷 Abrir prestador</a>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 text-xs">
+                      {[
+                        ['👤 Cliente', chatSelecionado.orcs?.nome_cliente || '—'],
+                        ['👷 Prestador', chatSelecionado.orcs?.prestadores?.nome || '—'],
+                        ['💰 Valor', chatSelecionado.orcs?.valor_final ? Number(chatSelecionado.orcs.valor_final).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '—'],
+                        ['📋 Comissão', chatSelecionado.orcs?.comissao_valor ? Number(chatSelecionado.orcs.comissao_valor).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '—'],
+                        ['Status chat', chatSelecionado.status],
+                        ['Status ORC', chatSelecionado.orcs?.status || '—'],
+                        ['Criado', chatSelecionado.criado_em ? new Date(chatSelecionado.criado_em).toLocaleString('pt-BR') : '—'],
+                        ['Finalizado', chatSelecionado.finalizado_em ? new Date(chatSelecionado.finalizado_em).toLocaleString('pt-BR') : '—'],
+                      ].map(([l, v]) => (
+                        <div key={l}>
+                          <div className="text-muted-foreground mb-0.5">{l}</div>
+                          <div className="font-semibold text-foreground">{v}</div>
+                        </div>
+                      ))}
+                    </div>
+                    {chatSelecionado.orcs?.resumo_anamnese && (
+                      <div className="mt-3 bg-success/5 border border-success/20 rounded-xl p-3">
+                        <div className="text-xs font-bold text-success mb-1">✨ Resumo da Anamnese (IA)</div>
+                        <p className="text-xs text-foreground leading-relaxed">{chatSelecionado.orcs.resumo_anamnese}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Mensagens do chat */}
+                  <div className="bg-white rounded-2xl border overflow-hidden">
+                    <div className="px-5 py-3 border-b flex items-center gap-2">
+                      <MessageSquare className="h-4 w-4 text-primary" />
+                      <span className="font-bold text-sm text-primary">Conversa completa</span>
+                      <span className="text-xs text-muted-foreground">({chatMsgsDetalhe.length} mensagens)</span>
+                    </div>
+                    <div className="p-4 flex flex-col gap-3 max-h-[480px] overflow-y-auto">
+                      {chatMsgDetalhando ? (
+                        <div className="flex justify-center py-8">
+                          <div className="animate-spin w-6 h-6 border-2 border-primary border-t-transparent rounded-full" />
+                        </div>
+                      ) : chatMsgsDetalhe.length === 0 ? (
+                        <div className="text-center py-8 text-muted-foreground text-sm">Nenhuma mensagem ainda.</div>
+                      ) : (
+                        chatMsgsDetalhe.map((msg: any, i: number) => {
+                          const isCliente = msg.remetente === 'cliente';
+                          const isIA = msg.remetente === 'ia' || msg.remetente === 'sistema';
+                          return (
+                            <div key={i} className={`flex ${isCliente ? 'justify-end' : isIA ? 'justify-center' : 'justify-start'}`}>
+                              {isIA ? (
+                                <div className="bg-slate-100 text-slate-500 text-xs px-3 py-1.5 rounded-full max-w-[90%] text-center">
+                                  🤖 {msg.conteudo}
+                                </div>
+                              ) : (
+                                <div className="max-w-[78%]">
+                                  <div className={`text-xs font-semibold mb-1 ${isCliente ? 'text-right text-blue-600' : 'text-left text-green-700'}`}>
+                                    {isCliente ? `👤 ${chatSelecionado.orcs?.nome_cliente || 'Cliente'}` : `👷 ${chatSelecionado.orcs?.prestadores?.nome || 'Prestador'}`}
+                                  </div>
+                                  <div className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${isCliente ? 'bg-primary text-white rounded-tr-sm' : 'bg-slate-100 text-foreground rounded-tl-sm'}`}>
+                                    {msg.tipo === 'imagem' ? <img src={msg.conteudo} alt="" className="rounded-xl max-w-full max-h-40 object-cover" /> : msg.conteudo}
+                                  </div>
+                                  <div className={`text-xs text-muted-foreground mt-1 ${isCliente ? 'text-right' : 'text-left'}`}>
+                                    {new Date(msg.criado_em).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
