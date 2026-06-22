@@ -58,11 +58,32 @@ export function ClientDashboard() {
   const [loading, setLoading] = useState(true);
   const [mobileMenu, setMobileMenu] = useState(false);
   const [perfil, setPerfil] = useState<any>(null);
+  const [editandoPerfil, setEditandoPerfil] = useState(false);
+  const [formPerfil, setFormPerfil] = useState({ nome: '', telefone: '', cpf: '', cidade: '', estado: '' });
+  const [salvandoPerfil, setSalvandoPerfil] = useState(false);
+  const [erroPerfil, setErroPerfil] = useState('');
 
   useEffect(() => {
     if (!contratante) { navigate('/auth'); return; }
     carregarTudo();
   }, []);
+
+  async function salvarPerfil() {
+    setSalvandoPerfil(true); setErroPerfil('');
+    try {
+      const updates: any = {};
+      if (formPerfil.nome) updates.nome = formPerfil.nome;
+      if (formPerfil.telefone) updates.telefone = formPerfil.telefone;
+      if (formPerfil.cpf) updates.cpf = formPerfil.cpf;
+      if (formPerfil.cidade) updates.cidade = formPerfil.cidade;
+      if (formPerfil.estado) updates.estado = formPerfil.estado;
+      const { error } = await supabase.from('usuarios').update(updates).eq('id', contratante!.id);
+      if (error) throw error;
+      setPerfil((p: any) => ({ ...p, ...updates }));
+      setEditandoPerfil(false);
+    } catch (e: any) { setErroPerfil(e.message || 'Erro ao salvar.'); }
+    setSalvandoPerfil(false);
+  }
 
   async function carregarTudo() {
     if (!contratante) return;
@@ -384,35 +405,80 @@ export function ClientDashboard() {
 
           {/* ── PERFIL ── */}
           {aba === 'perfil' && perfil && (
-            <div className="max-w-2xl">
+            <div className="max-w-2xl space-y-4">
               {/* Profile card */}
-              <div className="bg-white border border-[#e2e8f0] rounded-[16px] overflow-hidden mb-4">
-                <div className="bg-[#f8fafc] border-b border-[#e2e8f0] px-6 py-4 flex items-center gap-4">
-                  <div className="w-14 h-14 rounded-full flex items-center justify-center font-bold text-xl flex-shrink-0"
-                    style={{ background: 'oklch(0.92 0.05 184)', color: 'oklch(0.45 0.1 184)' }}>
-                    {getInitials(perfil.nome || '')}
+              <div className="bg-white border border-[#e2e8f0] rounded-[16px] overflow-hidden">
+                <div className="bg-[#f8fafc] border-b border-[#e2e8f0] px-6 py-4 flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 rounded-full flex items-center justify-center font-bold text-xl flex-shrink-0"
+                      style={{ background: 'oklch(0.92 0.05 184)', color: 'oklch(0.45 0.1 184)' }}>
+                      {getInitials(perfil.nome || '')}
+                    </div>
+                    <div>
+                      <div className="font-bold text-[#030213] text-base">{perfil.nome}</div>
+                      <div className="text-sm text-[#64748b]">{perfil.email}</div>
+                    </div>
                   </div>
-                  <div>
-                    <div className="font-bold text-[#030213] text-base">{perfil.nome}</div>
-                    <div className="text-sm text-[#64748b]">{perfil.email}</div>
-                  </div>
+                  <button
+                    onClick={() => { setEditandoPerfil(!editandoPerfil); setFormPerfil({ nome: perfil.nome || '', telefone: perfil.telefone || '', cpf: perfil.cpf || '', cidade: perfil.cidade || '', estado: perfil.estado || '' }); setErroPerfil(''); }}
+                    className="text-xs font-semibold px-3 py-1.5 rounded-[8px] border border-[#e2e8f0] transition-colors hover:bg-white"
+                    style={{ color: editandoPerfil ? '#b91c1c' : '#64748b' }}
+                  >
+                    {editandoPerfil ? '✕ Cancelar' : '✏️ Editar'}
+                  </button>
                 </div>
                 <div className="p-6">
-                  <div className="grid grid-cols-2 gap-5">
-                    {[
-                      { l: 'Nome completo', v: perfil.nome },
-                      { l: 'Email', v: perfil.email },
-                      { l: 'WhatsApp', v: perfil.telefone },
-                      { l: 'CPF', v: perfil.cpf || '—' },
-                      { l: 'Cidade', v: perfil.cidade },
-                      { l: 'Estado', v: perfil.estado },
-                    ].map(f => (
-                      <div key={f.l}>
-                        <div className="text-[10.5px] font-bold text-[#94a3b8] uppercase tracking-widest mb-1">{f.l}</div>
-                        <div className="text-sm font-semibold text-[#030213]">{f.v}</div>
+                  {editandoPerfil ? (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        {[
+                          { l: 'Nome completo', k: 'nome', type: 'text' },
+                          { l: 'WhatsApp / Telefone', k: 'telefone', type: 'tel' },
+                          { l: 'CPF', k: 'cpf', type: 'text' },
+                          { l: 'Cidade', k: 'cidade', type: 'text' },
+                          { l: 'Estado (UF)', k: 'estado', type: 'text' },
+                        ].map(({ l, k, type }) => (
+                          <div key={k}>
+                            <div className="text-[10.5px] font-bold text-[#94a3b8] uppercase tracking-widest mb-1">{l}</div>
+                            <input
+                              type={type}
+                              value={(formPerfil as any)[k]}
+                              onChange={e => setFormPerfil(p => ({ ...p, [k]: e.target.value }))}
+                              className="w-full px-3 py-2 text-sm outline-none"
+                              style={{ border: '1px solid #e2e8f0', borderRadius: 10, background: '#f8fafc' }}
+                              onFocus={e => (e.target.style.borderColor = '#030213')}
+                              onBlur={e => (e.target.style.borderColor = '#e2e8f0')}
+                            />
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
+                      {erroPerfil && <p className="text-xs text-red-500">{erroPerfil}</p>}
+                      <button
+                        onClick={salvarPerfil}
+                        disabled={salvandoPerfil}
+                        className="px-5 py-2.5 rounded-[10px] text-sm font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                        style={{ background: '#030213' }}
+                      >
+                        {salvandoPerfil ? '⏳ Salvando...' : '💾 Salvar alterações'}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-5">
+                      {[
+                        { l: 'Nome completo', v: perfil.nome },
+                        { l: 'Email', v: perfil.email },
+                        { l: 'WhatsApp', v: perfil.telefone },
+                        { l: 'CPF', v: perfil.cpf || '—' },
+                        { l: 'Cidade', v: perfil.cidade },
+                        { l: 'Estado', v: perfil.estado },
+                      ].map(f => (
+                        <div key={f.l}>
+                          <div className="text-[10.5px] font-bold text-[#94a3b8] uppercase tracking-widest mb-1">{f.l}</div>
+                          <div className="text-sm font-semibold text-[#030213]">{f.v || '—'}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
 

@@ -543,7 +543,7 @@ export function Home() {
                 <a
                   href={`https://wa.me/${WHATSAPP_NUMERO}?text=${encodeURIComponent(
                     '#SERVICO:' + servicoSelecionado.id +
-                    '|#PRESTADOR:' + (servicoSelecionado.prestador_id || '') +
+                    '|#PRESTADOR:' + (servicoSelecionado.prestadores?.id || '') +
                     '|#CAT:' + (servicoSelecionado.categorias?.nome || '') +
                     '\n\nOlá! 👋 Vim pelo site do *Serviço Seguro* e tenho interesse em:\n\n🔧 ' + servicoSelecionado.titulo +
                     '\n📂 Categoria: ' + (servicoSelecionado.categorias?.nome || '') +

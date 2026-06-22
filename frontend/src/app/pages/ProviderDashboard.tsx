@@ -71,6 +71,10 @@ export function ProviderDashboard() {
   const [erroForm, setErroForm] = useState('');
   const [uploadingFoto, setUploadingFoto] = useState(false);
   const [concluindoOrc, setConcluindoOrc] = useState<string | null>(null);
+  const [editandoPerfil, setEditandoPerfil] = useState(false);
+  const [formPerfil, setFormPerfil] = useState({ nome: '', telefone: '', cpf: '', bio: '', cidade: '', estado: '' });
+  const [salvandoPerfil, setSalvandoPerfil] = useState(false);
+  const [erroPerfil, setErroPerfil] = useState('');
 
   async function uploadFoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -157,6 +161,24 @@ export function ProviderDashboard() {
       alert('Erro: ' + (e.message || 'Não foi possível marcar como concluído.'));
     }
     setConcluindoOrc(null);
+  }
+
+  async function salvarPerfil() {
+    setSalvandoPerfil(true); setErroPerfil('');
+    try {
+      const updates: any = {};
+      if (formPerfil.nome) updates.nome = formPerfil.nome;
+      if (formPerfil.telefone) updates.telefone = formPerfil.telefone;
+      if (formPerfil.cpf) updates.cpf = formPerfil.cpf;
+      if (formPerfil.bio !== undefined) updates.bio = formPerfil.bio;
+      if (formPerfil.cidade) updates.cidade = formPerfil.cidade;
+      if (formPerfil.estado) updates.estado = formPerfil.estado;
+      const { error } = await supabase.from('prestadores').update(updates).eq('id', prestador!.id);
+      if (error) throw error;
+      setPerfil((p: any) => ({ ...p, ...updates }));
+      setEditandoPerfil(false);
+    } catch (e: any) { setErroPerfil(e.message || 'Erro ao salvar.'); }
+    setSalvandoPerfil(false);
   }
 
   async function toggleServico(id: string, ativo: boolean) {
@@ -803,73 +825,111 @@ export function ProviderDashboard() {
               >
                 <div className="px-6 py-4 border-b border-[#e2e8f0] flex items-center justify-between">
                   <h2 className="font-bold text-sm" style={{ color: PRIMARY }}>Meu Perfil</h2>
-                  <span
-                    className="rounded-full text-[10.5px] font-bold px-2.5 py-0.5"
-                    style={
-                      perfil.verificado
-                        ? { background: TEAL_LIGHT_BG, color: TEAL_DARK_TEXT }
-                        : { background: '#fffbeb', color: '#b45309' }
-                    }
-                  >
-                    {perfil.verificado ? '🤳 Verificado' : '⏳ Pendente'}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="rounded-full text-[10.5px] font-bold px-2.5 py-0.5"
+                      style={perfil.verificado ? { background: TEAL_LIGHT_BG, color: TEAL_DARK_TEXT } : { background: '#fffbeb', color: '#b45309' }}
+                    >
+                      {perfil.verificado ? '🤳 Verificado' : '⏳ Pendente'}
+                    </span>
+                    <button
+                      onClick={() => { setEditandoPerfil(!editandoPerfil); setFormPerfil({ nome: perfil.nome || '', telefone: perfil.telefone || '', cpf: perfil.cpf || '', bio: perfil.bio || '', cidade: perfil.cidade || '', estado: perfil.estado || '' }); setErroPerfil(''); }}
+                      className="text-xs font-semibold px-3 py-1.5 rounded-[8px] border border-[#e2e8f0] transition-colors hover:bg-[#f8fafc]"
+                      style={{ color: editandoPerfil ? '#b91c1c' : '#64748b' }}
+                    >
+                      {editandoPerfil ? '✕ Cancelar' : '✏️ Editar'}
+                    </button>
+                  </div>
                 </div>
 
                 <div className="p-6 space-y-5">
                   {/* Profile photo upload */}
                   <div className="flex items-center gap-5 pb-5 border-b border-[#e2e8f0]">
                     {perfil.foto_url ? (
-                      <img
-                        src={perfil.foto_url}
-                        alt={perfil.nome}
-                        className="w-16 h-16 rounded-full object-cover flex-shrink-0"
-                        style={{ border: `2px solid ${TEAL_LIGHT_BG}` }}
-                      />
+                      <img src={perfil.foto_url} alt={perfil.nome} className="w-16 h-16 rounded-full object-cover flex-shrink-0" style={{ border: `2px solid ${TEAL_LIGHT_BG}` }} />
                     ) : (
-                      <div
-                        className="w-16 h-16 rounded-full flex items-center justify-center font-bold text-2xl flex-shrink-0"
-                        style={{ background: 'oklch(0.92 0.05 184)', color: TEAL_DARK_TEXT }}
-                      >
-                        {perfil.nome?.charAt(0)}
+                      <div className="w-16 h-16 rounded-full flex items-center justify-center font-bold text-2xl flex-shrink-0" style={{ background: 'oklch(0.92 0.05 184)', color: TEAL_DARK_TEXT }}>
+                        {(formPerfil.nome || perfil.nome)?.charAt(0)}
                       </div>
                     )}
                     <div>
                       <div className="font-bold text-sm mb-2" style={{ color: PRIMARY }}>{perfil.nome}</div>
-                      <label
-                        className="cursor-pointer inline-flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-[10px] border border-[#e2e8f0] transition-colors hover:bg-[#f8fafc]"
-                        style={{ color: '#64748b' }}
-                      >
+                      <label className="cursor-pointer inline-flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-[10px] border border-[#e2e8f0] transition-colors hover:bg-[#f8fafc]" style={{ color: '#64748b' }}>
                         {uploadingFoto ? '⏳ Salvando...' : '📷 Alterar foto'}
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={uploadFoto}
-                          disabled={uploadingFoto}
-                        />
+                        <input type="file" accept="image/*" className="hidden" onChange={uploadFoto} disabled={uploadingFoto} />
                       </label>
                       <div className="text-xs text-[#94a3b8] mt-1.5">Esta foto aparece para os contratantes</div>
                     </div>
                   </div>
 
-                  {/* Profile fields grid */}
-                  <div className="grid grid-cols-2 gap-4">
-                    {[
-                      { l: 'Nome', v: perfil.nome }, { l: 'Email', v: perfil.email },
-                      { l: 'WhatsApp', v: perfil.telefone }, { l: 'CPF', v: perfil.cpf || '—' },
-                      { l: 'Cidade', v: perfil.cidade }, { l: 'Estado', v: perfil.estado },
-                    ].map(f => (
-                      <div key={f.l}>
-                        <div className="text-[10.5px] font-bold uppercase tracking-wider text-[#64748b] mb-1">{f.l}</div>
-                        <div className="text-sm font-semibold" style={{ color: PRIMARY }}>{f.v}</div>
+                  {/* Formulário de edição */}
+                  {editandoPerfil ? (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        {[
+                          { l: 'Nome completo', k: 'nome', type: 'text' },
+                          { l: 'WhatsApp / Telefone', k: 'telefone', type: 'tel' },
+                          { l: 'CPF', k: 'cpf', type: 'text' },
+                          { l: 'Cidade', k: 'cidade', type: 'text' },
+                          { l: 'Estado (UF)', k: 'estado', type: 'text' },
+                        ].map(({ l, k, type }) => (
+                          <div key={k}>
+                            <div className="text-[10.5px] font-bold uppercase tracking-wider text-[#64748b] mb-1">{l}</div>
+                            <input
+                              type={type}
+                              value={(formPerfil as any)[k]}
+                              onChange={e => setFormPerfil(p => ({ ...p, [k]: e.target.value }))}
+                              className="w-full px-3 py-2 text-sm outline-none"
+                              style={{ border: '1px solid #e2e8f0', borderRadius: 10, background: '#f8fafc' }}
+                              onFocus={e => (e.target.style.borderColor = PRIMARY)}
+                              onBlur={e => (e.target.style.borderColor = '#e2e8f0')}
+                            />
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-
-                  {perfil.bio && (
-                    <div>
-                      <div className="text-[10.5px] font-bold uppercase tracking-wider text-[#64748b] mb-1">Sobre</div>
-                      <div className="text-sm text-[#374151]">{perfil.bio}</div>
+                      <div>
+                        <div className="text-[10.5px] font-bold uppercase tracking-wider text-[#64748b] mb-1">Bio / Apresentação</div>
+                        <textarea
+                          rows={3}
+                          value={formPerfil.bio}
+                          onChange={e => setFormPerfil(p => ({ ...p, bio: e.target.value }))}
+                          placeholder="Conte um pouco sobre você e sua experiência..."
+                          className="w-full px-3 py-2 text-sm outline-none resize-none"
+                          style={{ border: '1px solid #e2e8f0', borderRadius: 10, background: '#f8fafc' }}
+                          onFocus={e => (e.target.style.borderColor = PRIMARY)}
+                          onBlur={e => (e.target.style.borderColor = '#e2e8f0')}
+                        />
+                      </div>
+                      {erroPerfil && <p className="text-xs text-red-500">{erroPerfil}</p>}
+                      <button
+                        onClick={salvarPerfil}
+                        disabled={salvandoPerfil}
+                        className="px-5 py-2.5 rounded-[10px] text-sm font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                        style={{ background: PRIMARY }}
+                      >
+                        {salvandoPerfil ? '⏳ Salvando...' : '💾 Salvar alterações'}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        {[
+                          { l: 'Nome', v: perfil.nome }, { l: 'Email', v: perfil.email },
+                          { l: 'WhatsApp', v: perfil.telefone }, { l: 'CPF', v: perfil.cpf || '—' },
+                          { l: 'Cidade', v: perfil.cidade }, { l: 'Estado', v: perfil.estado },
+                        ].map(f => (
+                          <div key={f.l}>
+                            <div className="text-[10.5px] font-bold uppercase tracking-wider text-[#64748b] mb-1">{f.l}</div>
+                            <div className="text-sm font-semibold" style={{ color: PRIMARY }}>{f.v || '—'}</div>
+                          </div>
+                        ))}
+                      </div>
+                      {perfil.bio && (
+                        <div>
+                          <div className="text-[10.5px] font-bold uppercase tracking-wider text-[#64748b] mb-1">Sobre</div>
+                          <div className="text-sm text-[#374151]">{perfil.bio}</div>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -882,29 +942,15 @@ export function ProviderDashboard() {
                         { ico: '🪪', l: 'Documento', ok: false },
                         { ico: '🤳', l: 'Biometria', ok: perfil.verificado },
                       ].map(s => (
-                        <div
-                          key={s.l}
-                          className="text-center rounded-[16px] p-4 border"
-                          style={
-                            s.ok
-                              ? { borderColor: TEAL_LIGHT_BG, background: TEAL_LIGHT_BG }
-                              : { borderColor: '#e2e8f0', background: '#f8fafc', opacity: 0.6 }
-                          }
-                        >
+                        <div key={s.l} className="text-center rounded-[16px] p-4 border" style={s.ok ? { borderColor: TEAL_LIGHT_BG, background: TEAL_LIGHT_BG } : { borderColor: '#e2e8f0', background: '#f8fafc', opacity: 0.6 }}>
                           <div className="text-xl mb-1.5">{s.ico}</div>
                           <div className="text-xs font-bold mb-0.5" style={{ color: PRIMARY }}>{s.l}</div>
-                          <div className="text-[10.5px] font-semibold" style={{ color: s.ok ? TEAL_DARK_TEXT : '#94a3b8' }}>
-                            {s.ok ? '✓ OK' : 'Pendente'}
-                          </div>
+                          <div className="text-[10.5px] font-semibold" style={{ color: s.ok ? TEAL_DARK_TEXT : '#94a3b8' }}>{s.ok ? '✓ OK' : 'Pendente'}</div>
                         </div>
                       ))}
                     </div>
                     {!perfil.verificado && (
-                      <Link
-                        to="/biometria"
-                        className="inline-flex items-center gap-2 text-white px-4 py-2.5 rounded-[10px] text-sm font-bold transition-opacity hover:opacity-90"
-                        style={{ background: TEAL }}
-                      >
+                      <Link to="/biometria" className="inline-flex items-center gap-2 text-white px-4 py-2.5 rounded-[10px] text-sm font-bold transition-opacity hover:opacity-90" style={{ background: TEAL }}>
                         🤳 Verificar identidade agora
                       </Link>
                     )}

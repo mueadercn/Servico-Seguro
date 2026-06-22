@@ -209,20 +209,49 @@ export function Admin() {
           setDados({ chats: [] });
         }
       } else if (pagina === 'dashboard') {
-        const [o, p, u, c] = await Promise.all([
-          supabase.from('orcs').select('id, status'),
-          supabase.from('prestadores').select('id, ativo, verificado'),
-          supabase.from('usuarios').select('id'),
-          supabase.from('contratos').select('id, valor, comissao'),
+        const agora = new Date();
+        const inicioMes = new Date(agora.getFullYear(), agora.getMonth(), 1).toISOString();
+        const inicioMesPassado = new Date(agora.getFullYear(), agora.getMonth() - 1, 1).toISOString();
+        const fimMesPassado = new Date(agora.getFullYear(), agora.getMonth(), 0, 23, 59, 59).toISOString();
+        const [o, p, u, c, chats, orcsMes, orcsPassado, cMes] = await Promise.all([
+          supabase.from('orcs').select('id, status, criado_em'),
+          supabase.from('prestadores').select('id, ativo, verificado, criado_em'),
+          supabase.from('usuarios').select('id, criado_em'),
+          supabase.from('contratos').select('id, valor, comissao, assinado_cliente, assinado_prestador, criado_em'),
+          supabase.from('chat_negociacao').select('id, status'),
+          supabase.from('orcs').select('id').gte('criado_em', inicioMes),
+          supabase.from('orcs').select('id').gte('criado_em', inicioMesPassado).lte('criado_em', fimMesPassado),
+          supabase.from('contratos').select('id, valor, comissao').gte('criado_em', inicioMes),
         ]);
+        const contratos = c.data || [];
+        const contratosAssinados = contratos.filter((x: any) => x.assinado_cliente && x.assinado_prestador);
+        const faturamentoTotal = contratos.reduce((a: number, x: any) => a + (Number(x.valor) || 0), 0);
+        const faturamentoMes = (cMes.data || []).reduce((a: number, x: any) => a + (Number(x.valor) || 0), 0);
+        const comissaoTotal = contratos.reduce((a: number, x: any) => a + (Number(x.comissao) || 0), 0);
+        const comissaoMes = (cMes.data || []).reduce((a: number, x: any) => a + (Number(x.comissao) || 0), 0);
+        const orcsTotalMes = orcsMes.data?.length || 0;
+        const orcsTotalPassado = orcsPassado.data?.length || 0;
+        const crescimento = orcsTotalPassado > 0 ? Math.round(((orcsTotalMes - orcsTotalPassado) / orcsTotalPassado) * 100) : null;
+        const taxaConversao = (o.data?.length || 0) > 0 ? Math.round((contratosAssinados.length / (o.data?.length || 1)) * 100) : 0;
+        const chatsAtivos = (chats.data || []).filter((x: any) => !['contrato_gerado', 'finalizado'].includes(x.status)).length;
         setDados({
           total_orcs: o.data?.length || 0,
           orcs_ativos: o.data?.filter((x: any) => !['ENCERRADO', 'CANCELADO'].includes(x.status)).length || 0,
+          orcs_mes: orcsTotalMes,
+          crescimento_mes: crescimento,
           total_prestadores: p.data?.length || 0,
+          prestadores_ativos: p.data?.filter((x: any) => x.ativo).length || 0,
           prestadores_verificados: p.data?.filter((x: any) => x.verificado).length || 0,
           total_usuarios: u.data?.length || 0,
-          total_contratos: c.data?.length || 0,
-          total_comissao: c.data?.reduce((a: number, x: any) => a + (Number(x.comissao) || 0), 0) || 0,
+          usuarios_mes: (u.data || []).filter((x: any) => x.criado_em >= inicioMes).length,
+          total_contratos: contratos.length,
+          contratos_assinados: contratosAssinados.length,
+          faturamento_total: faturamentoTotal,
+          faturamento_mes: faturamentoMes,
+          comissao_total: comissaoTotal,
+          comissao_mes: comissaoMes,
+          taxa_conversao: taxaConversao,
+          chats_ativos: chatsAtivos,
         });
       } else if (pagina === 'prestadores') {
         const { data } = await supabase.from('prestadores').select('*').order('criado_em', { ascending: false });
@@ -1117,22 +1146,114 @@ export function Admin() {
 
           {/* DASHBOARD */}
           {!loading && aba === 'dashboard' && (
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              {[
-                { l: 'Total ORCs', v: dados.total_orcs || 0, ic: '📋' },
-                { l: 'ORCs Ativos', v: dados.orcs_ativos || 0, ic: '⚡' },
-                { l: 'Prestadores', v: dados.total_prestadores || 0, ic: '👷' },
-                { l: 'Verificados', v: dados.prestadores_verificados || 0, ic: '🤳' },
-                { l: 'Contratantes', v: dados.total_usuarios || 0, ic: '👤' },
-                { l: 'Contratos', v: dados.total_contratos || 0, ic: '📄' },
-                { l: 'Comissão Total', v: 'R$ ' + (dados.total_comissao || 0).toFixed(2), ic: '💰' },
-              ].map(s => (
-                <div key={s.l} className="bg-white border border-[#e2e8f0] rounded-[16px] p-5">
-                  <div className="text-2xl mb-2">{s.ic}</div>
-                  <div className="text-[26px] font-extrabold text-[#030213]">{s.v}</div>
-                  <div className="text-sm text-[#64748b] font-semibold mb-1">{s.l}</div>
+            <div className="space-y-6">
+
+              {/* Bloco financeiro principal */}
+              <div>
+                <h3 className="text-xs font-bold uppercase tracking-widest text-[#94a3b8] mb-3">💰 Financeiro</h3>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                  {[
+                    {
+                      l: 'Faturamento Total', sub: 'Soma dos contratos',
+                      v: 'R$ ' + (dados.faturamento_total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
+                      ic: '💵', bg: '#E6F1FB', color: '#0C447C',
+                    },
+                    {
+                      l: 'Faturamento este Mês', sub: 'Contratos gerados no mês',
+                      v: 'R$ ' + (dados.faturamento_mes || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
+                      ic: '📈', bg: 'oklch(0.95 0.03 184)', color: 'oklch(0.45 0.1 184)',
+                    },
+                    {
+                      l: 'Comissão Total', sub: 'Plataforma acumulada',
+                      v: 'R$ ' + (dados.comissao_total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
+                      ic: '💰', bg: '#EAF3DE', color: '#173404',
+                    },
+                    {
+                      l: 'Comissão este Mês', sub: 'Receita do mês atual',
+                      v: 'R$ ' + (dados.comissao_mes || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
+                      ic: '🏦', bg: '#EEEDFE', color: '#26215C',
+                    },
+                  ].map(s => (
+                    <div key={s.l} className="bg-white border border-[#e2e8f0] rounded-[16px] p-5" style={{ boxShadow: '0 2px 12px -4px rgba(3,2,19,0.06)' }}>
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-xl">{s.ic}</span>
+                        <span className="text-[10.5px] font-semibold px-2 py-0.5 rounded-full" style={{ background: s.bg, color: s.color }}>{s.sub}</span>
+                      </div>
+                      <div className="text-[22px] font-extrabold text-[#030213] leading-tight">{s.v}</div>
+                      <div className="text-xs text-[#64748b] font-semibold mt-1">{s.l}</div>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              </div>
+
+              {/* Bloco de crescimento / conversão */}
+              <div>
+                <h3 className="text-xs font-bold uppercase tracking-widest text-[#94a3b8] mb-3">📊 Crescimento & Conversão</h3>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                  {[
+                    {
+                      l: 'ORCs este mês', sub: 'vs. mês anterior',
+                      v: dados.orcs_mes ?? 0,
+                      delta: dados.crescimento_mes !== null
+                        ? (dados.crescimento_mes >= 0 ? `+${dados.crescimento_mes}%` : `${dados.crescimento_mes}%`)
+                        : '—',
+                      deltaColor: dados.crescimento_mes >= 0 ? '#173404' : '#501313',
+                      deltaBg: dados.crescimento_mes >= 0 ? '#EAF3DE' : '#FCEBEB',
+                      ic: '⚡',
+                    },
+                    {
+                      l: 'Taxa de Conversão', sub: 'ORCs → Contratos assinados',
+                      v: (dados.taxa_conversao || 0) + '%',
+                      delta: `${dados.contratos_assinados || 0} contratos`,
+                      deltaColor: '#26215C', deltaBg: '#EEEDFE', ic: '🎯',
+                    },
+                    {
+                      l: 'Chats em andamento', sub: 'Negociações ativas agora',
+                      v: dados.chats_ativos || 0,
+                      delta: `${dados.total_contratos || 0} total contratos`,
+                      deltaColor: '#0C447C', deltaBg: '#E6F1FB', ic: '💬',
+                    },
+                    {
+                      l: 'Novos clientes/mês', sub: 'Contratantes cadastrados',
+                      v: dados.usuarios_mes || 0,
+                      delta: `${dados.total_usuarios || 0} total`,
+                      deltaColor: '#92400e', deltaBg: '#FEF3C7', ic: '👤',
+                    },
+                  ].map(s => (
+                    <div key={s.l} className="bg-white border border-[#e2e8f0] rounded-[16px] p-5" style={{ boxShadow: '0 2px 12px -4px rgba(3,2,19,0.06)' }}>
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-xl">{s.ic}</span>
+                        <span className="text-[10.5px] font-semibold px-2 py-0.5 rounded-full" style={{ background: s.deltaBg, color: s.deltaColor }}>{s.delta}</span>
+                      </div>
+                      <div className="text-[26px] font-extrabold text-[#030213] leading-tight">{s.v}</div>
+                      <div className="text-xs text-[#64748b] font-semibold mt-1">{s.l}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Bloco de rede */}
+              <div>
+                <h3 className="text-xs font-bold uppercase tracking-widest text-[#94a3b8] mb-3">🏗️ Rede de Prestadores</h3>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                  {[
+                    { l: 'Total de Prestadores', v: dados.total_prestadores || 0, ic: '👷', sub: `${dados.prestadores_ativos || 0} ativos`, bg: '#E6F1FB', color: '#0C447C' },
+                    { l: 'Identidades Verificadas', v: dados.prestadores_verificados || 0, ic: '🤳', sub: 'Biometria aprovada', bg: 'oklch(0.95 0.03 184)', color: 'oklch(0.45 0.1 184)' },
+                    { l: 'Total de ORCs', v: dados.total_orcs || 0, ic: '📋', sub: `${dados.orcs_ativos || 0} em andamento`, bg: '#fffbeb', color: '#b45309' },
+                    { l: 'Contratantes Ativos', v: dados.total_usuarios || 0, ic: '🏠', sub: 'Usuários cadastrados', bg: '#EEEDFE', color: '#26215C' },
+                  ].map(s => (
+                    <div key={s.l} className="bg-white border border-[#e2e8f0] rounded-[16px] p-5" style={{ boxShadow: '0 2px 12px -4px rgba(3,2,19,0.06)' }}>
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-xl">{s.ic}</span>
+                        <span className="text-[10.5px] font-semibold px-2 py-0.5 rounded-full" style={{ background: s.bg, color: s.color }}>{s.sub}</span>
+                      </div>
+                      <div className="text-[26px] font-extrabold text-[#030213] leading-tight">{s.v}</div>
+                      <div className="text-xs text-[#64748b] font-semibold mt-1">{s.l}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
             </div>
           )}
 
