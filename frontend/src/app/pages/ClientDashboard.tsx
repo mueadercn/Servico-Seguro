@@ -87,11 +87,23 @@ export function ClientDashboard() {
 
   async function carregarTudo() {
     if (!contratante) return;
-    const [oRes, pRes] = await Promise.all([
+    const [oRes, oTelRes, pRes] = await Promise.all([
       supabase.from('orcs').select('*').eq('usuario_id', contratante.id).order('criado_em', { ascending: false }),
+      contratante.telefone
+        ? (() => {
+            const tel = contratante.telefone.replace(/\D/g, '');
+            return supabase.from('orcs').select('*')
+              .or(`telefone_cliente.eq.${tel},telefone_cliente.eq.+55${tel},telefone_cliente.eq.55${tel}`)
+              .is('usuario_id', null)
+              .order('criado_em', { ascending: false });
+          })()
+        : Promise.resolve({ data: [] }),
       supabase.from('usuarios').select('*').eq('id', contratante.id).limit(1),
     ]);
-    const orcData = oRes.data || [];
+    // Mescla ORCs por usuario_id + ORCs por telefone (WhatsApp), sem duplicatas
+    const byId = new Map((oRes.data || []).map((o: any) => [o.id, o]));
+    for (const o of (oTelRes.data || [])) if (!byId.has(o.id)) byId.set(o.id, o);
+    const orcData = [...byId.values()].sort((a, b) => new Date(b.criado_em).getTime() - new Date(a.criado_em).getTime());
     setOrcs(orcData);
     if (pRes.data?.[0]) setPerfil(pRes.data[0]);
 

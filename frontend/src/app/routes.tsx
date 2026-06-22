@@ -14,6 +14,7 @@ import { Chat } from "./pages/Chat";
 import { Avaliar } from "./pages/Avaliar";
 import { ProviderProfile } from "./pages/ProviderProfile"
 import { Profissionais } from "./pages/Profissionais";
+import { Contato as ContatoPage } from "./pages/Contato";
 import { NotFound } from "./pages/NotFound";
 
 export const router = createBrowserRouter([
@@ -29,6 +30,7 @@ export const router = createBrowserRouter([
       { path: "prestador/*", Component: ProviderDashboard },
       { path: "perfil/:id", Component: ProviderProfile },
       { path: "profissionais", Component: Profissionais },
+      { path: "contato", Component: ContatoPage },
       { path: "orcamento", Component: Orcamento },
       { path: "contrato", Component: Contrato },
       { path: "biometria", Component: Biometria },

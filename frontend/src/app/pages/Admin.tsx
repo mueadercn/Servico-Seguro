@@ -35,6 +35,7 @@ const navItems = [
   { id: 'avaliacoes', label: 'Avaliações', icon: Star },
   { id: 'comissoes', label: 'Comissões', icon: DollarSign },
   { id: 'biometria', label: 'Verificações', icon: Shield },
+  { id: 'suporte', label: 'Suporte', icon: MessageSquare },
   { id: 'config', label: 'Configurações', icon: Settings },
 ];
 
@@ -279,6 +280,9 @@ export function Admin() {
       } else if (pagina === 'biometria') {
         const { data } = await supabase.from('prestadores').select('id,nome,telefone,cidade,verificado').order('criado_em', { ascending: false });
         setDados({ biometria: data || [] });
+      } else if (pagina === 'suporte') {
+        const res = await apiCall('/api/admin/suporte');
+        setDados({ suporte: res.mensagens || [] });
       } else if (pagina === 'config') {
         const { data } = await supabase.from('configuracoes').select('*').order('chave');
         setDados({ configs: data || [] });
@@ -1628,6 +1632,70 @@ export function Admin() {
           )}
 
           {/* CONFIG */}
+          {/* SUPORTE */}
+          {aba === 'suporte' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <h2 className="text-lg font-extrabold text-[#030213]">Suporte</h2>
+                  <p className="text-xs text-[#94a3b8]">Mensagens recebidas pela página de Contato</p>
+                </div>
+                <span className="text-xs font-bold px-2.5 py-1 rounded-full" style={{ background: '#E6F1FB', color: '#0C447C' }}>
+                  {(dados.suporte || []).filter((m: any) => m.status === 'novo').length} novas
+                </span>
+              </div>
+              {!(dados.suporte || []).length ? (
+                <div className="bg-white border border-[#e2e8f0] rounded-[16px] py-16 text-center text-[#94a3b8] text-sm">
+                  Nenhuma mensagem ainda.
+                </div>
+              ) : (dados.suporte || []).map((m: any) => (
+                <div key={m.id} className="bg-white border rounded-[16px] p-5 space-y-3"
+                  style={{ borderColor: m.status === 'novo' ? '#7F77DD' : '#e2e8f0' }}>
+                  <div className="flex items-start justify-between gap-3 flex-wrap">
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-bold text-sm text-[#030213]">{m.nome || 'Anônimo'}</span>
+                        <span className="text-[10.5px] font-bold px-2.5 py-0.5 rounded-full"
+                          style={m.status === 'novo'
+                            ? { background: '#EEEDFE', color: '#3C3489' }
+                            : m.status === 'lido'
+                              ? { background: '#FEF3C7', color: '#92400e' }
+                              : { background: '#EAF3DE', color: '#173404' }}>
+                          {m.status === 'novo' ? '● Novo' : m.status === 'lido' ? 'Lido' : '✓ Resolvido'}
+                        </span>
+                      </div>
+                      <div className="flex gap-3 mt-0.5 flex-wrap">
+                        {m.email && <span className="text-xs text-[#64748b]">{m.email}</span>}
+                        {m.telefone && <span className="text-xs text-[#64748b]">{m.telefone}</span>}
+                        <span className="text-xs text-[#94a3b8]">{m.criado_em ? new Date(m.criado_em).toLocaleString('pt-BR') : ''}</span>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 flex-shrink-0">
+                      {m.status !== 'lido' && m.status !== 'resolvido' && (
+                        <button onClick={async () => {
+                          await apiCall(`/api/admin/suporte/${m.id}`, { method: 'PATCH', body: { status: 'lido' } });
+                          carregarDados('suporte');
+                        }} className="text-xs px-3 py-1 rounded-[8px] font-semibold" style={{ background: '#FEF3C7', color: '#92400e' }}>
+                          Marcar lido
+                        </button>
+                      )}
+                      {m.status !== 'resolvido' && (
+                        <button onClick={async () => {
+                          await apiCall(`/api/admin/suporte/${m.id}`, { method: 'PATCH', body: { status: 'resolvido' } });
+                          carregarDados('suporte');
+                        }} className="text-xs px-3 py-1 rounded-[8px] font-semibold" style={{ background: '#EAF3DE', color: '#173404' }}>
+                          ✓ Resolvido
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-xs font-bold text-[#64748b] uppercase tracking-wide">{m.assunto}</div>
+                  <p className="text-sm text-[#030213] leading-relaxed whitespace-pre-wrap">{m.mensagem}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
           {aba === 'config' && <AdminPrompts />}
 
         </div>

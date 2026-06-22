@@ -304,4 +304,51 @@ router.get('/biometria', async (req, res) => {
   }
 });
 
+// ── SUPORTE ───────────────────────────────────────────────────
+// POST /api/admin/suporte — público, qualquer visitante pode enviar
+router.post('/suporte', async (req, res) => {
+  try {
+    const { nome, email, telefone, assunto, mensagem } = req.body;
+    if (!mensagem?.trim()) return res.status(400).json({ ok: false, error: 'Mensagem obrigatória' });
+    const { error } = await supabase.from('suporte_mensagens').insert({
+      nome: nome || null,
+      email: email || null,
+      telefone: telefone || null,
+      assunto: assunto || 'Contato',
+      mensagem: mensagem.trim(),
+      status: 'novo',
+    });
+    if (error) throw error;
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// GET /api/admin/suporte — lista para o admin
+router.get('/suporte', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('suporte_mensagens')
+      .select('*')
+      .order('criado_em', { ascending: false });
+    if (error) throw error;
+    res.json({ ok: true, mensagens: data });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// PATCH /api/admin/suporte/:id — atualiza status (novo → lido → resolvido)
+router.patch('/suporte/:id', async (req, res) => {
+  try {
+    const { status } = req.body;
+    const { error } = await supabase.from('suporte_mensagens').update({ status }).eq('id', req.params.id);
+    if (error) throw error;
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 module.exports = router;

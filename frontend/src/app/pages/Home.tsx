@@ -144,6 +144,13 @@ export function Home() {
               onMouseLeave={e => (e.currentTarget.style.color = '#717182')}>
               Como funciona
             </Link>
+            <Link to="/contato"
+              className="hidden md:block text-sm px-3 py-2 rounded-[10px] transition-colors"
+              style={{ color: '#717182' }}
+              onMouseEnter={e => (e.currentTarget.style.color = '#030213')}
+              onMouseLeave={e => (e.currentTarget.style.color = '#717182')}>
+              Contato
+            </Link>
 
             {usuarioLogado ? (
               /* ── LOGADO: avatar + menu dropdown ── */
@@ -548,6 +555,7 @@ export function Home() {
       <footer className="border-t py-6 px-4 text-center" style={{ borderColor: 'rgba(0,0,0,0.07)', fontSize: 12.5, color: '#94a3b8' }}>
         © 2026 Serviço Seguro · {cidade} ·{' '}
         <Link to="/como-funciona" className="hover:underline ml-1" style={{ color: '#94a3b8' }}>Como funciona</Link> ·{' '}
+        <Link to="/contato" className="hover:underline ml-1" style={{ color: '#94a3b8' }}>Contato</Link> ·{' '}
         <Link to="/admin" className="hover:underline ml-1" style={{ color: '#94a3b8' }}>Admin</Link>
       </footer>
 

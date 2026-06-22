@@ -133,7 +133,7 @@ export function Contrato() {
         method: 'POST',
         body: {
           orc_id: orcId,
-          tipo: 'contrato_padrao',
+          tipo: 'servico_seguro',
           valor: parseFloat(form.valor),
           comissao: comissao.valor,
           cont_nome: form.contNome,
