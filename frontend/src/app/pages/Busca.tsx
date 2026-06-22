@@ -27,11 +27,13 @@ function getInitials(nome: string): string {
   return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
 }
 
+const CIDADES = ['Santa Maria', 'Passo Fundo', 'Porto Alegre', 'Pelotas', 'Caxias do Sul'];
+
 export function Busca() {
   const [urlParams] = useSearchParams();
 
   const [busca, setBusca] = useState(urlParams.get('q') || '');
-  const [cidade] = useState(urlParams.get('cidade') || 'Santa Maria');
+  const [cidade, setCidade] = useState(urlParams.get('cidade') || 'Santa Maria');
   const [catAtiva, setCatAtiva] = useState(urlParams.get('cat') || '');
   const [servicos, setServicos] = useState<any[]>([]);
   const [categorias, setCategorias] = useState<any[]>([]);
@@ -49,28 +51,28 @@ export function Busca() {
       .then(({ data }) => { if (data?.length) setCategorias(data); });
   }, []);
 
-  useEffect(() => { buscarServicos(); }, [busca, catAtiva, soVerificados, notaMin, aceitaOnline, modalidade]);
+  // Re-busca quando qualquer filtro ou cidade muda
+  useEffect(() => { buscarServicos(); }, [busca, catAtiva, cidade, soVerificados, notaMin, aceitaOnline, modalidade]);
 
   async function buscarServicos() {
     setLoading(true);
     try {
+      // IMPORTANTE: avaliacoes não tem FK para servicos — join pela tabela prestadores via nota_media
       const { data, error } = await supabase
         .from('servicos')
         .select(`
           id, titulo, descricao, tipo, valor_fixo, aceita_orcamento_online, criado_em,
           categorias(id, nome, icone),
-          prestadores(id, nome, foto_url, bio, verificado, cidade, aceita_orcamento_online),
-          avaliacoes(id, nota, comentario, criado_em)
+          prestadores(id, nome, foto_url, bio, verificado, cidade, nota_media, aceita_orcamento_online)
         `)
         .eq('ativo', true)
         .order('criado_em', { ascending: false });
 
       if (error) throw error;
 
+      // Filtro de cidade — inclui prestadores sem cidade cadastrada
       let lista = (data || []).filter((s: any) =>
-        !s.prestadores ||
-        !s.prestadores.cidade ||
-        s.prestadores.cidade === cidade
+        !s.prestadores?.cidade || s.prestadores.cidade === cidade
       );
 
       if (soVerificados) {
@@ -89,12 +91,7 @@ export function Busca() {
       }
 
       if (notaMin > 0) {
-        lista = lista.filter((s: any) => {
-          const avs = s.avaliacoes || [];
-          if (!avs.length) return false;
-          const media = avs.reduce((a: number, v: any) => a + v.nota, 0) / avs.length;
-          return media >= notaMin;
-        });
+        lista = lista.filter((s: any) => (s.prestadores?.nota_media || 0) >= notaMin);
       }
 
       if (catAtiva) {
@@ -106,14 +103,16 @@ export function Busca() {
         lista = lista.filter((s: any) =>
           s.titulo?.toLowerCase().includes(q) ||
           s.descricao?.toLowerCase().includes(q) ||
-          s.categorias?.nome?.toLowerCase().includes(q)
+          s.categorias?.nome?.toLowerCase().includes(q) ||
+          s.prestadores?.nome?.toLowerCase().includes(q)
         );
       }
 
+      // Ordenação: verificados primeiro, depois por nota
       lista.sort((a: any, b: any) => {
         if (a.prestadores?.verificado && !b.prestadores?.verificado) return -1;
         if (!a.prestadores?.verificado && b.prestadores?.verificado) return 1;
-        return calcNota(b.avaliacoes) - calcNota(a.avaliacoes);
+        return (b.prestadores?.nota_media || 0) - (a.prestadores?.nota_media || 0);
       });
 
       setServicos(lista);
@@ -124,9 +123,8 @@ export function Busca() {
     setLoading(false);
   }
 
-  function calcNota(avs: any[]) {
-    if (!avs?.length) return 0;
-    return avs.reduce((a: number, v: any) => a + v.nota, 0) / avs.length;
+  function calcNota(s: any): number {
+    return Number(s.prestadores?.nota_media || 0);
   }
 
   function limparFiltros() {
@@ -181,6 +179,19 @@ export function Busca() {
               Entrar
             </Link>
           </div>
+        </div>
+
+        {/* ── HEADER ROW 1.5 — cidade ── */}
+        <div className="px-4 py-2 flex items-center gap-2 border-t border-[rgba(0,0,0,0.06)]" style={{ background: 'oklch(0.985 0.001 0)' }}>
+          <MapPin className="h-3.5 w-3.5 text-[#94a3b8] flex-shrink-0" />
+          <span className="text-xs text-[#94a3b8] flex-shrink-0">Cidade:</span>
+          <select
+            value={cidade}
+            onChange={e => setCidade(e.target.value)}
+            className="text-xs font-bold text-[#030213] bg-transparent outline-none cursor-pointer"
+          >
+            {CIDADES.map(c => <option key={c}>{c}</option>)}
+          </select>
         </div>
 
         {/* ── HEADER ROW 2 — filter pills ── */}
@@ -302,7 +313,7 @@ export function Busca() {
         {!loading && servicos.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {servicos.map((s: any) => {
-              const nota = calcNota(s.avaliacoes);
+              const nota = calcNota(s);
               const catNome: string = s.categorias?.nome || '';
               const initials = getInitials(s.prestadores?.nome || '');
               const price = s.tipo === 'fixo' && s.valor_fixo ? Number(s.valor_fixo) : 0;
@@ -422,23 +433,15 @@ export function Busca() {
               )}
 
               {/* Ratings */}
-              {servicoAberto.avaliacoes?.length > 0 && (
+              {(servicoAberto.prestadores?.nota_media > 0) && (
                 <div className="bg-amber-50 border border-amber-100 rounded-[12px] p-4">
-                  <div className="flex items-center gap-2 mb-2">
+                  <div className="flex items-center gap-2">
                     <span className="text-amber-500">⭐</span>
-                    <span className="font-bold text-sm text-[#030213]">{calcNota(servicoAberto.avaliacoes).toFixed(1)}</span>
-                    <span className="text-xs text-[#94a3b8]">
-                      ({servicoAberto.avaliacoes.length} avaliação{servicoAberto.avaliacoes.length !== 1 ? 'ões' : ''})
+                    <span className="font-bold text-sm text-[#030213]">
+                      {Number(servicoAberto.prestadores.nota_media).toFixed(1)}
                     </span>
+                    <span className="text-xs text-[#94a3b8]">nota média do profissional</span>
                   </div>
-                  {servicoAberto.avaliacoes.slice(0, 3).map((av: any, i: number) => (
-                    <div key={i} className="text-xs mt-1">
-                      <span className="text-amber-400">{'⭐'.repeat(av.nota)}</span>
-                      {av.comentario && (
-                        <span className="text-[#717182] ml-2">"{av.comentario}"</span>
-                      )}
-                    </div>
-                  ))}
                 </div>
               )}
 

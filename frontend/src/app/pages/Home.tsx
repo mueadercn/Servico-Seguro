@@ -322,37 +322,10 @@ export function Home() {
         </div>
       </section>
 
-      {/* ─── COMO FUNCIONA ─── */}
-      <section className="py-16 px-4">
-        <div className="max-w-[1080px] mx-auto">
-          <h2 className="text-3xl font-[800] tracking-tight text-center mb-10" style={{ color: '#030213' }}>
-            Como funciona
-          </h2>
-          <div className="grid md:grid-cols-3 gap-5">
-            {[
-              { n: '1', title: 'Descreva o que precisa', desc: 'Nossa IA coleta os detalhes do serviço via WhatsApp ou chat — sem formulários chatos.' },
-              { n: '2', title: 'Receba proposta qualificada', desc: 'O profissional já recebe tudo que precisa para enviar um orçamento preciso.' },
-              { n: '3', title: 'Assine e contrate com segurança', desc: 'Contrato digital com validade jurídica, biometria opcional e hash SHA-256.' },
-            ].map(step => (
-              <div key={step.n}
-                className="p-6 rounded-[18px]"
-                style={{ border: '1px solid rgba(0,0,0,0.08)' }}>
-                <div className="w-10 h-10 rounded-[12px] flex items-center justify-center font-bold text-sm text-white mb-4"
-                  style={{ background: '#030213' }}>
-                  {step.n}
-                </div>
-                <h3 className="font-[700] mb-2" style={{ color: '#030213' }}>{step.title}</h3>
-                <p className="text-sm leading-relaxed" style={{ color: '#717182' }}>{step.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* ─── SERVIÇOS ─── */}
       <section className="py-12 px-4" style={{ background: 'oklch(0.985 0.001 0)' }}>
         <div className="max-w-[1080px] mx-auto">
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center justify-between mb-8 flex-wrap gap-3">
             <div>
               <h2 className="text-3xl font-[800] tracking-tight" style={{ color: '#030213' }}>
                 Serviços em {cidade}
@@ -361,11 +334,25 @@ export function Home() {
                 {loading ? 'Carregando...' : `${stats.servicos} serviços disponíveis · profissionais verificados`}
               </p>
             </div>
-            <Link to={`/busca?cidade=${encodeURIComponent(cidade)}`}
-              className="hidden md:flex items-center gap-1 text-sm font-semibold transition-opacity hover:opacity-70"
-              style={{ color: '#030213' }}>
-              Ver todos <ChevronRight className="h-4 w-4" />
-            </Link>
+            <div className="flex items-center gap-3">
+              {/* Seletor de cidade */}
+              <div className="flex items-center gap-2 px-3 py-2 rounded-[12px] border border-[rgba(0,0,0,0.1)] bg-white">
+                <MapPin className="h-3.5 w-3.5 flex-shrink-0" style={{ color: '#94a3b8' }} />
+                <select
+                  value={cidade}
+                  onChange={e => setCidade(e.target.value)}
+                  className="text-sm font-semibold bg-transparent outline-none cursor-pointer"
+                  style={{ color: '#030213' }}
+                >
+                  {CIDADES.map(c => <option key={c}>{c}</option>)}
+                </select>
+              </div>
+              <Link to={`/busca?cidade=${encodeURIComponent(cidade)}`}
+                className="hidden md:flex items-center gap-1 text-sm font-semibold transition-opacity hover:opacity-70"
+                style={{ color: '#030213' }}>
+                Ver todos <ChevronRight className="h-4 w-4" />
+              </Link>
+            </div>
           </div>
 
           {loading ? (
@@ -475,6 +462,33 @@ export function Home() {
               </div>
             </>
           )}
+        </div>
+      </section>
+
+      {/* ─── COMO FUNCIONA ─── */}
+      <section className="py-16 px-4">
+        <div className="max-w-[1080px] mx-auto">
+          <h2 className="text-3xl font-[800] tracking-tight text-center mb-10" style={{ color: '#030213' }}>
+            Como funciona
+          </h2>
+          <div className="grid md:grid-cols-3 gap-5">
+            {[
+              { n: '1', title: 'Descreva o que precisa', desc: 'Nossa IA coleta os detalhes do serviço via WhatsApp ou chat — sem formulários chatos.' },
+              { n: '2', title: 'Receba proposta qualificada', desc: 'O profissional já recebe tudo que precisa para enviar um orçamento preciso.' },
+              { n: '3', title: 'Assine e contrate com segurança', desc: 'Contrato digital com validade jurídica, biometria opcional e hash SHA-256.' },
+            ].map(step => (
+              <div key={step.n}
+                className="p-6 rounded-[18px]"
+                style={{ border: '1px solid rgba(0,0,0,0.08)' }}>
+                <div className="w-10 h-10 rounded-[12px] flex items-center justify-center font-bold text-sm text-white mb-4"
+                  style={{ background: '#030213' }}>
+                  {step.n}
+                </div>
+                <h3 className="font-[700] mb-2" style={{ color: '#030213' }}>{step.title}</h3>
+                <p className="text-sm leading-relaxed" style={{ color: '#717182' }}>{step.desc}</p>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
