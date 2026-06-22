@@ -59,14 +59,11 @@ const navItems = [
   { id: 'kanban', label: 'Leads — Kanban', icon: LayoutDashboard },
   { id: 'chats', label: 'Histórico de Chats', icon: MessageSquare },
   { id: 'dashboard', label: 'Dashboard', icon: ClipboardList },
-  { id: 'prestadores', label: 'Prestadores', icon: Users },
-  { id: 'usuarios', label: 'Contratantes', icon: Users },
-  { id: 'servicos', label: 'Serviços', icon: Wrench },
+  { id: 'cadastros', label: 'Cadastros', icon: Users },
   { id: 'categorias', label: 'Categorias', icon: Tag },
   { id: 'contratos', label: 'Contratos', icon: FileText },
   { id: 'avaliacoes', label: 'Avaliações', icon: Star },
   { id: 'comissoes', label: 'Comissões', icon: DollarSign },
-  { id: 'comissoes-contratos', label: 'Comissões Contratos', icon: DollarSign },
   { id: 'biometria', label: 'Verificações', icon: Shield },
   { id: 'suporte', label: 'Suporte', icon: MessageSquare },
   { id: 'config', label: 'Configurações', icon: Settings },
@@ -113,6 +110,8 @@ export function Admin() {
 
   const [servicoDetalhe, setServicoDetalhe] = useState<any>(null);
   const [filtroServicoCidade, setFiltroServicoCidade] = useState('');
+  const [subAbaComissoes, setSubAbaComissoes] = useState<'contratos' | 'taxas'>('contratos');
+  const [subAbaCadastros, setSubAbaCadastros] = useState<'prestadores' | 'contratantes' | 'servicos'>('prestadores');
   const [chatSelecionado, setChatSelecionado] = useState<any | null>(null);
   const [chatMsgsDetalhe, setChatMsgsDetalhe] = useState<any[]>([]);
   const [chatMsgDetalhando, setChatMsgDetalhando] = useState(false);
@@ -332,17 +331,36 @@ export function Admin() {
   function irPara(p: string) {
     setAba(p);
     setMobileMenu(false);
-    if (p !== 'kanban') carregarDados(p);
-    if (p === 'servicos') {
+    if (p === 'cadastros') {
+      carregarDados('prestadores');
+      setSubAbaCadastros('prestadores');
+    } else if (p === 'comissoes') {
+      carregarDados('comissoes-contratos');
+      setSubAbaComissoes('contratos');
+    } else if (p !== 'kanban') {
+      carregarDados(p);
+    }
+  }
+
+  function irParaSubAbaCadastros(sub: 'prestadores' | 'contratantes' | 'servicos') {
+    setSubAbaCadastros(sub);
+    if (sub === 'servicos') {
+      carregarDados('servicos');
       supabase.from('prestadores').select('id,nome').eq('ativo', true).order('nome')
         .then(({ data }) => setPrestadoresList(data || []));
       supabase.from('categorias').select('id,nome,icone').eq('ativa', true).order('nome')
         .then(({ data }) => setCategoriasList(data || []));
+    } else if (sub === 'contratantes') {
+      carregarDados('usuarios');
+    } else {
+      carregarDados('prestadores');
     }
-    if (p === 'prestadores') {
-      supabase.from('categorias').select('id,nome').eq('ativa', true).order('nome')
-        .then(({ data }) => setCategoriasList(data || []));
-    }
+  }
+
+  function irParaSubAbaComissoes(sub: 'contratos' | 'taxas') {
+    setSubAbaComissoes(sub);
+    if (sub === 'taxas') carregarDados('comissoes');
+    else carregarDados('comissoes-contratos');
   }
 
   async function salvarServico() {
@@ -1310,196 +1328,184 @@ export function Admin() {
             </div>
           )}
 
-          {/* PRESTADORES */}
-          {!loading && aba === 'prestadores' && (
+          {/* CADASTROS — Prestadores / Contratantes / Serviços */}
+          {!loading && aba === 'cadastros' && (
             <div>
-              <div className="flex justify-between items-center mb-4">
-                <span className="text-sm text-[#64748b]">{(dados.prestadores || []).length} prestadores cadastrados</span>
-                <button onClick={() => setModalPrestador(true)}
-                  className="flex items-center gap-2 bg-[#030213] text-white px-4 py-2 rounded-[12px] text-sm font-bold hover:bg-[#030213]/90 transition-colors">
-                  <Plus className="h-4 w-4" /> Novo Prestador
-                </button>
+              {/* Sub-menu */}
+              <div className="flex gap-2 mb-5">
+                {([['prestadores','Prestadores'],['contratantes','Contratantes'],['servicos','Serviços']] as const).map(([id, label]) => (
+                  <button key={id} onClick={() => irParaSubAbaCadastros(id)}
+                    className={`px-4 py-1.5 rounded-[10px] text-sm font-bold transition-colors ${subAbaCadastros === id ? 'bg-[#030213] text-white' : 'bg-[#f1f5f9] text-[#64748b] hover:bg-[#e2e8f0]'}`}>
+                    {label}
+                  </button>
+                ))}
               </div>
-              <div className="bg-white rounded-[14px] border border-[#e2e8f0] overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className={tbl}>
-                    <thead><tr>{['Nome', 'Telefone', 'Cidade', 'Status', 'Perfil Verificado', 'Ação'].map(h => <th key={h} className={th}>{h}</th>)}</tr></thead>
-                    <tbody>
-                      {(dados.prestadores || []).map((p: any) => (
-                        <tr key={p.id} className="hover:bg-[#f8fafc]">
-                          <td className={td}>
-                            <div className="font-semibold text-[#030213]">{p.nome}</div>
-                            {p.email && <div className="text-xs text-[#94a3b8]">{p.email}</div>}
-                          </td>
-                          <td className={td}>{p.telefone}</td>
-                          <td className={td}>{p.cidade}</td>
-                          <td className={td}>
-                            <span className="rounded-full text-[10.5px] font-bold px-2.5 py-0.5"
-                              style={p.ativo ? { background: '#EAF3DE', color: '#173404' } : { background: '#FCEBEB', color: '#501313' }}>
-                              {p.ativo ? 'Ativo' : 'Inativo'}
-                            </span>
-                          </td>
-                          <td className={td}>
-                            {p.verificado ? (
-                              <span className="rounded-full text-[10.5px] font-bold px-2.5 py-0.5" style={{ background: '#EAF3DE', color: '#173404' }}>✓ Verificado</span>
-                            ) : p.verificacao_solicitada ? (
-                              <span className="rounded-full text-[10.5px] font-bold px-2.5 py-0.5" style={{ background: '#FEF3C7', color: '#92400e' }}>⏳ Docs enviados</span>
-                            ) : (
-                              <span className="rounded-full text-[10.5px] font-bold px-2.5 py-0.5" style={{ background: '#f1f5f9', color: '#64748b' }}>—</span>
-                            )}
-                          </td>
-                          <td className={td}>
-                            <div className="flex gap-2">
-                              {(p.selfie_url || p.doc_identidade_url) && (
-                                <button onClick={() => abrirDetalhe(p)}
-                                  className="text-xs px-3 py-1 rounded-[8px] font-semibold"
-                                  style={{ background: '#E6F1FB', color: '#0C447C' }}>
-                                  Ver docs
-                                </button>
-                              )}
-                              <button onClick={() => toggleVerificado(p.id, p.verificado)}
-                                className="text-xs px-3 py-1 rounded-[8px] font-semibold transition-colors"
-                                style={p.verificado ? { background: '#FCEBEB', color: '#501313' } : { background: '#EAF3DE', color: '#173404' }}>
-                                {p.verificado ? 'Remover' : 'Aprovar'}
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          )}
 
-          {/* USUARIOS */}
-          {!loading && aba === 'usuarios' && (
-            <div className="bg-white rounded-[14px] border border-[#e2e8f0] overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className={tbl}>
-                  <thead><tr>{['Nome', 'Email', 'Telefone', 'Cidade', 'Cadastro'].map(h => <th key={h} className={th}>{h}</th>)}</tr></thead>
-                  <tbody>
-                    {(dados.usuarios || []).map((u: any) => (
-                      <tr key={u.id} className="hover:bg-[#f8fafc]">
-                        <td className={td}><span className="font-semibold text-[#030213]">{u.nome}</span></td>
-                        <td className={`${td} text-xs`}>{u.email}</td>
-                        <td className={td}>{u.telefone}</td>
-                        <td className={td}>{u.cidade}</td>
-                        <td className={`${td} text-xs text-[#94a3b8]`}>{u.criado_em ? new Date(u.criado_em).toLocaleDateString('pt-BR') : '—'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* SERVIÇOS */}
-          {!loading && aba === 'servicos' && (
-            <div>
-              <div className="flex justify-between items-center mb-4">
-                <span className="text-sm text-[#64748b]">{(dados.servicos || []).length} serviços cadastrados</span>
-                <button onClick={() => {
-                  setModalServico(true);
-                  supabase.from('prestadores').select('id,nome').eq('ativo', true).order('nome').then(({ data }) => setPrestadoresList(data || []));
-                  supabase.from('categorias').select('id,nome,icone').eq('ativa', true).order('nome').then(({ data }) => setCategoriasList(data || []));
-                }}
-                  className="flex items-center gap-2 bg-[#030213] text-white px-4 py-2 rounded-[12px] text-sm font-bold hover:bg-[#030213]/90 transition-colors">
-                  <Plus className="h-4 w-4" /> Novo Serviço
-                </button>
-              </div>
-              <div className="mb-3">
-                <input
-                  type="text"
-                  placeholder="Filtrar por cidade..."
-                  value={filtroServicoCidade}
-                  onChange={e => setFiltroServicoCidade(e.target.value)}
-                  className="w-full max-w-xs border border-[#e2e8f0] rounded-[12px] px-3 py-2 text-sm outline-none focus:border-[#030213]"
-                />
-              </div>
-              <div className="bg-white rounded-[14px] border border-[#e2e8f0] overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className={tbl}>
-                    <thead><tr>{['Título', 'Categoria', 'Prestador', 'Cidade', 'Status', 'Ações'].map(h => <th key={h} className={th}>{h}</th>)}</tr></thead>
-                    <tbody>
-                      {(dados.servicos || [])
-                        .filter((s: any) => !filtroServicoCidade || (s.prestadores?.cidade || '').toLowerCase().includes(filtroServicoCidade.toLowerCase()))
-                        .map((s: any) => (
-                        <tr key={s.id} className="hover:bg-[#f8fafc] cursor-pointer" onClick={() => setServicoDetalhe(s)}>
-                          <td className={td}><span className="font-semibold text-[#030213]">{s.titulo}</span></td>
-                          <td className={td}>{s.categorias?.icone} {s.categorias?.nome || '—'}</td>
-                          <td className={td}>{s.prestadores?.nome || '—'}</td>
-                          <td className={td}>{s.prestadores?.cidade || '—'}</td>
-                          <td className={td}>
-                            <span className="rounded-full text-[10.5px] font-bold px-2.5 py-0.5"
-                              style={s.ativo ? { background: '#EAF3DE', color: '#173404' } : { background: '#FCEBEB', color: '#501313' }}>
-                              {s.ativo ? 'Ativo' : 'Inativo'}
-                            </span>
-                          </td>
-                          <td className={td} onClick={e => e.stopPropagation()}>
-                            <div className="flex gap-2">
-                              <button
-                                onClick={async () => {
-                                  await supabase.from('servicos').update({ ativo: !s.ativo }).eq('id', s.id);
-                                  carregarDados('servicos');
-                                }}
-                                className="text-[11px] font-bold px-2.5 py-1 rounded-[8px] border border-[#e2e8f0] hover:bg-[#f1f5f9] transition-colors"
-                                title={s.ativo ? 'Desativar' : 'Ativar'}>
-                                {s.ativo ? 'Desativar' : 'Ativar'}
-                              </button>
-                              <button
-                                onClick={async () => {
-                                  if (!confirm(`Remover o serviço "${s.titulo}"? Esta ação não pode ser desfeita.`)) return;
-                                  await supabase.from('servicos').delete().eq('id', s.id);
-                                  carregarDados('servicos');
-                                }}
-                                className="text-[11px] font-bold px-2.5 py-1 rounded-[8px] border border-red-200 text-red-600 hover:bg-red-50 transition-colors">
-                                Remover
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-              {/* Service detail modal */}
-              {servicoDetalhe && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setServicoDetalhe(null)}>
-                  <div className="bg-white rounded-[18px] shadow-xl p-6 max-w-lg w-full mx-4 max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-                    <div className="flex items-start justify-between mb-4">
-                      <div>
-                        <h3 className="font-bold text-[#030213] text-lg">{servicoDetalhe.titulo}</h3>
-                        <p className="text-sm text-[#64748b]">{servicoDetalhe.categorias?.icone} {servicoDetalhe.categorias?.nome}</p>
-                      </div>
-                      <button onClick={() => setServicoDetalhe(null)} className="text-[#64748b] hover:text-[#030213] text-xl font-bold">✕</button>
-                    </div>
-                    <div className="space-y-3 text-sm">
-                      <div><span className="font-semibold text-[#030213]">Prestador:</span> <span className="text-[#374151]">{servicoDetalhe.prestadores?.nome || '—'}</span></div>
-                      <div><span className="font-semibold text-[#030213]">Cidade:</span> <span className="text-[#374151]">{servicoDetalhe.prestadores?.cidade || '—'}</span></div>
-                      {servicoDetalhe.descricao && (
-                        <div><span className="font-semibold text-[#030213]">Descrição:</span> <p className="text-[#374151] mt-1 leading-relaxed">{servicoDetalhe.descricao}</p></div>
-                      )}
-                      {servicoDetalhe.preco_base && (
-                        <div><span className="font-semibold text-[#030213]">Preço base:</span> <span className="text-[#374151]">R$ {Number(servicoDetalhe.preco_base).toFixed(2)}</span></div>
-                      )}
-                      {servicoDetalhe.area_atendimento && (
-                        <div><span className="font-semibold text-[#030213]">Área de atendimento:</span> <span className="text-[#374151]">{servicoDetalhe.area_atendimento}</span></div>
-                      )}
-                      <div className="flex gap-3 pt-2">
-                        <span className="rounded-full text-[10.5px] font-bold px-2.5 py-0.5"
-                          style={servicoDetalhe.ativo ? { background: '#EAF3DE', color: '#173404' } : { background: '#FCEBEB', color: '#501313' }}>
-                          {servicoDetalhe.ativo ? 'Ativo' : 'Inativo'}
-                        </span>
-                        <span className="rounded-full text-[10.5px] font-bold px-2.5 py-0.5"
-                          style={servicoDetalhe.aceita_orcamento_online ? { background: '#E6F1FB', color: '#0C447C' } : { background: '#f1f5f9', color: '#64748b' }}>
-                          {servicoDetalhe.aceita_orcamento_online ? 'Online: Sim' : 'Online: Não'}
-                        </span>
-                      </div>
+              {/* Sub-aba: Prestadores */}
+              {subAbaCadastros === 'prestadores' && (
+                <div>
+                  <div className="flex justify-between items-center mb-4">
+                    <span className="text-sm text-[#64748b]">{(dados.prestadores || []).length} prestadores cadastrados</span>
+                    <button onClick={() => setModalPrestador(true)}
+                      className="flex items-center gap-2 bg-[#030213] text-white px-4 py-2 rounded-[12px] text-sm font-bold hover:bg-[#030213]/90 transition-colors">
+                      <Plus className="h-4 w-4" /> Novo Prestador
+                    </button>
+                  </div>
+                  <div className="bg-white rounded-[14px] border border-[#e2e8f0] overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className={tbl}>
+                        <thead><tr>{['Nome', 'Telefone', 'Cidade', 'Status', 'Perfil Verificado', 'Ação'].map(h => <th key={h} className={th}>{h}</th>)}</tr></thead>
+                        <tbody>
+                          {(dados.prestadores || []).map((p: any) => (
+                            <tr key={p.id} className="hover:bg-[#f8fafc]">
+                              <td className={td}>
+                                <div className="font-semibold text-[#030213]">{p.nome}</div>
+                                {p.email && <div className="text-xs text-[#94a3b8]">{p.email}</div>}
+                              </td>
+                              <td className={td}>{p.telefone}</td>
+                              <td className={td}>{p.cidade}</td>
+                              <td className={td}>
+                                <span className="rounded-full text-[10.5px] font-bold px-2.5 py-0.5"
+                                  style={p.ativo ? { background: '#EAF3DE', color: '#173404' } : { background: '#FCEBEB', color: '#501313' }}>
+                                  {p.ativo ? 'Ativo' : 'Inativo'}
+                                </span>
+                              </td>
+                              <td className={td}>
+                                {p.verificado ? (
+                                  <span className="rounded-full text-[10.5px] font-bold px-2.5 py-0.5" style={{ background: '#EAF3DE', color: '#173404' }}>✓ Verificado</span>
+                                ) : p.verificacao_solicitada ? (
+                                  <span className="rounded-full text-[10.5px] font-bold px-2.5 py-0.5" style={{ background: '#FEF3C7', color: '#92400e' }}>⏳ Docs enviados</span>
+                                ) : (
+                                  <span className="rounded-full text-[10.5px] font-bold px-2.5 py-0.5" style={{ background: '#f1f5f9', color: '#64748b' }}>—</span>
+                                )}
+                              </td>
+                              <td className={td}>
+                                <div className="flex gap-2">
+                                  {(p.selfie_url || p.doc_identidade_url) && (
+                                    <button onClick={() => abrirDetalhe(p)}
+                                      className="text-xs px-3 py-1 rounded-[8px] font-semibold"
+                                      style={{ background: '#E6F1FB', color: '#0C447C' }}>
+                                      Ver docs
+                                    </button>
+                                  )}
+                                  <button onClick={() => toggleVerificado(p.id, p.verificado)}
+                                    className="text-xs px-3 py-1 rounded-[8px] font-semibold transition-colors"
+                                    style={p.verificado ? { background: '#FCEBEB', color: '#501313' } : { background: '#EAF3DE', color: '#173404' }}>
+                                    {p.verificado ? 'Remover' : 'Aprovar'}
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                   </div>
+                </div>
+              )}
+
+              {/* Sub-aba: Contratantes */}
+              {subAbaCadastros === 'contratantes' && (
+                <div className="bg-white rounded-[14px] border border-[#e2e8f0] overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className={tbl}>
+                      <thead><tr>{['Nome', 'Email', 'Telefone', 'Cidade', 'Cadastro'].map(h => <th key={h} className={th}>{h}</th>)}</tr></thead>
+                      <tbody>
+                        {(dados.usuarios || []).map((u: any) => (
+                          <tr key={u.id} className="hover:bg-[#f8fafc]">
+                            <td className={td}><span className="font-semibold text-[#030213]">{u.nome}</span></td>
+                            <td className={`${td} text-xs`}>{u.email}</td>
+                            <td className={td}>{u.telefone}</td>
+                            <td className={td}>{u.cidade}</td>
+                            <td className={`${td} text-xs text-[#94a3b8]`}>{u.criado_em ? new Date(u.criado_em).toLocaleDateString('pt-BR') : '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Sub-aba: Serviços */}
+              {subAbaCadastros === 'servicos' && (
+                <div>
+                  <div className="flex justify-between items-center mb-4">
+                    <span className="text-sm text-[#64748b]">{(dados.servicos || []).length} serviços cadastrados</span>
+                    <button onClick={() => {
+                      setModalServico(true);
+                      supabase.from('prestadores').select('id,nome').eq('ativo', true).order('nome').then(({ data }) => setPrestadoresList(data || []));
+                      supabase.from('categorias').select('id,nome,icone').eq('ativa', true).order('nome').then(({ data }) => setCategoriasList(data || []));
+                    }}
+                      className="flex items-center gap-2 bg-[#030213] text-white px-4 py-2 rounded-[12px] text-sm font-bold hover:bg-[#030213]/90 transition-colors">
+                      <Plus className="h-4 w-4" /> Novo Serviço
+                    </button>
+                  </div>
+                  <div className="mb-3">
+                    <input type="text" placeholder="Filtrar por cidade..."
+                      value={filtroServicoCidade} onChange={e => setFiltroServicoCidade(e.target.value)}
+                      className="w-full max-w-xs border border-[#e2e8f0] rounded-[12px] px-3 py-2 text-sm outline-none focus:border-[#030213]" />
+                  </div>
+                  <div className="bg-white rounded-[14px] border border-[#e2e8f0] overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className={tbl}>
+                        <thead><tr>{['Título', 'Categoria', 'Prestador', 'Cidade', 'Status', 'Ações'].map(h => <th key={h} className={th}>{h}</th>)}</tr></thead>
+                        <tbody>
+                          {(dados.servicos || [])
+                            .filter((s: any) => !filtroServicoCidade || (s.prestadores?.cidade || '').toLowerCase().includes(filtroServicoCidade.toLowerCase()))
+                            .map((s: any) => (
+                            <tr key={s.id} className="hover:bg-[#f8fafc] cursor-pointer" onClick={() => setServicoDetalhe(s)}>
+                              <td className={td}><span className="font-semibold text-[#030213]">{s.titulo}</span></td>
+                              <td className={td}>{s.categorias?.icone} {s.categorias?.nome || '—'}</td>
+                              <td className={td}>{s.prestadores?.nome || '—'}</td>
+                              <td className={td}>{s.prestadores?.cidade || '—'}</td>
+                              <td className={td}>
+                                <span className="rounded-full text-[10.5px] font-bold px-2.5 py-0.5"
+                                  style={s.ativo ? { background: '#EAF3DE', color: '#173404' } : { background: '#FCEBEB', color: '#501313' }}>
+                                  {s.ativo ? 'Ativo' : 'Inativo'}
+                                </span>
+                              </td>
+                              <td className={td} onClick={e => e.stopPropagation()}>
+                                <div className="flex gap-2">
+                                  <button onClick={async () => { await supabase.from('servicos').update({ ativo: !s.ativo }).eq('id', s.id); carregarDados('servicos'); }}
+                                    className="text-[11px] font-bold px-2.5 py-1 rounded-[8px] border border-[#e2e8f0] hover:bg-[#f1f5f9] transition-colors">
+                                    {s.ativo ? 'Desativar' : 'Ativar'}
+                                  </button>
+                                  <button onClick={async () => { if (!confirm(`Remover "${s.titulo}"?`)) return; await supabase.from('servicos').delete().eq('id', s.id); carregarDados('servicos'); }}
+                                    className="text-[11px] font-bold px-2.5 py-1 rounded-[8px] border border-red-200 text-red-600 hover:bg-red-50 transition-colors">
+                                    Remover
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                  {servicoDetalhe && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setServicoDetalhe(null)}>
+                      <div className="bg-white rounded-[18px] shadow-xl p-6 max-w-lg w-full mx-4 max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-start justify-between mb-4">
+                          <div>
+                            <h3 className="font-bold text-[#030213] text-lg">{servicoDetalhe.titulo}</h3>
+                            <p className="text-sm text-[#64748b]">{servicoDetalhe.categorias?.icone} {servicoDetalhe.categorias?.nome}</p>
+                          </div>
+                          <button onClick={() => setServicoDetalhe(null)} className="text-[#64748b] hover:text-[#030213] text-xl font-bold">✕</button>
+                        </div>
+                        <div className="space-y-3 text-sm">
+                          <div><span className="font-semibold text-[#030213]">Prestador:</span> <span className="text-[#374151]">{servicoDetalhe.prestadores?.nome || '—'}</span></div>
+                          <div><span className="font-semibold text-[#030213]">Cidade:</span> <span className="text-[#374151]">{servicoDetalhe.prestadores?.cidade || '—'}</span></div>
+                          {servicoDetalhe.descricao && <div><span className="font-semibold text-[#030213]">Descrição:</span> <p className="text-[#374151] mt-1 leading-relaxed">{servicoDetalhe.descricao}</p></div>}
+                          {servicoDetalhe.preco_base && <div><span className="font-semibold text-[#030213]">Preço base:</span> <span className="text-[#374151]">R$ {Number(servicoDetalhe.preco_base).toFixed(2)}</span></div>}
+                          {servicoDetalhe.area_atendimento && <div><span className="font-semibold text-[#030213]">Área de atendimento:</span> <span className="text-[#374151]">{servicoDetalhe.area_atendimento}</span></div>}
+                          <div className="flex gap-3 pt-2">
+                            <span className="rounded-full text-[10.5px] font-bold px-2.5 py-0.5" style={servicoDetalhe.ativo ? { background: '#EAF3DE', color: '#173404' } : { background: '#FCEBEB', color: '#501313' }}>{servicoDetalhe.ativo ? 'Ativo' : 'Inativo'}</span>
+                            <span className="rounded-full text-[10.5px] font-bold px-2.5 py-0.5" style={servicoDetalhe.aceita_orcamento_online ? { background: '#E6F1FB', color: '#0C447C' } : { background: '#f1f5f9', color: '#64748b' }}>{servicoDetalhe.aceita_orcamento_online ? 'Online: Sim' : 'Online: Não'}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1644,48 +1650,121 @@ export function Admin() {
             </div>
           )}
 
-          {/* COMISSÕES */}
+          {/* COMISSÕES — unificado */}
           {!loading && aba === 'comissoes' && (
-            <div>
-              <p className="text-xs text-[#64748b] mb-3">Edite o valor da taxa diretamente na tabela e clique em Salvar.</p>
-              <div className="bg-white rounded-[14px] border border-[#e2e8f0] overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className={tbl}>
-                    <thead><tr>{['Ordem', 'Valor Mín', 'Valor Máx', 'Tipo', 'Taxa', 'Ação'].map(h => <th key={h} className={th}>{h}</th>)}</tr></thead>
-                    <tbody>
-                      {(dados.comissoes || []).map((c: any) => (
-                        <tr key={c.id} className="hover:bg-[#f8fafc]">
-                          <td className={td}><span className="font-semibold text-[#030213]">#{c.ordem}</span></td>
-                          <td className={td}>R$ {Number(c.valor_min || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                          <td className={td}>{c.valor_max ? 'R$ ' + Number(c.valor_max).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : 'Sem limite'}</td>
-                          <td className={td}>{c.tipo === 'fixo' ? 'Fixo (R$)' : 'Percentual (%)'}</td>
-                          <td className={td}>
-                            <input
-                              type="number"
-                              defaultValue={c.valor}
-                              id={`comissao-${c.id}`}
-                              className="w-24 border border-[#e2e8f0] rounded-[10px] px-2 py-1 text-sm outline-none focus:border-[#030213] font-bold text-[#3B6D11]"
-                            />
-                          </td>
-                          <td className={td}>
-                            <button
-                              onClick={async () => {
-                                const input = document.getElementById(`comissao-${c.id}`) as HTMLInputElement;
-                                const novoValor = parseFloat(input.value);
-                                if (isNaN(novoValor)) return;
-                                await supabase.from('comissoes').update({ valor: novoValor }).eq('id', c.id);
-                                carregarDados('comissoes');
-                              }}
-                              className="text-xs px-3 py-1.5 bg-[#030213] text-white rounded-[8px] hover:bg-[#030213]/90 font-semibold transition-colors">
-                              Salvar
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+            <div className="space-y-4">
+              {/* Sub-menu */}
+              <div className="flex gap-2">
+                {([['contratos','Contratos'],['taxas','Taxas de Comissão']] as const).map(([id, label]) => (
+                  <button key={id} onClick={() => irParaSubAbaComissoes(id)}
+                    className={`px-4 py-1.5 rounded-[10px] text-sm font-bold transition-colors ${subAbaComissoes === id ? 'bg-[#030213] text-white' : 'bg-[#f1f5f9] text-[#64748b] hover:bg-[#e2e8f0]'}`}>
+                    {label}
+                  </button>
+                ))}
               </div>
+
+              {/* Sub-aba: Contratos */}
+              {subAbaComissoes === 'contratos' && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-[#94a3b8]">Contratos assinados — rastreamento de pagamento de comissão</p>
+                    <span className="text-sm text-[#64748b] font-semibold">
+                      {(dados.comissoesContratos || []).filter((c: any) => c.status_comissao === 'pendente').length} pendentes
+                    </span>
+                  </div>
+                  <div className="bg-white rounded-[14px] border border-[#e2e8f0] overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className={tbl}>
+                        <thead><tr>{['ORC', 'Prestador', 'Cliente', 'Comissão', 'Assinado em', 'Status', 'Ação'].map(h => <th key={h} className={th}>{h}</th>)}</tr></thead>
+                        <tbody>
+                          {(dados.comissoesContratos || []).map((c: any) => (
+                            <tr key={c.id} className="hover:bg-[#f8fafc]">
+                              <td className={td}><span className="font-mono text-xs">{c.orcs?.codigo || '—'}</span></td>
+                              <td className={td}>{c.orcs?.prestadores?.nome || '—'}</td>
+                              <td className={td}>{c.orcs?.nome_cliente || '—'}</td>
+                              <td className={td}>{c.comissao ? `R$ ${Number(c.comissao).toFixed(2)}` : '—'}</td>
+                              <td className={td}>{c.assinado_em ? new Date(c.assinado_em).toLocaleDateString('pt-BR') : '—'}</td>
+                              <td className={td}>
+                                <span className="rounded-full text-[10.5px] font-bold px-2.5 py-0.5"
+                                  style={c.status_comissao === 'pago' ? { background: '#EAF3DE', color: '#173404' } : c.status_comissao === 'isento' ? { background: '#f1f5f9', color: '#64748b' } : { background: '#FEF3C7', color: '#92400E' }}>
+                                  {c.status_comissao === 'pago' ? '✓ Pago' : c.status_comissao === 'isento' ? 'Isento' : '⏳ Pendente'}
+                                </span>
+                              </td>
+                              <td className={td}>
+                                <div className="flex gap-1.5 flex-wrap">
+                                  {c.status_comissao === 'pendente' && (
+                                    <>
+                                      <button onClick={async () => { await apiCall(`/api/admin/comissoes-contratos/${c.id}`, 'PATCH', { status_comissao: 'pago' }); carregarDados('comissoes-contratos'); }}
+                                        className="text-[11px] font-bold px-2.5 py-1 rounded-[8px] bg-[#EAF3DE] text-[#173404] hover:bg-[#d4edba] transition-colors">
+                                        Marcar Pago
+                                      </button>
+                                      <button onClick={async () => { await apiCall(`/api/admin/comissoes-contratos/${c.id}`, 'PATCH', { status_comissao: 'isento' }); carregarDados('comissoes-contratos'); }}
+                                        className="text-[11px] font-bold px-2.5 py-1 rounded-[8px] border border-[#e2e8f0] text-[#64748b] hover:bg-[#f1f5f9] transition-colors">
+                                        Isento
+                                      </button>
+                                      <button onClick={async () => { await apiCall(`/api/admin/comissoes-contratos/${c.id}/disparar`, 'POST'); alert('Mensagem enviada!'); }}
+                                        className="text-[11px] font-bold px-2.5 py-1 rounded-[8px] bg-[#E6F1FB] text-[#0C447C] hover:bg-[#d0e8f7] transition-colors">
+                                        Enviar WhatsApp
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                          {!(dados.comissoesContratos || []).length && (
+                            <tr><td colSpan={7} className="text-center py-8 text-[#94a3b8] text-sm">Nenhum contrato assinado ainda</td></tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                  <div className="bg-white rounded-[14px] border border-[#e2e8f0] p-5">
+                    <h3 className="font-bold text-[#030213] text-sm mb-1">Mensagem de cobrança de comissão</h3>
+                    <p className="text-xs text-[#94a3b8] mb-3">Use {'{NOME}'}, {'{VALOR}'}, {'{ORC}'} como variáveis. Enviada ao prestador na assinatura e nos dias 2, 3 e 7 seguintes.</p>
+                    <ComissaoTemplateEditor onSave={() => carregarDados('comissoes-contratos')} />
+                  </div>
+                </div>
+              )}
+
+              {/* Sub-aba: Taxas */}
+              {subAbaComissoes === 'taxas' && (
+                <div>
+                  <p className="text-xs text-[#64748b] mb-3">Edite o valor da taxa diretamente na tabela e clique em Salvar.</p>
+                  <div className="bg-white rounded-[14px] border border-[#e2e8f0] overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className={tbl}>
+                        <thead><tr>{['Ordem', 'Valor Mín', 'Valor Máx', 'Tipo', 'Taxa', 'Ação'].map(h => <th key={h} className={th}>{h}</th>)}</tr></thead>
+                        <tbody>
+                          {(dados.comissoes || []).map((c: any) => (
+                            <tr key={c.id} className="hover:bg-[#f8fafc]">
+                              <td className={td}><span className="font-semibold text-[#030213]">#{c.ordem}</span></td>
+                              <td className={td}>R$ {Number(c.valor_min || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                              <td className={td}>{c.valor_max ? 'R$ ' + Number(c.valor_max).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : 'Sem limite'}</td>
+                              <td className={td}>{c.tipo === 'fixo' ? 'Fixo (R$)' : 'Percentual (%)'}</td>
+                              <td className={td}>
+                                <input type="number" defaultValue={c.valor} id={`comissao-${c.id}`}
+                                  className="w-24 border border-[#e2e8f0] rounded-[10px] px-2 py-1 text-sm outline-none focus:border-[#030213] font-bold text-[#3B6D11]" />
+                              </td>
+                              <td className={td}>
+                                <button onClick={async () => {
+                                  const input = document.getElementById(`comissao-${c.id}`) as HTMLInputElement;
+                                  const novoValor = parseFloat(input.value);
+                                  if (isNaN(novoValor)) return;
+                                  await supabase.from('comissoes').update({ valor: novoValor }).eq('id', c.id);
+                                  carregarDados('comissoes');
+                                }} className="text-xs px-3 py-1.5 bg-[#030213] text-white rounded-[8px] hover:bg-[#030213]/90 font-semibold transition-colors">
+                                  Salvar
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -1734,79 +1813,6 @@ export function Admin() {
             </div>
           )}
 
-          {/* COMISSÕES CONTRATOS */}
-          {aba === 'comissoes-contratos' && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between mb-2">
-                <div>
-                  <h2 className="text-lg font-extrabold text-[#030213]">Comissões de Contratos</h2>
-                  <p className="text-xs text-[#94a3b8]">Contratos assinados — rastreamento de pagamento de comissão</p>
-                </div>
-                <div className="text-sm text-[#64748b] font-semibold">
-                  {(dados.comissoesContratos || []).filter((c: any) => c.status_comissao === 'pendente').length} pendentes
-                </div>
-              </div>
-              <div className="bg-white rounded-[14px] border border-[#e2e8f0] overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className={tbl}>
-                    <thead><tr>{['ORC', 'Prestador', 'Cliente', 'Comissão', 'Assinado em', 'Status', 'Ação'].map(h => <th key={h} className={th}>{h}</th>)}</tr></thead>
-                    <tbody>
-                      {(dados.comissoesContratos || []).map((c: any) => (
-                        <tr key={c.id} className="hover:bg-[#f8fafc]">
-                          <td className={td}><span className="font-mono text-xs">{c.orcs?.codigo || '—'}</span></td>
-                          <td className={td}>{c.orcs?.prestadores?.nome || '—'}</td>
-                          <td className={td}>{c.orcs?.nome_cliente || '—'}</td>
-                          <td className={td}>{c.comissao ? `R$ ${Number(c.comissao).toFixed(2)}` : '—'}</td>
-                          <td className={td}>{c.assinado_em ? new Date(c.assinado_em).toLocaleDateString('pt-BR') : '—'}</td>
-                          <td className={td}>
-                            <span className="rounded-full text-[10.5px] font-bold px-2.5 py-0.5"
-                              style={c.status_comissao === 'pago'
-                                ? { background: '#EAF3DE', color: '#173404' }
-                                : c.status_comissao === 'isento'
-                                ? { background: '#f1f5f9', color: '#64748b' }
-                                : { background: '#FEF3C7', color: '#92400E' }}>
-                              {c.status_comissao === 'pago' ? '✓ Pago' : c.status_comissao === 'isento' ? 'Isento' : '⏳ Pendente'}
-                            </span>
-                          </td>
-                          <td className={td}>
-                            {c.status_comissao === 'pendente' && (
-                              <div className="flex gap-2">
-                                <button
-                                  onClick={async () => {
-                                    await apiCall(`/api/admin/comissoes-contratos/${c.id}`, 'PATCH', { status_comissao: 'pago' });
-                                    carregarDados('comissoes-contratos');
-                                  }}
-                                  className="text-[11px] font-bold px-2.5 py-1 rounded-[8px] bg-[#EAF3DE] text-[#173404] hover:bg-[#d4edba] transition-colors">
-                                  Marcar Pago
-                                </button>
-                                <button
-                                  onClick={async () => {
-                                    await apiCall(`/api/admin/comissoes-contratos/${c.id}`, 'PATCH', { status_comissao: 'isento' });
-                                    carregarDados('comissoes-contratos');
-                                  }}
-                                  className="text-[11px] font-bold px-2.5 py-1 rounded-[8px] border border-[#e2e8f0] text-[#64748b] hover:bg-[#f1f5f9] transition-colors">
-                                  Isento
-                                </button>
-                              </div>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                      {!(dados.comissoesContratos || []).length && (
-                        <tr><td colSpan={7} className="text-center py-8 text-[#94a3b8] text-sm">Nenhum contrato assinado ainda</td></tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-              {/* Template da mensagem de comissão */}
-              <div className="bg-white rounded-[14px] border border-[#e2e8f0] p-5">
-                <h3 className="font-bold text-[#030213] text-sm mb-1">Mensagem de cobrança de comissão</h3>
-                <p className="text-xs text-[#94a3b8] mb-3">Use {'{NOME}'}, {'{VALOR}'}, {'{ORC}'} como variáveis. Enviada ao prestador no momento da assinatura e nos dias 2, 3 e 7 seguintes.</p>
-                <ComissaoTemplateEditor onSave={() => carregarDados('comissoes-contratos')} />
-              </div>
-            </div>
-          )}
 
           {/* CONFIG */}
           {/* SUPORTE */}

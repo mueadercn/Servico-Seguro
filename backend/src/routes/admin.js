@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const supabase = require('../services/supabase');
+const { enviarMensagem } = require('../services/whatsapp');
 
 // ── ADMIN — DASHBOARD ─────────────────────────────────────────
 // GET /api/admin/stats
@@ -305,6 +306,41 @@ router.patch('/comissoes-contratos/:id', async (req, res) => {
     const { data, error } = await supabase.from('contratos').update(update).eq('id', req.params.id).select().single();
     if (error) throw error;
     res.json({ ok: true, contrato: data });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// POST /api/admin/comissoes-contratos/:id/disparar — disparo manual de WhatsApp
+router.post('/comissoes-contratos/:id/disparar', async (req, res) => {
+  try {
+    const { data: contrato, error } = await supabase
+      .from('contratos')
+      .select('id, comissao, status_comissao, orcs(codigo, prestadores(nome, telefone))')
+      .eq('id', req.params.id)
+      .single();
+    if (error || !contrato) return res.status(404).json({ ok: false, error: 'Contrato não encontrado' });
+
+    const prestador = contrato.orcs?.prestadores;
+    if (!prestador?.telefone) return res.status(400).json({ ok: false, error: 'Prestador sem telefone cadastrado' });
+
+    const { data: cfgTemplate } = await supabase
+      .from('configuracoes').select('valor').eq('chave', 'comissao_mensagem_template').maybeSingle();
+    const templateComissao = cfgTemplate?.valor || null;
+    const comissaoValor = contrato.comissao ? `R$ ${Number(contrato.comissao).toFixed(2)}` : 'o valor combinado';
+
+    const msg = templateComissao
+      ? templateComissao
+          .replace('{NOME}', prestador.nome || 'Prestador')
+          .replace('{VALOR}', comissaoValor)
+          .replace('{ORC}', contrato.orcs?.codigo || '')
+      : `💰 *Comissão Serviço Seguro*\n\n` +
+        `Olá, ${prestador.nome}! Lembrando que o contrato *${contrato.orcs?.codigo}* aguarda o pagamento da comissão.\n\n` +
+        `O valor é de ${comissaoValor}.\n\n` +
+        `Por favor, realize o pagamento via PIX para manter sua parceria conosco.`;
+
+    await enviarMensagem(prestador.telefone, msg);
+    res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
   }
