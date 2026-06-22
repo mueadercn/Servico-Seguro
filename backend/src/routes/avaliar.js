@@ -5,10 +5,7 @@ const crypto = require('crypto');
 const supabase = require(path.join(__dirname, '../services/supabase'));
 const { enviarMensagem } = require(path.join(__dirname, '../services/whatsapp'));
 
-const FRONTEND_URL = (() => {
-  const u = (process.env.FRONTEND_URL || '').replace(/\/$/, '');
-  return (u && !u.includes('classy-cucurucho')) ? u : 'https://venerable-kitten-a7b2cd.netlify.app';
-})();
+const FRONTEND_URL = (process.env.FRONTEND_URL || 'https://servico-seguro.netlify.app').replace(/\/$/, '');
 
 // ── MARCAR SERVIÇO COMO CONCLUÍDO ────────────────────────────
 // POST /api/avaliar/concluir/:orcId

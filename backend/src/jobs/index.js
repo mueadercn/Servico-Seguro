@@ -3,7 +3,7 @@ const path = require('path');
 const supabase = require(path.join(__dirname, '../services/supabase'));
 const { enviarMensagem, templates } = require(path.join(__dirname, '../services/whatsapp'));
 
-const FRONTEND_URL = process.env.FRONTEND_URL || 'https://venerable-kitten-a7b2cd.netlify.app';
+const FRONTEND_URL = (process.env.FRONTEND_URL || 'https://servico-seguro.netlify.app').replace(/\/$/, '');
 
 // ── CONFIGURAÇÕES DO FOLLOW-UP (editáveis via /api/config, tabela `configuracoes`) ──
 // Cada uma tem um valor padrão caso ainda não exista na tabela (primeira vez rodando).
