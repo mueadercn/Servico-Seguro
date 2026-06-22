@@ -72,6 +72,7 @@ export function Admin() {
 
   const [modalEditContrato, setModalEditContrato] = useState(false);
   const [editandoContratoId, setEditandoContratoId] = useState('');
+  const [prestadorDetalhe, setPrestadorDetalhe] = useState<any>(null);
   const [formContrato, setFormContrato] = useState({ tipo: '', valor: '', prazo: '', pagamento: '', garantia: '', comissao: '' });
   const [erroContrato, setErroContrato] = useState('');
 
@@ -1270,7 +1271,7 @@ export function Admin() {
               <div className="bg-white rounded-[14px] border border-[#e2e8f0] overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className={tbl}>
-                    <thead><tr>{['Nome', 'Telefone', 'Cidade', 'Status', 'Verificado', 'Ação'].map(h => <th key={h} className={th}>{h}</th>)}</tr></thead>
+                    <thead><tr>{['Nome', 'Telefone', 'Cidade', 'Status', 'Perfil Verificado', 'Ação'].map(h => <th key={h} className={th}>{h}</th>)}</tr></thead>
                     <tbody>
                       {(dados.prestadores || []).map((p: any) => (
                         <tr key={p.id} className="hover:bg-[#f8fafc]">
@@ -1287,17 +1288,29 @@ export function Admin() {
                             </span>
                           </td>
                           <td className={td}>
-                            <span className="rounded-full text-[10.5px] font-bold px-2.5 py-0.5"
-                              style={p.verificado ? { background: '#EAF3DE', color: '#173404' } : { background: '#FEF3C7', color: '#92400e' }}>
-                              {p.verificado ? '✓ Verificado' : 'Pendente'}
-                            </span>
+                            {p.verificado ? (
+                              <span className="rounded-full text-[10.5px] font-bold px-2.5 py-0.5" style={{ background: '#EAF3DE', color: '#173404' }}>✓ Verificado</span>
+                            ) : p.verificacao_solicitada ? (
+                              <span className="rounded-full text-[10.5px] font-bold px-2.5 py-0.5" style={{ background: '#FEF3C7', color: '#92400e' }}>⏳ Docs enviados</span>
+                            ) : (
+                              <span className="rounded-full text-[10.5px] font-bold px-2.5 py-0.5" style={{ background: '#f1f5f9', color: '#64748b' }}>—</span>
+                            )}
                           </td>
                           <td className={td}>
-                            <button onClick={() => toggleVerificado(p.id, p.verificado)}
-                              className="text-xs px-3 py-1 rounded-[8px] font-semibold transition-colors"
-                              style={p.verificado ? { background: '#FCEBEB', color: '#501313' } : { background: '#EAF3DE', color: '#173404' }}>
-                              {p.verificado ? 'Remover' : 'Aprovar'}
-                            </button>
+                            <div className="flex gap-2">
+                              {(p.selfie_url || p.doc_identidade_url) && (
+                                <button onClick={() => setPrestadorDetalhe(p)}
+                                  className="text-xs px-3 py-1 rounded-[8px] font-semibold"
+                                  style={{ background: '#E6F1FB', color: '#0C447C' }}>
+                                  Ver docs
+                                </button>
+                              )}
+                              <button onClick={() => toggleVerificado(p.id, p.verificado)}
+                                className="text-xs px-3 py-1 rounded-[8px] font-semibold transition-colors"
+                                style={p.verificado ? { background: '#FCEBEB', color: '#501313' } : { background: '#EAF3DE', color: '#173404' }}>
+                                {p.verificado ? 'Remover' : 'Aprovar'}
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -1796,6 +1809,94 @@ export function Admin() {
 
       {mobileMenu && (
         <div className="fixed inset-0 bg-black/40 z-30 lg:hidden" onClick={() => setMobileMenu(false)} />
+      )}
+
+      {/* MODAL DETALHE PRESTADOR — Verificação de documentos */}
+      {prestadorDetalhe && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+          onClick={e => { if (e.target === e.currentTarget) setPrestadorDetalhe(null); }}>
+          <div className="bg-white rounded-[20px] shadow-[0_24px_60px_-24px_rgba(3,2,19,0.45)] w-full max-w-lg overflow-y-auto max-h-[90vh]">
+            <div className="px-6 py-4 border-b border-[#e2e8f0] flex items-center justify-between">
+              <div>
+                <h3 className="font-extrabold text-[#030213]">{prestadorDetalhe.nome}</h3>
+                <p className="text-xs text-[#64748b] mt-0.5">Verificação de documentos</p>
+              </div>
+              <button onClick={() => setPrestadorDetalhe(null)}
+                className="p-2 hover:bg-[#f8fafc] rounded-[10px] transition-colors text-[#64748b]">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-5">
+              <div className="flex gap-3 flex-wrap">
+                {prestadorDetalhe.verificado ? (
+                  <span className="rounded-full text-xs font-bold px-3 py-1" style={{ background: '#EAF3DE', color: '#173404' }}>✓ Perfil Verificado</span>
+                ) : prestadorDetalhe.verificacao_solicitada ? (
+                  <span className="rounded-full text-xs font-bold px-3 py-1" style={{ background: '#FEF3C7', color: '#92400e' }}>⏳ Verificação solicitada</span>
+                ) : (
+                  <span className="rounded-full text-xs font-bold px-3 py-1" style={{ background: '#f1f5f9', color: '#64748b' }}>Sem solicitação</span>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs font-semibold text-[#64748b] mb-2">Selfie</p>
+                  {prestadorDetalhe.selfie_url ? (
+                    <a href={prestadorDetalhe.selfie_url} target="_blank" rel="noopener noreferrer">
+                      <img src={prestadorDetalhe.selfie_url} alt="Selfie"
+                        className="w-full aspect-square object-cover rounded-[12px] border border-[#e2e8f0] hover:opacity-90 transition-opacity" />
+                    </a>
+                  ) : (
+                    <div className="w-full aspect-square rounded-[12px] border-2 border-dashed border-[#e2e8f0] flex items-center justify-center text-[#94a3b8] text-sm">
+                      Não enviado
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-[#64748b] mb-2">Documento (RG/CNH)</p>
+                  {prestadorDetalhe.doc_identidade_url ? (
+                    <a href={prestadorDetalhe.doc_identidade_url} target="_blank" rel="noopener noreferrer">
+                      <img src={prestadorDetalhe.doc_identidade_url} alt="Documento"
+                        className="w-full aspect-square object-cover rounded-[12px] border border-[#e2e8f0] hover:opacity-90 transition-opacity" />
+                    </a>
+                  ) : (
+                    <div className="w-full aspect-square rounded-[12px] border-2 border-dashed border-[#e2e8f0] flex items-center justify-center text-[#94a3b8] text-sm">
+                      Não enviado
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                {prestadorDetalhe.verificado ? (
+                  <button
+                    onClick={async () => {
+                      await toggleVerificado(prestadorDetalhe.id, true);
+                      setPrestadorDetalhe(null);
+                    }}
+                    className="flex-1 py-2.5 rounded-[12px] font-semibold text-sm"
+                    style={{ background: '#FCEBEB', color: '#501313' }}>
+                    Remover verificação
+                  </button>
+                ) : (
+                  <button
+                    onClick={async () => {
+                      await toggleVerificado(prestadorDetalhe.id, false);
+                      setPrestadorDetalhe(null);
+                    }}
+                    className="flex-1 py-2.5 rounded-[12px] font-semibold text-sm"
+                    style={{ background: '#EAF3DE', color: '#173404' }}>
+                    ✓ Aprovar — Perfil Verificado
+                  </button>
+                )}
+                <button onClick={() => setPrestadorDetalhe(null)}
+                  className="px-5 py-2.5 rounded-[12px] font-semibold text-sm"
+                  style={{ background: '#f1f5f9', color: '#64748b' }}>
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

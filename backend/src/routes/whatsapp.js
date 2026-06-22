@@ -8,6 +8,10 @@ const { criarChatParaOrc } = require(path.join(__dirname, './chat'));
 
 const FRONTEND_URL = (process.env.FRONTEND_URL || 'https://servico-seguro.netlify.app').replace(/\/$/, '');
 
+// Buffer para agrupar múltiplas fotos enviadas em sequência (evita flood de msg)
+// { [numero]: { urls: string[], textos: string[], sessaoId: string, timer: NodeJS.Timeout } }
+const imageBuffer = new Map();
+
 // ── WEBHOOK ───────────────────────────────────────────────────
 router.post('/webhook', async (req, res) => {
   res.status(200).json({ ok: true });
@@ -61,7 +65,7 @@ async function processarMensagem(numero, texto, temImagem = false, imagemUrl = n
   const sessao = await buscarSessao(numero);
   if (sessao) {
     console.log(`[PROC] Sessão ativa para ${numero}`);
-    await handleAnamnese(sessao, numero, texto, temImagem);
+    await handleAnamnese(sessao, numero, texto, temImagem, imagemUrl);
     return;
   }
 
@@ -223,42 +227,26 @@ async function iniciarSessao(numero, texto, ids) {
 }
 
 // ── CONDUZIR ANAMNESE ─────────────────────────────────────────
-async function handleAnamnese(sessao, numero, texto, temImagem = false) {
+async function handleAnamnese(sessao, numero, texto, temImagem = false, imagemUrl = null) {
   const historico = sessao.historico || [];
 
-  // Tratar imagem — adiciona ao histórico e confirma recebimento
+  // Tratar imagem — acumula em buffer e processa em lote após 3.5s sem novas fotos
   if (temImagem) {
-    console.log(`[ANAMNESE] Imagem recebida de ${numero}`);
-    
-    // Salvar referência da imagem no histórico
-    const msgImagem = texto && texto !== '[IMAGEM_ENVIADA]'
-      ? `[Foto enviada] Legenda: ${texto}`
-      : '[Foto enviada pelo cliente]';
-    
-    const novoHistoricoImg = [...historico, { role: 'user', content: msgImagem }];
-    
-    // Confirmar recebimento e continuar anamnese
-    const confirmacao = 'Foto recebida! 📷 Obrigada, isso vai ajudar no orçamento.';
-    
-    // Continuar com a próxima pergunta da IA
-    const resultado = await conduzirAnamnese(
-      [...novoHistoricoImg, { role: 'user', content: 'usuário enviou uma foto' }],
-      sessao.categoria_nome || '',
-      sessao.servico_nome || ''
-    );
-    
-    await enviarMensagem(numero, confirmacao);
-    
-    if (resultado.ok && resultado.resposta) {
-      setTimeout(async () => {
-        await enviarMensagem(numero, resultado.resposta);
-      }, 1500);
-    }
-    
-    await atualizarHistorico(numero, [
-      ...novoHistoricoImg,
-      { role: 'assistant', content: confirmacao }
-    ]);
+    console.log(`[ANAMNESE] Imagem recebida de ${numero} — adicionando ao buffer`);
+
+    const buf = imageBuffer.get(numero) || { urls: [], textos: [], sessao };
+    if (imagemUrl) buf.urls.push(imagemUrl);
+    if (texto && texto !== '[IMAGEM_ENVIADA]') buf.textos.push(texto);
+
+    // Cancelar timer anterior e resetar
+    if (buf.timer) clearTimeout(buf.timer);
+
+    buf.timer = setTimeout(async () => {
+      imageBuffer.delete(numero);
+      await processarLoteImagens(numero, buf.urls, buf.textos, buf.sessao);
+    }, 3500);
+
+    imageBuffer.set(numero, buf);
     return;
   }
 
@@ -504,6 +492,48 @@ async function mostrarOrcsCliente(numero, telefone) {
     `${lista}\n\n` +
     `_Qualquer dúvida, estamos aqui!_ 😊`
   );
+}
+
+// ── PROCESSAR LOTE DE IMAGENS (chamado pelo buffer após 3.5s) ─
+async function processarLoteImagens(numero, urls, textos, sessao) {
+  console.log(`[ANAMNESE] Processando lote de ${urls.length} imagem(ns) de ${numero}`);
+  const historico = sessao.historico || [];
+
+  // Montar entradas de histórico para cada foto (com URL para exibição no chat)
+  const entradasFotos = urls.map((url, i) => ({
+    role: 'user',
+    content: textos[i] ? `[Foto enviada] Legenda: ${textos[i]}` : '[Foto enviada pelo cliente]',
+    tipo: 'imagem',
+    url,
+  }));
+
+  const novoHistoricoImg = [...historico, ...entradasFotos];
+
+  // Uma única confirmação independente da quantidade
+  const qtd = urls.length;
+  const confirmacao = qtd > 1
+    ? `${qtd} fotos recebidas! 📷 Obrigado, vão ajudar bastante no orçamento.`
+    : 'Foto recebida! 📷 Obrigado, vai ajudar bastante no orçamento.';
+
+  // Chamar IA uma única vez para continuar anamnese
+  const resultado = await conduzirAnamnese(
+    [...novoHistoricoImg, { role: 'user', content: `usuário enviou ${qtd} foto(s)` }],
+    sessao.categoria_nome || '',
+    sessao.servico_nome || ''
+  );
+
+  await enviarMensagem(numero, confirmacao);
+
+  if (resultado.ok && resultado.resposta && !resultado.concluida) {
+    setTimeout(async () => {
+      await enviarMensagem(numero, resultado.resposta);
+    }, 1500);
+  }
+
+  await atualizarHistorico(numero, [
+    ...novoHistoricoImg,
+    { role: 'assistant', content: confirmacao },
+  ]);
 }
 
 // ── HANDLE ORC ATIVO (pós-anamnese) ──────────────────────────

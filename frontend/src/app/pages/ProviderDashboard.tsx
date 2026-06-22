@@ -75,22 +75,52 @@ export function ProviderDashboard() {
   const [formPerfil, setFormPerfil] = useState({ nome: '', telefone: '', cpf: '', bio: '', cidade: '', estado: '' });
   const [salvandoPerfil, setSalvandoPerfil] = useState(false);
   const [erroPerfil, setErroPerfil] = useState('');
+  const [uploadingDoc, setUploadingDoc] = useState<'selfie' | 'documento' | null>(null);
+  const [solicitandoVerif, setSolicitandoVerif] = useState(false);
 
   async function uploadFoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file || !prestador) return;
     setUploadingFoto(true);
     try {
-      const reader = new FileReader();
-      reader.onload = async (ev) => {
-        const url = ev.target?.result as string;
-        await supabase.from('prestadores').update({ foto_url: url }).eq('id', prestador.id);
-        setPerfil((p: any) => ({ ...p, foto_url: url }));
-        setUploadingFoto(false);
-      };
-      reader.readAsDataURL(file);
-    } catch (e) { setUploadingFoto(false); }
+      const ext = file.name.split('.').pop() || 'jpg';
+      const storagePath = `fotos/${prestador.id}/perfil.${ext}`;
+      const { error: upErr } = await supabase.storage.from('chat-arquivos').upload(storagePath, file, { upsert: true });
+      if (upErr) throw upErr;
+      const { data: urlData } = supabase.storage.from('chat-arquivos').getPublicUrl(storagePath);
+      const url = urlData.publicUrl;
+      await supabase.from('prestadores').update({ foto_url: url }).eq('id', prestador.id);
+      setPerfil((p: any) => ({ ...p, foto_url: url }));
+    } catch (err) { console.error('Erro upload foto:', err); }
+    setUploadingFoto(false);
     e.target.value = '';
+  }
+
+  async function uploadDocVerificacao(tipo: 'selfie' | 'documento', e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !prestador) return;
+    setUploadingDoc(tipo);
+    try {
+      const ext = file.name.split('.').pop() || 'jpg';
+      const storagePath = `documentos/${prestador.id}/${tipo}.${ext}`;
+      const { error: upErr } = await supabase.storage.from('chat-arquivos').upload(storagePath, file, { upsert: true });
+      if (upErr) throw upErr;
+      const { data: urlData } = supabase.storage.from('chat-arquivos').getPublicUrl(storagePath);
+      const url = urlData.publicUrl;
+      const field = tipo === 'selfie' ? 'selfie_url' : 'doc_identidade_url';
+      await supabase.from('prestadores').update({ [field]: url }).eq('id', prestador.id);
+      setPerfil((p: any) => ({ ...p, [field]: url }));
+    } catch (err) { console.error(`Erro upload ${tipo}:`, err); }
+    setUploadingDoc(null);
+    e.target.value = '';
+  }
+
+  async function solicitarVerificacao() {
+    if (!prestador || !perfil) return;
+    setSolicitandoVerif(true);
+    await supabase.from('prestadores').update({ verificacao_solicitada: true }).eq('id', prestador.id);
+    setPerfil((p: any) => ({ ...p, verificacao_solicitada: true }));
+    setSolicitandoVerif(false);
   }
 
   useEffect(() => {
@@ -933,26 +963,80 @@ export function ProviderDashboard() {
                     </div>
                   )}
 
-                  {/* Identity verification */}
+                  {/* Verificação de Perfil */}
                   <div className="border-t border-[#e2e8f0] pt-5">
-                    <div className="font-bold text-sm mb-4" style={{ color: PRIMARY }}>Verificação de Identidade</div>
-                    <div className="grid grid-cols-3 gap-3 mb-4">
-                      {[
-                        { ico: '📋', l: 'CPF', ok: !!perfil.cpf },
-                        { ico: '🪪', l: 'Documento', ok: false },
-                        { ico: '🤳', l: 'Biometria', ok: perfil.verificado },
-                      ].map(s => (
-                        <div key={s.l} className="text-center rounded-[16px] p-4 border" style={s.ok ? { borderColor: TEAL_LIGHT_BG, background: TEAL_LIGHT_BG } : { borderColor: '#e2e8f0', background: '#f8fafc', opacity: 0.6 }}>
-                          <div className="text-xl mb-1.5">{s.ico}</div>
-                          <div className="text-xs font-bold mb-0.5" style={{ color: PRIMARY }}>{s.l}</div>
-                          <div className="text-[10.5px] font-semibold" style={{ color: s.ok ? TEAL_DARK_TEXT : '#94a3b8' }}>{s.ok ? '✓ OK' : 'Pendente'}</div>
-                        </div>
-                      ))}
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="font-bold text-sm" style={{ color: PRIMARY }}>Verificação de Perfil</div>
+                      <span className="rounded-full text-[10.5px] font-bold px-2.5 py-0.5"
+                        style={perfil.verificado
+                          ? { background: TEAL_LIGHT_BG, color: TEAL_DARK_TEXT }
+                          : perfil.verificacao_solicitada
+                            ? { background: '#fffbeb', color: '#b45309' }
+                            : { background: '#f1f5f9', color: '#64748b' }}>
+                        {perfil.verificado ? '✓ Perfil Verificado' : perfil.verificacao_solicitada ? '⏳ Em análise' : 'Não verificado'}
+                      </span>
                     </div>
-                    {!perfil.verificado && (
-                      <Link to="/biometria" className="inline-flex items-center gap-2 text-white px-4 py-2.5 rounded-[10px] text-sm font-bold transition-opacity hover:opacity-90" style={{ background: TEAL }}>
-                        🤳 Verificar identidade agora
-                      </Link>
+                    <p className="text-xs text-[#94a3b8] mb-4">
+                      Envie uma selfie e seu RG ou CNH. Nossa equipe analisa e ativa o selo em até 24h.
+                    </p>
+
+                    {perfil.verificado ? (
+                      <div className="flex items-center gap-2 text-sm font-semibold" style={{ color: TEAL_DARK_TEXT }}>
+                        <Shield className="h-4 w-4" /> Seu perfil está verificado — o selo aparece para os contratantes.
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {/* Selfie */}
+                        <div className="flex items-center gap-4 p-3 rounded-[12px] border" style={{ borderColor: perfil.selfie_url ? TEAL_LIGHT_BG : '#e2e8f0', background: perfil.selfie_url ? TEAL_LIGHT_BG : '#f8fafc' }}>
+                          {perfil.selfie_url
+                            ? <img src={perfil.selfie_url} alt="Selfie" className="w-12 h-12 rounded-[10px] object-cover flex-shrink-0" />
+                            : <div className="w-12 h-12 rounded-[10px] bg-[#e2e8f0] flex items-center justify-center text-xl flex-shrink-0">🤳</div>}
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs font-bold" style={{ color: PRIMARY }}>Selfie</div>
+                            <div className="text-[10.5px]" style={{ color: perfil.selfie_url ? TEAL_DARK_TEXT : '#94a3b8' }}>
+                              {perfil.selfie_url ? '✓ Enviada' : 'Foto do seu rosto'}
+                            </div>
+                          </div>
+                          <label className="cursor-pointer text-xs font-semibold px-3 py-1.5 rounded-[8px] border border-[#e2e8f0] bg-white hover:bg-[#f8fafc] transition-colors flex-shrink-0" style={{ color: '#64748b' }}>
+                            {uploadingDoc === 'selfie' ? '⏳' : perfil.selfie_url ? 'Trocar' : 'Enviar'}
+                            <input type="file" accept="image/*" className="hidden" onChange={e => uploadDocVerificacao('selfie', e)} disabled={uploadingDoc !== null} />
+                          </label>
+                        </div>
+
+                        {/* Documento */}
+                        <div className="flex items-center gap-4 p-3 rounded-[12px] border" style={{ borderColor: perfil.doc_identidade_url ? TEAL_LIGHT_BG : '#e2e8f0', background: perfil.doc_identidade_url ? TEAL_LIGHT_BG : '#f8fafc' }}>
+                          {perfil.doc_identidade_url
+                            ? <img src={perfil.doc_identidade_url} alt="Documento" className="w-12 h-12 rounded-[10px] object-cover flex-shrink-0" />
+                            : <div className="w-12 h-12 rounded-[10px] bg-[#e2e8f0] flex items-center justify-center text-xl flex-shrink-0">🪪</div>}
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs font-bold" style={{ color: PRIMARY }}>RG ou CNH</div>
+                            <div className="text-[10.5px]" style={{ color: perfil.doc_identidade_url ? TEAL_DARK_TEXT : '#94a3b8' }}>
+                              {perfil.doc_identidade_url ? '✓ Enviado' : 'Frente do documento'}
+                            </div>
+                          </div>
+                          <label className="cursor-pointer text-xs font-semibold px-3 py-1.5 rounded-[8px] border border-[#e2e8f0] bg-white hover:bg-[#f8fafc] transition-colors flex-shrink-0" style={{ color: '#64748b' }}>
+                            {uploadingDoc === 'documento' ? '⏳' : perfil.doc_identidade_url ? 'Trocar' : 'Enviar'}
+                            <input type="file" accept="image/*" className="hidden" onChange={e => uploadDocVerificacao('documento', e)} disabled={uploadingDoc !== null} />
+                          </label>
+                        </div>
+
+                        {/* Botão solicitar */}
+                        {perfil.selfie_url && perfil.doc_identidade_url && !perfil.verificacao_solicitada && (
+                          <button
+                            onClick={solicitarVerificacao}
+                            disabled={solicitandoVerif}
+                            className="w-full py-2.5 rounded-[10px] text-sm font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                            style={{ background: TEAL }}>
+                            {solicitandoVerif ? '⏳ Enviando...' : '🛡️ Solicitar verificação de perfil'}
+                          </button>
+                        )}
+
+                        {perfil.verificacao_solicitada && (
+                          <div className="text-xs text-center py-2 font-semibold" style={{ color: '#b45309' }}>
+                            ⏳ Documentos em análise — resposta em até 24h
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>

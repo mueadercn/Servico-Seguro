@@ -160,7 +160,7 @@ export function ProviderProfile() {
                       </svg>
                       <span className="text-[12.5px] font-[700] px-3 py-1 rounded-full"
                         style={{ background: TEAL_BG, color: TEAL_TEXT }}>
-                        Identidade verificada
+                        Perfil Verificado
                       </span>
                     </>
                   )}
