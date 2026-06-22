@@ -1,9 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router';
-import { Send, CheckCircle2, FileText, Image, X, Mic, MicOff } from 'lucide-react';
+import { Send, CheckCircle2, FileText, Image, X, Mic, MicOff, Lock, Shield } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { apiCall } from '../../lib/supabase';
-import { Logo } from '../components/Logo';
+
+const TEAL = 'oklch(0.6 0.118 184.704)';
+const TEAL_LIGHT = 'oklch(0.95 0.03 184)';
+const TEAL_DARK = 'oklch(0.45 0.1 184)';
 
 type Papel = 'cliente' | 'prestador' | null;
 type StatusChat = 'conversando' | 'aguardando_orcamento' | 'orcamento_enviado' | 'finalizado';
@@ -36,10 +39,36 @@ interface ChatData {
   };
 }
 
-// Lê ?papel= da URL de forma síncrona para evitar flash da tela de seleção
 function getPapelFromUrl(): Papel {
   const p = new URLSearchParams(window.location.search).get('papel');
   return p === 'cliente' || p === 'prestador' ? p : null;
+}
+
+function InputLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <label className="block text-[11px] font-bold uppercase tracking-[0.04em] mb-1.5" style={{ color: '#64748b' }}>
+      {children}
+    </label>
+  );
+}
+
+function StyledInput({ value, onChange, placeholder, type = 'text' }: any) {
+  return (
+    <input
+      type={type}
+      value={value}
+      onChange={onChange}
+      placeholder={placeholder}
+      className="w-full px-3 py-2.5 text-sm outline-none transition-colors"
+      style={{
+        border: '1px solid #e2e8f0',
+        borderRadius: 12,
+        background: '#f8fafc',
+      }}
+      onFocus={e => (e.target.style.borderColor = '#030213')}
+      onBlur={e => (e.target.style.borderColor = '#e2e8f0')}
+    />
+  );
 }
 
 export function Chat() {
@@ -66,7 +95,6 @@ export function Chat() {
     carregarChat();
   }, [token]);
 
-  // Polling mensagens a cada 3s + estado do chat a cada 5s
   useEffect(() => {
     if (!chat?.id) return;
     const intMsg = setInterval(buscarMensagens, 3000);
@@ -78,15 +106,12 @@ export function Chat() {
     chatRef.current?.scrollTo(0, chatRef.current.scrollHeight);
   }, [mensagens]);
 
-  // Supabase Realtime como complemento (funciona após RLS desabilitado)
   useEffect(() => {
     if (!chat?.id) return;
     const channel = supabase
       .channel(`chat-${chat.id}`)
       .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'chat_mensagens',
+        event: 'INSERT', schema: 'public', table: 'chat_mensagens',
         filter: `chat_id=eq.${chat.id}`,
       }, (payload) => {
         setMensagens(prev => {
@@ -96,9 +121,7 @@ export function Chat() {
         setTimeout(() => chatRef.current?.scrollTo(0, chatRef.current.scrollHeight), 100);
       })
       .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'chat_negociacao',
+        event: 'UPDATE', schema: 'public', table: 'chat_negociacao',
         filter: `id=eq.${chat.id}`,
       }, (payload) => {
         setChat(prev => prev ? { ...prev, ...payload.new } : prev);
@@ -129,7 +152,7 @@ export function Chat() {
       ultimaMsgRef.current = ultima;
       setMensagens(msgs);
       setTimeout(() => chatRef.current?.scrollTo(0, chatRef.current.scrollHeight), 100);
-    } catch { /* silencia */ }
+    } catch {}
   }
 
   async function buscarEstadoChat() {
@@ -137,7 +160,7 @@ export function Chat() {
     try {
       const data = await apiCall(`/api/chat/${token}`);
       setChat(prev => prev ? { ...prev, status: data.status, finalizado_cliente: data.finalizado_cliente, finalizado_prestador: data.finalizado_prestador } : prev);
-    } catch { /* silencia */ }
+    } catch {}
   }
 
   async function enviarTexto() {
@@ -145,7 +168,6 @@ export function Chat() {
     if (!txt || !papel || enviando) return;
     setInput('');
     setEnviando(true);
-    // Atualização otimista — aparece imediatamente
     const tempId = `temp-${Date.now()}`;
     const tempMsg: Mensagem = {
       id: tempId, chat_id: chat?.id || '', remetente: papel,
@@ -155,10 +177,8 @@ export function Chat() {
     setTimeout(() => chatRef.current?.scrollTo(0, chatRef.current.scrollHeight), 50);
     try {
       const saved = await apiCall(`/api/chat/${token}/mensagens`, {
-        method: 'POST',
-        body: { remetente: papel, tipo: 'texto', conteudo: txt },
+        method: 'POST', body: { remetente: papel, tipo: 'texto', conteudo: txt },
       });
-      // Substitui a mensagem temporária pelo ID real
       setMensagens(prev => prev.map(m => m.id === tempId ? { ...saved } : m));
       ultimaMsgRef.current = saved.id;
     } catch {
@@ -183,7 +203,7 @@ export function Chat() {
           method: 'POST', body: { remetente: papel, tipo: 'imagem', conteudo: url },
         });
         await buscarMensagens();
-      } catch { /* silencia */ }
+      } catch {}
     };
     reader.readAsDataURL(file);
     e.target.value = '';
@@ -208,7 +228,7 @@ export function Chat() {
             method: 'POST', body: { remetente: papel, tipo: 'audio', conteudo: url },
           });
           await buscarMensagens();
-        } catch { /* silencia */ }
+        } catch {}
       };
       reader.readAsDataURL(blob);
     };
@@ -228,8 +248,7 @@ export function Chat() {
     setErroFinalizar('');
     try {
       const { chat: updated, ambosConfirmaram } = await apiCall(`/api/chat/${token}/finalizar`, {
-        method: 'POST',
-        body: { papel },
+        method: 'POST', body: { papel },
       });
       setChat(prev => prev ? { ...prev, ...updated } : prev);
       if (ambosConfirmaram) setPainelFinalizar(true);
@@ -239,11 +258,10 @@ export function Chat() {
   }
 
   async function abrirFormContrato() {
-    // Avisa o outro lado que o contrato está sendo elaborado
     try {
       await apiCall(`/api/chat/${token}/status`, { method: 'PATCH', body: { status: 'elaborando_contrato' } });
       setChat(prev => prev ? { ...prev, status: 'elaborando_contrato' } : prev);
-    } catch { /* continua mesmo se falhar */ }
+    } catch {}
     setPainelFinalizar(true);
   }
 
@@ -262,7 +280,6 @@ export function Chat() {
       });
       setChat(prev => prev ? { ...prev, status: 'contrato_gerado' } : prev);
       setPainelFinalizar(false);
-      // Redireciona imediatamente para assinar
       window.location.href = `/contrato?orc=${chat?.orc_id}&papel=${papel}`;
     } catch (e: any) {
       setErroFinalizar(e.message || 'Erro ao gerar contrato.');
@@ -280,11 +297,11 @@ export function Chat() {
 
   if (erro) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="text-center">
-          <Logo />
-          <p className="mt-6 text-red-500 font-medium">{erro}</p>
-          <p className="mt-2 text-sm text-gray-400">Verifique se o link está correto.</p>
+      <div className="min-h-screen flex items-center justify-center p-4" style={{ background: '#ecebe7' }}>
+        <div className="text-center bg-white rounded-[20px] p-8 shadow-[0_24px_60px_-24px_rgba(3,2,19,0.45)] max-w-sm w-full">
+          <Shield className="w-10 h-10 mx-auto mb-4" style={{ color: '#030213' }} />
+          <p className="font-bold text-[#030213] mb-1">Link inválido</p>
+          <p className="text-sm" style={{ color: '#717182' }}>{erro}</p>
         </div>
       </div>
     );
@@ -292,31 +309,36 @@ export function Chat() {
 
   if (!chat) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full" />
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#ecebe7' }}>
+        <div className="w-8 h-8 border-4 border-t-transparent rounded-full animate-spin" style={{ borderColor: '#030213', borderTopColor: 'transparent' }} />
       </div>
     );
   }
 
-  // Se não há papel na URL e não conseguiu detectar, pede para escolher
   if (!papel) {
     const clienteNome = chat.orcs.nome_cliente;
     const prestadorNome = chat.orcs.prestadores?.nome;
     const servico = chat.orcs.servicos?.titulo || chat.orcs.servico_nome;
     return (
-      <div className="min-h-screen flex items-center justify-center p-4 bg-gray-50">
-        <div className="bg-white rounded-2xl shadow-lg p-8 max-w-sm w-full text-center">
-          <Logo />
-          <h2 className="mt-6 text-xl font-bold text-gray-800">Quem é você nessa conversa?</h2>
-          <p className="mt-2 text-sm text-gray-500">{chat.orcs.codigo} — {servico}</p>
-          <p className="text-xs text-amber-600 mt-1">Use o link enviado pelo WhatsApp para entrar com o papel correto.</p>
-          <div className="mt-8 flex flex-col gap-3">
-            <a href={`?papel=cliente`}
-              className="w-full py-3 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition">
+      <div className="min-h-screen flex items-center justify-center p-4" style={{ background: '#ecebe7' }}>
+        <div className="bg-white rounded-[20px] shadow-[0_24px_60px_-24px_rgba(3,2,19,0.45)] p-8 max-w-sm w-full text-center">
+          <div className="w-14 h-14 rounded-[16px] bg-[#030213] flex items-center justify-center mx-auto mb-5">
+            <Shield className="w-7 h-7 text-white" />
+          </div>
+          <h2 className="text-xl font-extrabold text-[#030213] mb-1">Quem é você?</h2>
+          <p className="text-sm mb-1" style={{ color: '#717182' }}>{chat.orcs.codigo} — {servico}</p>
+          <p className="text-xs mb-6" style={{ color: '#92400e', background: '#FEF3C7', padding: '6px 12px', borderRadius: 999, display: 'inline-block' }}>
+            Use o link enviado pelo WhatsApp
+          </p>
+          <div className="flex flex-col gap-3 mt-2">
+            <a href="?papel=cliente"
+              className="w-full py-3 rounded-[12px] font-bold text-sm text-white transition-opacity hover:opacity-90"
+              style={{ background: '#030213' }}>
               👤 Sou o cliente — {clienteNome}
             </a>
-            <a href={`?papel=prestador`}
-              className="w-full py-3 rounded-xl bg-green-600 text-white font-semibold hover:bg-green-700 transition">
+            <a href="?papel=prestador"
+              className="w-full py-3 rounded-[12px] font-bold text-sm text-white transition-opacity hover:opacity-90"
+              style={{ background: TEAL }}>
               👷 Sou o profissional — {prestadorNome}
             </a>
           </div>
@@ -334,198 +356,259 @@ export function Chat() {
   const outroConfirmou = papel === 'cliente' ? chat.finalizado_prestador : chat.finalizado_cliente;
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b px-4 py-3 shadow-sm sticky top-0 z-10">
-        <div className="max-w-2xl mx-auto">
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <Logo />
-              <p className="mt-1 text-sm font-bold text-gray-800">
-                {clienteNome} ↔ {prestadorNome}
-              </p>
-              <p className="text-xs text-gray-500">{servico} · {chat.orcs.codigo}</p>
-              <p className="text-xs text-gray-400 mt-0.5">
-                Você está como: <span className="font-semibold text-blue-600">{meuNome}</span>
-              </p>
-              <p className="text-xs text-gray-300">🔒 Conversa registrada e válida como evidência</p>
-            </div>
-            <button onClick={() => setMostrarResumo(!mostrarResumo)}
-              className="shrink-0 text-xs text-blue-600 underline mt-1 whitespace-nowrap">
-              {mostrarResumo ? 'Fechar' : 'Ver resumo'}
-            </button>
-          </div>
-          {mostrarResumo && (
-            <div className="mt-3 p-3 bg-blue-50 rounded-xl text-xs text-gray-700 whitespace-pre-wrap">
-              {chat.orcs.resumo_anamnese || 'Sem resumo disponível.'}
-            </div>
-          )}
-        </div>
-      </div>
+    <div className="min-h-screen flex justify-center" style={{ background: '#ecebe7' }}>
+      <div className="w-full max-w-[680px] flex flex-col min-h-screen" style={{ background: '#faf9f7' }}>
 
-      {/* Mensagens */}
-      <div ref={chatRef} className="flex-1 overflow-y-auto px-4 py-4 max-w-2xl w-full mx-auto space-y-2">
-        {mensagens.length === 0 && (
-          <p className="text-center text-sm text-gray-400 mt-10">
-            Nenhuma mensagem ainda. Inicie a conversa!
-          </p>
-        )}
-        {mensagens.map(m => {
-          const minha = m.remetente === papel;
-          const nomeRemetente = m.remetente === 'cliente' ? clienteNome : prestadorNome;
-          return (
-            <div key={m.id} className={`flex flex-col ${minha ? 'items-end' : 'items-start'}`}>
-              <span className="text-xs text-gray-400 px-1 mb-0.5">{nomeRemetente}</span>
-              <div className={`max-w-xs lg:max-w-md rounded-2xl px-4 py-2 text-sm shadow-sm ${
-                minha ? 'bg-blue-600 text-white rounded-br-none' : 'bg-white text-gray-800 rounded-bl-none border'
-              }`}>
-                {m.tipo === 'texto' && <p className="whitespace-pre-wrap">{m.conteudo}</p>}
-                {m.tipo === 'imagem' && <img src={m.conteudo} alt="imagem" className="rounded-xl max-w-full" />}
-                {m.tipo === 'audio' && <audio controls src={m.conteudo} className="max-w-full" />}
-                <p className={`text-xs mt-1 ${minha ? 'text-blue-200' : 'text-gray-400'}`}>
-                  {new Date(m.criado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+        {/* Header */}
+        <div style={{ background: '#fff', borderBottom: '1px solid rgba(0,0,0,0.07)' }} className="sticky top-0 z-10">
+          <div className="px-5 py-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-7 h-7 rounded-[8px] flex items-center justify-center" style={{ background: '#030213' }}>
+                    <Shield className="w-3.5 h-3.5 text-white" />
+                  </div>
+                  <span className="font-extrabold text-sm" style={{ color: '#030213' }}>
+                    {clienteNome} ↔ {prestadorNome}
+                  </span>
+                </div>
+                <p className="text-xs" style={{ color: '#94a3b8' }}>
+                  {servico} · <span className="font-mono">{chat.orcs.codigo}</span>
+                </p>
+                <p className="text-xs mt-0.5 flex items-center gap-1" style={{ color: '#94a3b8' }}>
+                  <Lock className="w-2.5 h-2.5" /> Conversa registrada como evidência · você: <strong style={{ color: '#030213' }}>{meuNome}</strong>
                 </p>
               </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Rodapé */}
-      {chat.status === 'contrato_gerado' ? (
-        <div className="bg-white border-t px-4 py-6 text-center max-w-2xl w-full mx-auto">
-          <CheckCircle2 className="mx-auto text-green-500 mb-2" size={32} />
-          <p className="font-semibold text-gray-800">Contrato gerado!</p>
-          <p className="text-sm text-gray-500 mt-1">Ambas as partes precisam assinar para formalizar.</p>
-          <a href={`/contrato?orc=${chat.orc_id}&papel=${papel}`}
-            className="mt-4 inline-block px-6 py-2.5 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 transition">
-            <FileText className="inline mr-2" size={16} />Assinar contrato
-          </a>
-        </div>
-      ) : chat.status === 'elaborando_contrato' && !painelFinalizar ? (
-        <div className="bg-white border-t px-4 py-6 text-center max-w-2xl w-full mx-auto">
-          <div className="animate-spin w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-3" />
-          <p className="font-semibold text-gray-700">Aguardando {outroNome}...</p>
-          <p className="text-sm text-gray-400 mt-1">{outroNome} está redigindo e assinando o contrato. Você poderá assinar em seguida.</p>
-        </div>
-      ) : chat.status === 'finalizado' || chat.status === 'elaborando_contrato' ? (
-        <div className="bg-white border-t px-4 py-6 text-center max-w-2xl w-full mx-auto">
-          <CheckCircle2 className="mx-auto text-green-500 mb-2" size={32} />
-          <p className="font-semibold text-gray-800">Negociação finalizada!</p>
-          <p className="text-sm text-gray-500 mt-1">Clique para redigir e assinar o contrato.</p>
-          <button onClick={abrirFormContrato}
-            className="mt-4 px-6 py-2.5 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition">
-            <FileText className="inline mr-2" size={16} />Redigir e Assinar Contrato
-          </button>
-        </div>
-      ) : (
-        <div className="bg-white border-t px-4 py-3 max-w-2xl w-full mx-auto">
-          <div className="mb-2 flex items-center justify-between gap-2 flex-wrap">
-            <button
-              onClick={confirmarFinalizar}
-              disabled={jaConfirmou}
-              className={`text-xs px-4 py-1.5 rounded-full border font-semibold transition ${
-                jaConfirmou
-                  ? 'bg-green-100 text-green-700 border-green-300 cursor-default'
-                  : 'bg-white text-gray-700 border-gray-300 hover:border-green-500 hover:text-green-600'
-              }`}
-            >
-              {jaConfirmou ? '✅ Você confirmou finalizar' : '✅ Finalizar negociação'}
-            </button>
-            {outroConfirmou && !jaConfirmou && (
-              <span className="text-xs text-amber-600 font-medium">
-                ⏳ {outroNome} já confirmou — aguarda você!
-              </span>
-            )}
-          </div>
-          {erroFinalizar && (
-            <p className="text-xs text-red-500 mb-2">{erroFinalizar}</p>
-          )}
-          <div className="flex gap-2 items-end">
-            <input type="file" accept="image/*" ref={fileRef} onChange={enviarImagem} className="hidden" />
-            <button onClick={() => fileRef.current?.click()}
-              className="p-2 text-gray-400 hover:text-blue-500 transition">
-              <Image size={20} />
-            </button>
-            <button
-              onMouseDown={iniciarGravacao}
-              onMouseUp={pararGravacao}
-              onTouchStart={iniciarGravacao}
-              onTouchEnd={pararGravacao}
-              className={`p-2 transition ${gravando ? 'text-red-500 animate-pulse' : 'text-gray-400 hover:text-blue-500'}`}
-            >
-              {gravando ? <MicOff size={20} /> : <Mic size={20} />}
-            </button>
-            <textarea
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviarTexto(); } }}
-              placeholder={`Mensagem para ${outroNome}...`}
-              rows={1}
-              className="flex-1 resize-none rounded-xl border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <button
-              onClick={enviarTexto}
-              disabled={!input.trim() || enviando}
-              className="p-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-40 transition"
-            >
-              <Send size={18} />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Modal — contrato */}
-      {painelFinalizar && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center">
-          <div className="bg-white rounded-t-2xl w-full max-w-2xl p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-gray-800 text-lg">Detalhes do contrato</h3>
-              <button onClick={() => setPainelFinalizar(false)}>
-                <X size={20} className="text-gray-400" />
+              <button
+                onClick={() => setMostrarResumo(!mostrarResumo)}
+                className="flex-shrink-0 text-xs font-semibold underline mt-1"
+                style={{ color: TEAL_DARK }}
+              >
+                {mostrarResumo ? 'Fechar' : 'Ver resumo'}
               </button>
             </div>
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs text-gray-500 font-medium">Valor combinado *</label>
-                <div className="relative mt-1">
-                  <span className="absolute left-3 top-2.5 text-gray-400 text-sm">R$</span>
-                  <input type="text" value={formulario.valor}
-                    onChange={e => setFormulario(p => ({ ...p, valor: e.target.value }))}
-                    placeholder={detectarValorNoChat() || '0,00'}
-                    className="w-full pl-9 pr-3 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
-                </div>
+            {mostrarResumo && (
+              <div className="mt-3 p-3 rounded-[12px] text-xs leading-relaxed" style={{ background: TEAL_LIGHT, color: '#030213' }}>
+                {chat.orcs.resumo_anamnese || 'Sem resumo disponível.'}
               </div>
-              <div>
-                <label className="text-xs text-gray-500 font-medium">Prazo de conclusão</label>
-                <input type="text" value={formulario.prazo}
-                  onChange={e => setFormulario(p => ({ ...p, prazo: e.target.value }))}
-                  placeholder="Ex: 2 dias úteis"
-                  className="w-full mt-1 px-3 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
-              </div>
-              <div>
-                <label className="text-xs text-gray-500 font-medium">Garantia</label>
-                <input type="text" value={formulario.garantia}
-                  onChange={e => setFormulario(p => ({ ...p, garantia: e.target.value }))}
-                  placeholder="Ex: 90 dias"
-                  className="w-full mt-1 px-3 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
-              </div>
-              <div>
-                <label className="text-xs text-gray-500 font-medium">Forma de pagamento</label>
-                <input type="text" value={formulario.pagamento}
-                  onChange={e => setFormulario(p => ({ ...p, pagamento: e.target.value }))}
-                  placeholder="Ex: 50% entrada, 50% na conclusão"
-                  className="w-full mt-1 px-3 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
-              </div>
-            </div>
-            {erroFinalizar && <p className="text-xs text-red-500 mt-2">{erroFinalizar}</p>}
-            <button onClick={gerarContrato}
-              className="mt-5 w-full py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition">
-              Gerar contrato
-            </button>
+            )}
+          </div>
+
+          {/* Status pills */}
+          <div className="flex gap-2 px-5 pb-3 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+            {['conversando', 'orcamento_enviado', 'finalizado', 'contrato_gerado'].map(s => {
+              const ativo = chat.status === s;
+              return (
+                <span
+                  key={s}
+                  className="rounded-full text-[11px] font-semibold px-3 py-1 flex-shrink-0"
+                  style={ativo
+                    ? { background: '#030213', color: '#fff' }
+                    : { border: '1px solid rgba(0,0,0,0.1)', color: '#717182', background: '#fff' }}
+                >
+                  {s === 'conversando' ? '💬 Conversando'
+                    : s === 'orcamento_enviado' ? '💰 Orçamento'
+                    : s === 'finalizado' ? '✅ Finalizado'
+                    : '📄 Contrato'}
+                </span>
+              );
+            })}
           </div>
         </div>
-      )}
+
+        {/* Mensagens */}
+        <div ref={chatRef} className="flex-1 overflow-y-auto px-5 py-5 flex flex-col gap-3">
+          {mensagens.length === 0 && (
+            <p className="text-center text-sm mt-10" style={{ color: '#94a3b8' }}>
+              Nenhuma mensagem ainda. Inicie a conversa!
+            </p>
+          )}
+          {mensagens.map(m => {
+            const minha = m.remetente === papel;
+            const nomeRemetente = m.remetente === 'cliente' ? clienteNome : prestadorNome;
+            return (
+              <div key={m.id} className={`flex flex-col ${minha ? 'items-end' : 'items-start'}`}>
+                <span className="text-[11px] px-1 mb-1" style={{ color: '#94a3b8' }}>{nomeRemetente}</span>
+                <div
+                  className="max-w-[75%] text-[14px] leading-relaxed"
+                  style={{
+                    padding: '11px 15px',
+                    borderRadius: 16,
+                    ...(minha
+                      ? { background: '#030213', color: '#fff', borderBottomRightRadius: 4 }
+                      : { background: '#fff', color: '#030213', border: '1px solid rgba(0,0,0,0.08)', borderBottomLeftRadius: 4 }),
+                  }}
+                >
+                  {m.tipo === 'texto' && <p className="whitespace-pre-wrap">{m.conteudo}</p>}
+                  {m.tipo === 'imagem' && <img src={m.conteudo} alt="imagem" className="rounded-[12px] max-w-full" />}
+                  {m.tipo === 'audio' && <audio controls src={m.conteudo} className="max-w-full" />}
+                  <p className="text-[11px] mt-[5px]" style={{ color: minha ? 'rgba(255,255,255,0.5)' : '#94a3b8', textAlign: minha ? 'right' : 'left' }}>
+                    {new Date(m.criado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Rodapé */}
+        {chat.status === 'contrato_gerado' ? (
+          <div style={{ background: '#fff', borderTop: '1px solid rgba(0,0,0,0.08)' }} className="px-5 py-6 text-center">
+            <CheckCircle2 className="mx-auto mb-2" size={32} style={{ color: TEAL }} />
+            <p className="font-bold text-[#030213]">Contrato gerado!</p>
+            <p className="text-sm mt-1 mb-4" style={{ color: '#717182' }}>Ambas as partes precisam assinar para formalizar.</p>
+            <a
+              href={`/contrato?orc=${chat.orc_id}&papel=${papel}`}
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-[12px] font-bold text-sm text-white"
+              style={{ background: '#030213' }}
+            >
+              <FileText size={16} /> Assinar contrato
+            </a>
+          </div>
+        ) : chat.status === 'elaborando_contrato' && !painelFinalizar ? (
+          <div style={{ background: '#fff', borderTop: '1px solid rgba(0,0,0,0.08)' }} className="px-5 py-6 text-center">
+            <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin mx-auto mb-3" style={{ borderColor: TEAL, borderTopColor: 'transparent' }} />
+            <p className="font-bold text-[#030213]">Aguardando {outroNome}...</p>
+            <p className="text-sm mt-1" style={{ color: '#717182' }}>{outroNome} está redigindo e assinando o contrato. Você poderá assinar em seguida.</p>
+          </div>
+        ) : chat.status === 'finalizado' || chat.status === 'elaborando_contrato' ? (
+          <div style={{ background: '#fff', borderTop: '1px solid rgba(0,0,0,0.08)' }} className="px-5 py-6 text-center">
+            <CheckCircle2 className="mx-auto mb-2" size={32} style={{ color: TEAL }} />
+            <p className="font-bold text-[#030213]">Negociação finalizada!</p>
+            <p className="text-sm mt-1 mb-4" style={{ color: '#717182' }}>Clique para redigir e assinar o contrato.</p>
+            <button
+              onClick={abrirFormContrato}
+              className="px-6 py-3 rounded-[12px] font-bold text-sm text-white transition-opacity hover:opacity-90"
+              style={{ background: '#030213' }}
+            >
+              <FileText className="inline mr-2" size={16} />Redigir e Assinar Contrato
+            </button>
+          </div>
+        ) : (
+          <div style={{ background: '#fff', borderTop: '1px solid rgba(0,0,0,0.08)' }} className="px-4 py-3">
+            <div className="flex items-center justify-between gap-2 flex-wrap mb-2">
+              <button
+                onClick={confirmarFinalizar}
+                disabled={jaConfirmou}
+                className="text-xs px-4 py-1.5 rounded-full font-semibold transition-all"
+                style={jaConfirmou
+                  ? { background: TEAL_LIGHT, color: TEAL_DARK, border: `1px solid ${TEAL}` }
+                  : { background: '#fff', color: '#64748b', border: '1px solid #e2e8f0' }
+                }
+              >
+                {jaConfirmou ? '✅ Você confirmou finalizar' : '✅ Finalizar negociação'}
+              </button>
+              {outroConfirmou && !jaConfirmou && (
+                <span className="text-xs font-medium" style={{ color: '#92400e' }}>
+                  ⏳ {outroNome} já confirmou — aguarda você!
+                </span>
+              )}
+            </div>
+            {erroFinalizar && <p className="text-xs text-red-500 mb-2">{erroFinalizar}</p>}
+            <div className="flex gap-2 items-end">
+              <input type="file" accept="image/*" ref={fileRef} onChange={enviarImagem} className="hidden" />
+              <button
+                onClick={() => fileRef.current?.click()}
+                className="flex-shrink-0 flex items-center justify-center transition-colors"
+                style={{ width: 40, height: 40, borderRadius: 11, border: '1px solid rgba(0,0,0,0.1)', background: '#fff', color: '#717182' }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'oklch(0.985 0.001 0)')}
+                onMouseLeave={e => (e.currentTarget.style.background = '#fff')}
+              >
+                <Image size={18} />
+              </button>
+              <button
+                onMouseDown={iniciarGravacao}
+                onMouseUp={pararGravacao}
+                onTouchStart={iniciarGravacao}
+                onTouchEnd={pararGravacao}
+                className="flex-shrink-0 flex items-center justify-center transition-colors"
+                style={{
+                  width: 40, height: 40, borderRadius: 11,
+                  border: '1px solid rgba(0,0,0,0.1)',
+                  background: gravando ? '#FEF2F2' : '#fff',
+                  color: gravando ? '#dc2626' : '#717182',
+                }}
+              >
+                {gravando ? <MicOff size={18} /> : <Mic size={18} />}
+              </button>
+              <textarea
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviarTexto(); } }}
+                placeholder={`Mensagem para ${outroNome}...`}
+                rows={1}
+                className="flex-1 resize-none text-sm outline-none"
+                style={{
+                  background: 'oklch(0.985 0.001 0)',
+                  borderRadius: 13,
+                  padding: '10px 14px',
+                  border: 'none',
+                }}
+              />
+              <button
+                onClick={enviarTexto}
+                disabled={!input.trim() || enviando}
+                className="flex-shrink-0 flex items-center justify-center transition-opacity disabled:opacity-40"
+                style={{ width: 44, height: 44, borderRadius: 13, background: '#030213', color: '#fff' }}
+              >
+                <Send size={18} />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Modal contrato */}
+        {painelFinalizar && (
+          <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ background: 'rgba(0,0,0,0.5)' }}>
+            <div className="w-full max-w-[680px]" style={{ background: '#fff', borderRadius: '20px 20px 0 0', padding: 24 }}>
+              <div className="flex items-center justify-between mb-5">
+                <h3 className="font-extrabold text-[#030213] text-lg">Detalhes do contrato</h3>
+                <button onClick={() => setPainelFinalizar(false)} className="text-[#94a3b8] hover:text-[#030213]">
+                  <X size={20} />
+                </button>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <InputLabel>Valor combinado *</InputLabel>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: '#94a3b8' }}>R$</span>
+                    <input
+                      type="text"
+                      value={formulario.valor}
+                      onChange={e => setFormulario(p => ({ ...p, valor: e.target.value }))}
+                      placeholder={detectarValorNoChat() || '0,00'}
+                      className="w-full pl-9 pr-3 py-2.5 text-sm outline-none"
+                      style={{ border: '1px solid #e2e8f0', borderRadius: 12, background: '#f8fafc' }}
+                      onFocus={e => (e.target.style.borderColor = '#030213')}
+                      onBlur={e => (e.target.style.borderColor = '#e2e8f0')}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <InputLabel>Prazo de conclusão</InputLabel>
+                  <StyledInput value={formulario.prazo} onChange={(e: any) => setFormulario(p => ({ ...p, prazo: e.target.value }))} placeholder="Ex: 2 dias úteis" />
+                </div>
+                <div>
+                  <InputLabel>Garantia</InputLabel>
+                  <StyledInput value={formulario.garantia} onChange={(e: any) => setFormulario(p => ({ ...p, garantia: e.target.value }))} placeholder="Ex: 90 dias" />
+                </div>
+                <div>
+                  <InputLabel>Forma de pagamento</InputLabel>
+                  <StyledInput value={formulario.pagamento} onChange={(e: any) => setFormulario(p => ({ ...p, pagamento: e.target.value }))} placeholder="Ex: 50% entrada, 50% na conclusão" />
+                </div>
+              </div>
+              {erroFinalizar && <p className="text-xs text-red-500 mt-3">{erroFinalizar}</p>}
+              <button
+                onClick={gerarContrato}
+                className="mt-5 w-full py-3.5 rounded-[12px] font-bold text-[15px] text-white transition-opacity hover:opacity-90"
+                style={{ background: '#030213' }}
+              >
+                Gerar e Assinar Contrato
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

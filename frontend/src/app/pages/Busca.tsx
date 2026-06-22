@@ -1,11 +1,31 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router';
-import { Search, Star, Shield, MapPin, X, ChevronRight, MessageSquare } from 'lucide-react';
-import { Logo } from '../components/Logo';
+import { Search, X, MapPin } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 const NOTAS = [3, 3.5, 4, 4.5, 5];
 const WHATSAPP_NUMERO = '555591598658';
+
+function categoryGradient(catNome: string): string {
+  const n = (catNome || '').toLowerCase();
+  if (n.includes('elétric') || n.includes('instala')) return 'linear-gradient(135deg, oklch(0.92 0.06 85), oklch(0.97 0.03 85))';
+  if (n.includes('encanamento') || n.includes('hidráulic')) return 'linear-gradient(135deg, oklch(0.91 0.05 220), oklch(0.96 0.03 220))';
+  if (n.includes('pintura')) return 'linear-gradient(135deg, oklch(0.92 0.06 25), oklch(0.97 0.03 25))';
+  if (n.includes('reforma') || n.includes('constru')) return 'linear-gradient(135deg, oklch(0.91 0.05 264), oklch(0.96 0.03 264))';
+  if (n.includes('limpeza')) return 'linear-gradient(135deg, oklch(0.92 0.06 184), oklch(0.97 0.03 184))';
+  return 'linear-gradient(135deg, oklch(0.92 0.05 264), oklch(0.97 0.03 264))';
+}
+
+function formatCurrency(value: number): string {
+  return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+function getInitials(nome: string): string {
+  if (!nome) return '?';
+  const parts = nome.trim().split(' ');
+  if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+}
 
 export function Busca() {
   const [urlParams] = useSearchParams();
@@ -34,7 +54,6 @@ export function Busca() {
   async function buscarServicos() {
     setLoading(true);
     try {
-      // ── Busca TODOS os serviços ativos com dados do prestador ──
       const { data, error } = await supabase
         .from('servicos')
         .select(`
@@ -48,19 +67,16 @@ export function Busca() {
 
       if (error) throw error;
 
-      // Filtrar cidade no JS (não no Supabase — join filter não funciona bem)
       let lista = (data || []).filter((s: any) =>
-        !s.prestadores || // sem prestador vinculado, inclui
-        !s.prestadores.cidade || // sem cidade definida, inclui
-        s.prestadores.cidade === cidade // cidade bate
+        !s.prestadores ||
+        !s.prestadores.cidade ||
+        s.prestadores.cidade === cidade
       );
 
-      // Filtro: apenas verificados
       if (soVerificados) {
         lista = lista.filter((s: any) => s.prestadores?.verificado === true);
       }
 
-      // Filtro: aceita orçamento online
       if (aceitaOnline) {
         lista = lista.filter((s: any) =>
           s.aceita_orcamento_online === true ||
@@ -68,12 +84,10 @@ export function Busca() {
         );
       }
 
-      // Filtro: modalidade
       if (modalidade) {
         lista = lista.filter((s: any) => s.tipo === modalidade);
       }
 
-      // Filtro: nota mínima do serviço
       if (notaMin > 0) {
         lista = lista.filter((s: any) => {
           const avs = s.avaliacoes || [];
@@ -83,12 +97,10 @@ export function Busca() {
         });
       }
 
-      // Filtro: categoria
       if (catAtiva) {
         lista = lista.filter((s: any) => s.categorias?.nome === catAtiva);
       }
 
-      // Filtro: texto livre (por título e categoria — não por nome do prestador)
       if (busca.trim()) {
         const q = busca.toLowerCase().trim();
         lista = lista.filter((s: any) =>
@@ -98,7 +110,6 @@ export function Busca() {
         );
       }
 
-      // Ordenar: verificados primeiro, depois por nota
       lista.sort((a: any, b: any) => {
         if (a.prestadores?.verificado && !b.prestadores?.verificado) return -1;
         if (!a.prestadores?.verificado && b.prestadores?.verificado) return 1;
@@ -125,153 +136,241 @@ export function Busca() {
 
   const filtrosCount = [soVerificados, notaMin > 0, aceitaOnline, !!modalidade, !!catAtiva].filter(Boolean).length;
 
+  // pill base classes
+  const pillBase = 'rounded-full px-3.5 py-1.5 text-[12.5px] font-semibold border whitespace-nowrap cursor-pointer transition-all flex-shrink-0';
+  const pillInactive = `${pillBase} border-[rgba(0,0,0,0.12)] bg-white text-[#45454f]`;
+  const pillActiveDark = `${pillBase} bg-[#030213] text-white border-[#030213]`;
+  const pillActiveTeal = `${pillBase} bg-[oklch(0.95_0.03_184)] border-[#030213] text-[#030213]`;
+
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-[#f8f8fb]" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
 
-      {/* HEADER */}
-      <header className="bg-white border-b border-slate-100 sticky top-0 z-40 shadow-sm">
-        <div className="max-w-5xl mx-auto px-4 py-3">
+      {/* ── HEADER ROW 1 ── */}
+      <header className="sticky top-0 z-40 bg-white border-b border-[rgba(0,0,0,0.07)]">
+        <div className="px-4 py-3 flex items-center gap-3">
+          {/* Logo mark */}
+          <Link to="/" className="flex items-center gap-2 flex-shrink-0">
+            <div className="w-8 h-8 bg-[#030213] rounded-[10px] flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
+              SS
+            </div>
+            <span className="font-extrabold text-sm text-[#030213] hidden sm:block">Serviço Seguro</span>
+          </Link>
 
-          <div className="flex items-center gap-3 mb-3">
-            <Link to="/"><Logo className="h-7 flex-shrink-0" /></Link>
-            <form onSubmit={e => { e.preventDefault(); buscarServicos(); }}
-              className="flex-1 flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5">
-              <Search className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-              <input type="text" value={busca} onChange={e => setBusca(e.target.value)}
-                placeholder="Buscar serviço... ex: elétrica, pintura, encanamento"
-                className="flex-1 text-sm outline-none bg-transparent" />
-              {busca && <button type="button" onClick={() => setBusca('')}><X className="h-3.5 w-3.5 text-muted-foreground" /></button>}
-            </form>
-            <Link to="/auth" className="text-sm bg-primary text-white px-4 py-2 rounded-xl font-medium flex-shrink-0">Entrar</Link>
-          </div>
-
-          {/* FILTROS */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <button onClick={() => setSoVerificados(!soVerificados)}
-              className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border font-semibold transition-all ${soVerificados ? 'bg-primary text-white border-primary' : 'bg-white text-muted-foreground border-slate-200 hover:border-primary/40'}`}>
-              🤳 Verificados
-            </button>
-
-            {NOTAS.map(n => (
-              <button key={n} onClick={() => setNotaMin(notaMin === n ? 0 : n)}
-                className={`text-xs px-3 py-1.5 rounded-full border font-semibold transition-all ${notaMin === n ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-muted-foreground border-slate-200 hover:border-amber-300'}`}>
-                ⭐ {n}+
-              </button>
-            ))}
-
-            <button onClick={() => setAceitaOnline(!aceitaOnline)}
-              className={`text-xs px-3 py-1.5 rounded-full border font-semibold transition-all ${aceitaOnline ? 'bg-success text-white border-success' : 'bg-white text-muted-foreground border-slate-200 hover:border-success/40'}`}>
-              💬 Orça online
-            </button>
-
-            <select value={modalidade} onChange={e => setModalidade(e.target.value)}
-              className="text-xs px-3 py-1.5 rounded-full border border-slate-200 bg-white font-semibold text-muted-foreground outline-none cursor-pointer">
-              <option value="">Tipo de preço</option>
-              <option value="orcamento">Sob orçamento</option>
-              <option value="fixo">Preço fixo</option>
-            </select>
-
-            {categorias.length > 0 && <div className="w-px h-4 bg-slate-200 mx-1" />}
-
-            {categorias.map((c: any) => (
-              <button key={c.id} onClick={() => setCatAtiva(catAtiva === c.nome ? '' : c.nome)}
-                className={`flex items-center gap-1 text-xs px-3 py-1.5 rounded-full border font-semibold transition-all ${catAtiva === c.nome ? 'bg-primary/10 text-primary border-primary/40' : 'bg-white text-muted-foreground border-slate-200 hover:border-primary/30'}`}>
-                <span>{c.icone}</span> {c.nome}
-              </button>
-            ))}
-
-            {filtrosCount > 0 && (
-              <button onClick={limparFiltros} className="text-xs text-red-500 hover:text-red-700 flex items-center gap-1 ml-1">
-                <X className="h-3 w-3" /> Limpar
+          {/* Search bar */}
+          <form
+            onSubmit={e => { e.preventDefault(); buscarServicos(); }}
+            className="flex-1 max-w-[560px] flex items-center border border-[rgba(0,0,0,0.12)] rounded-[12px] px-3 py-2 gap-2 bg-white"
+          >
+            <Search className="h-4 w-4 text-[#94a3b8] flex-shrink-0" />
+            <input
+              type="text"
+              value={busca}
+              onChange={e => setBusca(e.target.value)}
+              placeholder="Buscar serviço… ex: elétrica, pintura, encanamento"
+              className="flex-1 text-sm outline-none bg-transparent text-[#030213] placeholder-[#94a3b8]"
+            />
+            {busca && (
+              <button type="button" onClick={() => setBusca('')}>
+                <X className="h-3.5 w-3.5 text-[#94a3b8]" />
               </button>
             )}
+          </form>
+
+          <div className="ml-auto flex-shrink-0">
+            <Link to="/auth" className="text-sm font-semibold text-[#030213] hover:underline">
+              Entrar
+            </Link>
           </div>
+        </div>
+
+        {/* ── HEADER ROW 2 — filter pills ── */}
+        <div className="px-4 py-2 flex gap-2 overflow-x-auto border-t border-[rgba(0,0,0,0.06)] scrollbar-hide">
+          {/* Verified */}
+          <button
+            onClick={() => setSoVerificados(!soVerificados)}
+            className={soVerificados ? pillActiveTeal : pillInactive}
+          >
+            🤳 Verificados
+          </button>
+
+          {/* Online */}
+          <button
+            onClick={() => setAceitaOnline(!aceitaOnline)}
+            className={aceitaOnline ? pillActiveTeal : pillInactive}
+          >
+            ⚡ Orça online
+          </button>
+
+          {/* Rating pills */}
+          {NOTAS.map(n => (
+            <button
+              key={n}
+              onClick={() => setNotaMin(notaMin === n ? 0 : n)}
+              className={notaMin === n ? pillActiveDark : pillInactive}
+            >
+              ⭐ {n}+
+            </button>
+          ))}
+
+          {/* Price type */}
+          <button
+            onClick={() => setModalidade(modalidade === 'fixo' ? '' : 'fixo')}
+            className={modalidade === 'fixo' ? pillActiveDark : pillInactive}
+          >
+            💰 Preço fixo
+          </button>
+          <button
+            onClick={() => setModalidade(modalidade === 'orcamento' ? '' : 'orcamento')}
+            className={modalidade === 'orcamento' ? pillActiveDark : pillInactive}
+          >
+            📋 Sob orçamento
+          </button>
+
+          {/* Divider */}
+          {categorias.length > 0 && (
+            <div className="w-px h-5 bg-[rgba(0,0,0,0.1)] self-center mx-1 flex-shrink-0" />
+          )}
+
+          {/* Category pills */}
+          {categorias.map((c: any) => (
+            <button
+              key={c.id}
+              onClick={() => setCatAtiva(catAtiva === c.nome ? '' : c.nome)}
+              className={catAtiva === c.nome ? pillActiveDark : pillInactive}
+            >
+              <span className="mr-1">{c.icone}</span>{c.nome}
+            </button>
+          ))}
+
+          {/* Clear */}
+          {filtrosCount > 0 && (
+            <button
+              onClick={limparFiltros}
+              className="flex items-center gap-1 text-[12.5px] font-semibold text-red-500 hover:text-red-700 flex-shrink-0 px-2"
+            >
+              <X className="h-3 w-3" /> Limpar
+            </button>
+          )}
         </div>
       </header>
 
-      {/* RESULTADOS */}
-      <div className="max-w-5xl mx-auto px-4 py-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="text-sm text-muted-foreground">
-            {loading ? 'Buscando...' : (
-              <><strong className="text-foreground">{servicos.length}</strong> serviço{servicos.length !== 1 ? 's' : ''} em <strong className="text-foreground">{cidade}</strong></>
+      {/* ── RESULTS ── */}
+      <div className="max-w-[1100px] mx-auto px-4 py-6">
+
+        {/* Count + location */}
+        <div className="flex items-center justify-between mb-5">
+          <div className="text-sm text-[#717182]">
+            {loading ? (
+              'Buscando…'
+            ) : (
+              <>
+                <span className="font-bold text-[#030213]">{servicos.length}</span>{' '}
+                serviço{servicos.length !== 1 ? 's' : ''} em{' '}
+                <span className="font-bold text-[#030213]">{cidade}</span>
+              </>
             )}
           </div>
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <MapPin className="h-3.5 w-3.5" />{cidade}
+          <div className="flex items-center gap-1 text-xs text-[#94a3b8]">
+            <MapPin className="h-3.5 w-3.5" />
+            {cidade}
           </div>
         </div>
 
+        {/* Loading spinner */}
         {loading && (
-          <div className="flex justify-center py-20">
-            <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+          <div className="flex justify-center py-24">
+            <div className="w-8 h-8 border-[3px] border-[#030213] border-t-transparent rounded-full animate-spin" />
           </div>
         )}
 
+        {/* Empty state */}
         {!loading && servicos.length === 0 && (
-          <div className="bg-white rounded-2xl border py-16 text-center">
-            <div className="text-4xl mb-3">🔍</div>
-            <h3 className="font-bold text-primary mb-2">Nenhum serviço encontrado</h3>
-            <p className="text-muted-foreground text-sm mb-4">Tente ajustar os filtros ou buscar outra categoria.</p>
-            <button onClick={limparFiltros} className="text-sm text-primary hover:underline">Limpar filtros</button>
+          <div className="bg-white rounded-[20px] border border-[rgba(0,0,0,0.08)] py-20 text-center">
+            <div className="text-5xl mb-4">🔍</div>
+            <h3 className="font-bold text-[#030213] mb-2 text-lg">Nenhum serviço encontrado</h3>
+            <p className="text-[#717182] text-sm mb-5">Tente ajustar os filtros ou buscar outra categoria.</p>
+            <button
+              onClick={limparFiltros}
+              className="text-sm font-semibold text-[#030213] hover:underline"
+            >
+              Limpar filtros
+            </button>
           </div>
         )}
 
+        {/* Grid */}
         {!loading && servicos.length > 0 && (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {servicos.map((s: any) => {
               const nota = calcNota(s.avaliacoes);
-              const totalAv = s.avaliacoes?.length || 0;
+              const catNome: string = s.categorias?.nome || '';
+              const initials = getInitials(s.prestadores?.nome || '');
+              const price = s.tipo === 'fixo' && s.valor_fixo ? Number(s.valor_fixo) : 0;
+              const aceitaOnlineServico = s.aceita_orcamento_online || s.prestadores?.aceita_orcamento_online;
+
               return (
-                <div key={s.id} onClick={() => setServicoAberto(s)}
-                  className="bg-white rounded-2xl border hover:shadow-md hover:border-primary/20 hover:-translate-y-0.5 transition-all duration-200 overflow-hidden cursor-pointer">
-                  <div className="p-5">
-                    {/* Categoria + badge */}
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg">{s.categorias?.icone || '🔧'}</span>
-                        <span className="text-xs font-bold text-muted-foreground uppercase tracking-wide">{s.categorias?.nome}</span>
-                      </div>
-                      {(s.aceita_orcamento_online || s.prestadores?.aceita_orcamento_online) && (
-                        <span className="text-xs bg-blue-50 text-blue-600 border border-blue-100 px-2 py-0.5 rounded-full font-medium">💬 Online</span>
-                      )}
-                    </div>
-
-                    {/* Título */}
-                    <h3 className="font-bold text-primary mb-1 leading-tight line-clamp-2">{s.titulo}</h3>
-                    {s.descricao && <p className="text-xs text-muted-foreground mb-3 line-clamp-2">{s.descricao}</p>}
-
-                    {/* Nota do serviço */}
-                    {totalAv > 0 ? (
-                      <div className="flex items-center gap-1.5 mb-3">
-                        <Star className="h-3.5 w-3.5 text-amber-400 fill-amber-400" />
-                        <span className="text-sm font-bold">{nota.toFixed(1)}</span>
-                        <span className="text-xs text-muted-foreground">({totalAv} avaliação{totalAv !== 1 ? 'ões' : ''})</span>
-                      </div>
-                    ) : (
-                      <div className="text-xs text-muted-foreground mb-3 italic">Sem avaliações ainda</div>
+                <div
+                  key={s.id}
+                  onClick={() => setServicoAberto(s)}
+                  className="border border-[rgba(0,0,0,0.08)] rounded-[18px] overflow-hidden hover:shadow-[0_14px_40px_-18px_rgba(3,2,19,0.25)] hover:-translate-y-0.5 transition-all cursor-pointer bg-white"
+                >
+                  {/* Cover */}
+                  <div
+                    className="relative h-[120px]"
+                    style={{ background: categoryGradient(catNome) }}
+                  >
+                    {aceitaOnlineServico && (
+                      <span className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm text-[11px] font-bold px-2.5 py-1 rounded-full text-[#030213]">
+                        ⚡ Orça online
+                      </span>
                     )}
-
-                    {/* Valor */}
-                    {s.tipo === 'fixo' && s.valor_fixo ? (
-                      <div className="text-base font-bold text-success">R$ {Number(s.valor_fixo).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
-                    ) : (
-                      <div className="text-xs text-muted-foreground">Valor sob orçamento</div>
+                    {nota > 0 && (
+                      <span className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm text-[11px] font-bold px-2.5 py-1 rounded-full text-[#030213]">
+                        ⭐ {nota.toFixed(1)}
+                      </span>
                     )}
                   </div>
 
-                  {/* Footer — sem nome do prestador */}
-                  <div className="px-5 py-3 bg-slate-50 border-t flex items-center justify-between">
-                    {s.prestadores?.verificado ? (
-                      <span className="flex items-center gap-1 text-xs text-success font-semibold">
-                        <Shield className="h-3.5 w-3.5" /> Profissional verificado
-                      </span>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">Profissional cadastrado</span>
+                  {/* Body */}
+                  <div className="px-4 pb-4">
+                    {/* Avatar + verified badge row */}
+                    <div className="flex items-end gap-3 -mt-7 mb-3">
+                      <div className="w-14 h-14 rounded-[15px] bg-[#030213] text-white flex items-center justify-center text-xl font-bold border-[3px] border-white flex-shrink-0">
+                        {initials}
+                      </div>
+                      {s.prestadores?.verificado && (
+                        <span
+                          className="mb-1 text-xs font-bold px-2 py-0.5 rounded-full"
+                          style={{ background: 'oklch(0.95 0.03 184)', color: 'oklch(0.45 0.1 184)' }}
+                        >
+                          ✓ Verificado
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="text-[11px] font-bold uppercase text-[#94a3b8] tracking-wider mb-1">
+                      {s.categorias?.icone && <span className="mr-1">{s.categorias.icone}</span>}
+                      {catNome}
+                    </div>
+
+                    <h3 className="font-bold text-[#030213] mb-1 leading-tight">{s.titulo}</h3>
+
+                    {s.descricao && (
+                      <p className="text-sm text-[#717182] leading-relaxed mb-3 line-clamp-2">{s.descricao}</p>
                     )}
-                    <span className="text-xs text-primary font-semibold flex items-center gap-1">
-                      Ver detalhes <ChevronRight className="h-3.5 w-3.5" />
-                    </span>
+
+                    <div className="flex items-center justify-between mt-3">
+                      {price > 0 ? (
+                        <span className="font-extrabold text-lg" style={{ color: 'oklch(0.45 0.1 184)' }}>
+                          {formatCurrency(price)}
+                        </span>
+                      ) : (
+                        <span className="text-sm text-[#94a3b8]">Sob consulta</span>
+                      )}
+                      <button className="text-sm font-semibold text-[#030213] hover:underline">
+                        Ver detalhes →
+                      </button>
+                    </div>
                   </div>
                 </div>
               );
@@ -280,92 +379,125 @@ export function Busca() {
         )}
       </div>
 
-      {/* MODAL DETALHE — profissional aparece aqui */}
+      {/* ── MODAL DETALHE ── */}
       {servicoAberto && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4"
-          onClick={e => { if (e.target === e.currentTarget) setServicoAberto(null); }}>
-          <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl">
-            <div className="sticky top-0 bg-white border-b px-5 py-4 flex items-center justify-between">
+        <div
+          className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4"
+          onClick={e => { if (e.target === e.currentTarget) setServicoAberto(null); }}
+        >
+          <div className="bg-white rounded-[20px] w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl">
+            {/* Modal header */}
+            <div className="sticky top-0 bg-white border-b border-[rgba(0,0,0,0.08)] px-5 py-4 flex items-center justify-between rounded-t-[20px]">
               <div>
                 <div className="flex items-center gap-2 mb-0.5">
                   <span>{servicoAberto.categorias?.icone}</span>
-                  <span className="text-xs font-bold text-muted-foreground uppercase tracking-wide">{servicoAberto.categorias?.nome}</span>
+                  <span className="text-[11px] font-bold text-[#94a3b8] uppercase tracking-wider">
+                    {servicoAberto.categorias?.nome}
+                  </span>
                 </div>
-                <h3 className="font-bold text-primary">{servicoAberto.titulo}</h3>
+                <h3 className="font-bold text-[#030213]">{servicoAberto.titulo}</h3>
               </div>
-              <button onClick={() => setServicoAberto(null)} className="p-2 hover:bg-slate-100 rounded-lg"><X className="h-5 w-5" /></button>
+              <button
+                onClick={() => setServicoAberto(null)}
+                className="p-2 hover:bg-[#f1f1f5] rounded-lg transition-colors"
+              >
+                <X className="h-5 w-5 text-[#717182]" />
+              </button>
             </div>
 
             <div className="p-5 space-y-4">
+              {/* Online badge */}
               {(servicoAberto.aceita_orcamento_online || servicoAberto.prestadores?.aceita_orcamento_online) && (
-                <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 text-sm text-blue-700">
-                  💬 <strong>Orçamento sem visita</strong> — com fotos e detalhes, o profissional orça remotamente.
+                <div
+                  className="rounded-[12px] px-4 py-3 text-sm font-semibold"
+                  style={{ background: 'oklch(0.95 0.03 184)', color: 'oklch(0.35 0.1 184)' }}
+                >
+                  ⚡ <strong>Orçamento sem visita</strong> — com fotos e detalhes, o profissional orça remotamente.
                 </div>
               )}
 
+              {/* Description */}
               {servicoAberto.descricao && (
-                <p className="text-sm text-muted-foreground leading-relaxed">{servicoAberto.descricao}</p>
+                <p className="text-sm text-[#717182] leading-relaxed">{servicoAberto.descricao}</p>
               )}
 
+              {/* Ratings */}
               {servicoAberto.avaliacoes?.length > 0 && (
-                <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
+                <div className="bg-amber-50 border border-amber-100 rounded-[12px] p-4">
                   <div className="flex items-center gap-2 mb-2">
-                    <Star className="h-4 w-4 text-amber-500 fill-amber-500" />
-                    <span className="font-bold text-sm">{calcNota(servicoAberto.avaliacoes).toFixed(1)}</span>
-                    <span className="text-xs text-muted-foreground">({servicoAberto.avaliacoes.length} avaliação{servicoAberto.avaliacoes.length !== 1 ? 'ões' : ''} deste serviço)</span>
+                    <span className="text-amber-500">⭐</span>
+                    <span className="font-bold text-sm text-[#030213]">{calcNota(servicoAberto.avaliacoes).toFixed(1)}</span>
+                    <span className="text-xs text-[#94a3b8]">
+                      ({servicoAberto.avaliacoes.length} avaliação{servicoAberto.avaliacoes.length !== 1 ? 'ões' : ''})
+                    </span>
                   </div>
                   {servicoAberto.avaliacoes.slice(0, 3).map((av: any, i: number) => (
-                    <div key={i} className="text-xs">
-                      <span className="text-amber-500">{'⭐'.repeat(av.nota)}</span>
-                      {av.comentario && <span className="text-muted-foreground ml-2">"{av.comentario}"</span>}
+                    <div key={i} className="text-xs mt-1">
+                      <span className="text-amber-400">{'⭐'.repeat(av.nota)}</span>
+                      {av.comentario && (
+                        <span className="text-[#717182] ml-2">"{av.comentario}"</span>
+                      )}
                     </div>
                   ))}
                 </div>
               )}
 
+              {/* Price */}
               {servicoAberto.tipo === 'fixo' && servicoAberto.valor_fixo ? (
-                <div className="bg-green-50 border border-green-100 rounded-xl p-4">
-                  <div className="text-xs text-muted-foreground mb-1">Valor do serviço</div>
-                  <div className="text-2xl font-bold text-success">R$ {Number(servicoAberto.valor_fixo).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+                <div className="rounded-[12px] p-4 border border-[rgba(0,0,0,0.08)] bg-white">
+                  <div className="text-xs text-[#94a3b8] mb-1">Valor do serviço</div>
+                  <div className="text-2xl font-extrabold" style={{ color: 'oklch(0.45 0.1 184)' }}>
+                    {formatCurrency(Number(servicoAberto.valor_fixo))}
+                  </div>
                 </div>
               ) : (
-                <div className="bg-slate-50 border border-border rounded-xl p-4">
-                  <div className="text-sm text-muted-foreground">💬 Valor sob orçamento — o profissional avalia e envia a proposta.</div>
+                <div className="rounded-[12px] p-4 border border-[rgba(0,0,0,0.08)] bg-[#f8f8fb]">
+                  <div className="text-sm text-[#717182]">
+                    💬 Valor sob orçamento — o profissional avalia e envia a proposta.
+                  </div>
                 </div>
               )}
 
-              {/* PROFISSIONAL — apenas no modal */}
-              <div className="border border-border rounded-xl p-4">
-                <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">Profissional responsável</div>
+              {/* Provider */}
+              <div className="border border-[rgba(0,0,0,0.08)] rounded-[12px] p-4">
+                <div className="text-[11px] font-bold text-[#94a3b8] uppercase tracking-wider mb-3">
+                  Profissional responsável
+                </div>
                 <div className="flex items-center gap-3">
                   {servicoAberto.prestadores?.foto_url ? (
-                    <img src={servicoAberto.prestadores.foto_url} alt={servicoAberto.prestadores.nome}
-                      className="w-14 h-14 rounded-full object-cover border-2 border-primary/10" />
+                    <img
+                      src={servicoAberto.prestadores.foto_url}
+                      alt={servicoAberto.prestadores.nome}
+                      className="w-14 h-14 rounded-[14px] object-cover border-2 border-[rgba(0,0,0,0.06)] flex-shrink-0"
+                    />
                   ) : (
-                    <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xl flex-shrink-0">
-                      {servicoAberto.prestadores?.nome?.charAt(0) || '?'}
+                    <div className="w-14 h-14 rounded-[14px] bg-[#030213] flex items-center justify-center text-white font-bold text-xl flex-shrink-0">
+                      {getInitials(servicoAberto.prestadores?.nome || '')}
                     </div>
                   )}
                   <div className="flex-1">
-                    <div className="font-bold text-primary">{servicoAberto.prestadores?.nome}</div>
+                    <div className="font-bold text-[#030213]">{servicoAberto.prestadores?.nome}</div>
                     {servicoAberto.prestadores?.cidade && (
-                      <div className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                      <div className="text-xs text-[#94a3b8] flex items-center gap-1 mt-0.5">
                         <MapPin className="h-3 w-3" />{servicoAberto.prestadores.cidade}
                       </div>
                     )}
                     {servicoAberto.prestadores?.verificado && (
-                      <span className="inline-flex items-center gap-1 text-xs bg-success/10 text-success font-bold px-2 py-0.5 rounded-full mt-2">
-                        <Shield className="h-3 w-3" /> Identidade verificada
+                      <span
+                        className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full mt-2"
+                        style={{ background: 'oklch(0.95 0.03 184)', color: 'oklch(0.35 0.1 184)' }}
+                      >
+                        ✓ Identidade verificada
                       </span>
                     )}
                   </div>
                 </div>
                 {servicoAberto.prestadores?.bio && (
-                  <p className="text-xs text-muted-foreground mt-3 leading-relaxed">{servicoAberto.prestadores.bio}</p>
+                  <p className="text-xs text-[#717182] mt-3 leading-relaxed">{servicoAberto.prestadores.bio}</p>
                 )}
               </div>
 
-              {/* DOIS BOTÕES */}
+              {/* CTA buttons */}
               <div className="grid grid-cols-2 gap-3">
                 <a
                   href={`https://wa.me/${WHATSAPP_NUMERO}?text=${encodeURIComponent(
@@ -373,20 +505,22 @@ export function Busca() {
                   )}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex flex-col items-center gap-1.5 bg-[#25D366] hover:bg-[#20c05c] text-white py-4 rounded-xl font-bold transition-colors text-center">
+                  className="flex flex-col items-center gap-1.5 bg-[#25D366] hover:bg-[#20c05c] text-white py-4 rounded-[14px] font-bold transition-colors text-center"
+                >
                   <span className="text-xl">📱</span>
-                  <span className="text-sm">Via WhatsApp</span>
+                  <span className="text-sm">Orçamento WhatsApp</span>
                   <span className="text-xs opacity-80">Atendimento imediato</span>
                 </a>
                 <Link
                   to={`/orcamento?servico=${servicoAberto.id}&nome=${encodeURIComponent(servicoAberto.titulo)}&cat=${encodeURIComponent(servicoAberto.categorias?.nome || '')}`}
-                  className="flex flex-col items-center gap-1.5 bg-primary hover:bg-primary/90 text-white py-4 rounded-xl font-bold transition-colors text-center">
+                  className="flex flex-col items-center gap-1.5 bg-[#030213] hover:bg-[#1a1a2e] text-white py-4 rounded-[14px] font-bold transition-colors text-center"
+                >
                   <span className="text-xl">💬</span>
                   <span className="text-sm">Via Chat</span>
                   <span className="text-xs opacity-80">IA coleta os detalhes</span>
                 </Link>
               </div>
-              <p className="text-xs text-center text-muted-foreground">Ambos atendidos pela nossa IA 🤖</p>
+              <p className="text-xs text-center text-[#94a3b8]">Ambos atendidos pela nossa IA 🤖</p>
             </div>
           </div>
         </div>

@@ -5,7 +5,7 @@ import {
   DollarSign, Settings, Shield, FileText, LogOut, ArrowLeft,
   MessageSquare, Sparkles, Clock, AlertTriangle, ChevronRight,
   UserPlus, CheckCircle2, Phone, Calendar, Trophy, X, Plus,
-  RefreshCw
+  RefreshCw, Menu
 } from 'lucide-react';
 import { Logo } from '../components/Logo';
 import { AdminPrompts } from './AdminPrompts';
@@ -14,7 +14,6 @@ import { supabase, apiCall } from '../../lib/supabase';
 const ADMIN_EMAIL = 'admin@admin.com';
 const ADMIN_SENHA = 'admin123';
 
-// ── FASES DO KANBAN ───────────────────────────────────────────
 const FASES = [
   { id: 'anamnese', label: 'Anamnese', icon: MessageSquare, color: '#7F77DD', bg: '#EEEDFE', text: '#3C3489', statuses: ['NOVO', 'EM ANAMNESE'], alert: false },
   { id: 'chat', label: 'Chat ativo', icon: CheckCircle2, color: '#185FA5', bg: '#E6F1FB', text: '#042C53', statuses: ['ANAMNESE CONCLUÍDA', 'PRESTADOR NOTIFICADO', 'AGUARDANDO PRESTADOR'], alert: false },
@@ -39,7 +38,6 @@ const navItems = [
   { id: 'config', label: 'Configurações', icon: Settings },
 ];
 
-// ── TIPOS ─────────────────────────────────────────────────────
 type ViewMode = 'kanban' | 'list' | 'chat';
 type Fase = typeof FASES[0];
 type ORC = any;
@@ -54,7 +52,6 @@ export function Admin() {
   const [loading, setLoading] = useState(false);
   const [mobileMenu, setMobileMenu] = useState(false);
 
-  // Kanban state
   const [orcs, setOrcs] = useState<ORC[]>([]);
   const [orcsLoading, setOrcsLoading] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('kanban');
@@ -65,7 +62,6 @@ export function Admin() {
   const [chatDoOrc, setChatDoOrc] = useState<any | null>(null);
   const [mensagensChat, setMensagensChat] = useState<any[]>([]);
 
-  // Modal estados para adicionar serviço e prestador
   const [modalServico, setModalServico] = useState(false);
   const [modalPrestador, setModalPrestador] = useState(false);
   const [formServico, setFormServico] = useState<any>({ titulo: '', descricao: '', prestador_id: '', categoria_id: '', tipo: 'orcamento' });
@@ -74,13 +70,11 @@ export function Admin() {
   const [categoriasList, setCategoriasList] = useState<any[]>([]);
   const [salvando, setSalvando] = useState(false);
 
-  // Modal edição de contrato
   const [modalEditContrato, setModalEditContrato] = useState(false);
   const [editandoContratoId, setEditandoContratoId] = useState('');
   const [formContrato, setFormContrato] = useState({ tipo: '', valor: '', prazo: '', pagamento: '', garantia: '', comissao: '' });
   const [erroContrato, setErroContrato] = useState('');
 
-  // Detalhe de chat (aba chats)
   const [chatSelecionado, setChatSelecionado] = useState<any | null>(null);
   const [chatMsgsDetalhe, setChatMsgsDetalhe] = useState<any[]>([]);
   const [chatMsgDetalhando, setChatMsgDetalhando] = useState(false);
@@ -102,7 +96,6 @@ export function Admin() {
     }
   }
 
-  // ── CARREGAR ORCs ─────────────────────────────────────────
   async function carregarOrcs() {
     setOrcsLoading(true);
     try {
@@ -118,15 +111,12 @@ export function Admin() {
     setOrcsLoading(false);
   }
 
-  // ── CARREGAR CHAT E MENSAGENS DO ORC ────────────────────────
   async function carregarMensagens(orcId: string) {
     setMsgLoading(true);
     try {
-      // Chat via backend (bypassa RLS)
       const { chat, mensagens: msgsChat } = await apiCall(`/api/chat/orc/${orcId}`);
       setChatDoOrc(chat || null);
       setMensagensChat(msgsChat || []);
-      // Mensagens da anamnese (conversa com IA)
       const { data: msgsAnamnese } = await supabase
         .from('mensagens')
         .select('*')
@@ -140,7 +130,6 @@ export function Admin() {
     setMsgLoading(false);
   }
 
-  // ── KANBAN — leads por fase ───────────────────────────────
   function getLeadsDaFase(fase: Fase) {
     return orcs.filter(o => fase.statuses.includes(o.status));
   }
@@ -172,7 +161,6 @@ export function Admin() {
     e.stopPropagation();
     if (!confirm('Remover este ORC? Esta ação não pode ser desfeita.')) return;
     try {
-      // Deletar mensagens primeiro
       await supabase.from('mensagens').delete().eq('orc_id', orcId);
       await supabase.from('sessoes_whatsapp').delete().eq('id', orcId);
       await supabase.from('orcs').delete().eq('id', orcId);
@@ -198,14 +186,12 @@ export function Admin() {
     setChatMsgDetalhando(false);
   }
 
-  // ── CARREGAR DADOS ADMIN ──────────────────────────────────
   async function carregarDados(pagina: string) {
     setLoading(true);
     try {
       if (pagina === 'chats') {
         try {
           const data = await apiCall('/api/chat/admin/all');
-          // Buscar contagem de mensagens por chat via supabase (mesmo que falhe, continua)
           const chatIds = (data || []).map((c: any) => c.id);
           const contagensMap: Record<string, number> = {};
           if (chatIds.length) {
@@ -327,7 +313,7 @@ export function Admin() {
         ativo: true,
         verificado: false
       }).select('id');
-      
+
       if (p?.[0]?.id && formPrestador.email && formPrestador.senha) {
         const senhaHash = btoa(formPrestador.senha);
         await supabase.from('prestador_auth').insert({
@@ -337,7 +323,7 @@ export function Admin() {
           ativo: true
         });
       }
-      
+
       setModalPrestador(false);
       setFormPrestador({ nome: '', email: '', telefone: '', cidade: 'Santa Maria', cpf: '', bio: '' });
       carregarDados('prestadores');
@@ -380,26 +366,32 @@ export function Admin() {
     carregarDados('biometria');
   }
 
-  // ── STATUS BADGE ──────────────────────────────────────────
   const statusBadge = (s: string) => {
-    const map: Record<string, string> = {
-      'NOVO': 'bg-blue-100 text-blue-800',
-      'EM ANAMNESE': 'bg-purple-100 text-purple-800',
-      'ANAMNESE CONCLUÍDA': 'bg-green-100 text-green-800',
-      'PRESTADOR NOTIFICADO': 'bg-amber-100 text-amber-800',
-      'AGUARDANDO PRESTADOR': 'bg-amber-100 text-amber-800',
-      'VISITA AGENDADA': 'bg-blue-100 text-blue-800',
-      'ORÇAMENTO ONLINE': 'bg-blue-100 text-blue-800',
-      'VISITA REALIZADA': 'bg-teal-100 text-teal-800',
-      'FECHADO': 'bg-green-100 text-green-800',
-      'CONTRATO ASSINADO': 'bg-green-100 text-green-800',
-      'ENCERRADO': 'bg-gray-100 text-gray-600',
-      'CANCELADO': 'bg-red-100 text-red-800',
-      'DIVERGÊNCIA DE VALOR': 'bg-red-100 text-red-800',
-      'NÃO FECHOU': 'bg-gray-100 text-gray-600',
+    const map: Record<string, { bg: string; color: string }> = {
+      'NOVO':                    { bg: '#E6F1FB', color: '#0C447C' },
+      'EM ANAMNESE':             { bg: '#E6F1FB', color: '#0C447C' },
+      'ANAMNESE CONCLUÍDA':      { bg: '#ececf0', color: '#030213' },
+      'PRESTADOR NOTIFICADO':    { bg: '#ececf0', color: '#030213' },
+      'AGUARDANDO PRESTADOR':    { bg: '#ececf0', color: '#030213' },
+      'VISITA AGENDADA':         { bg: '#E6F1FB', color: '#0C447C' },
+      'ORÇAMENTO ONLINE':        { bg: '#E6F1FB', color: '#0C447C' },
+      'VISITA REALIZADA':        { bg: '#ececf0', color: '#030213' },
+      'FECHADO':                 { bg: '#EEEDFE', color: '#26215C' },
+      'CONTRATO GERADO':         { bg: '#EEEDFE', color: '#26215C' },
+      'AGUARDANDO ASSINATURA':   { bg: '#EEEDFE', color: '#26215C' },
+      'CONTRATO ASSINADO':       { bg: 'oklch(0.95 0.03 184)', color: 'oklch(0.45 0.1 184)' },
+      'SERVIÇO CONCLUÍDO':       { bg: '#EAF3DE', color: '#173404' },
+      'DIVERGÊNCIA DE VALOR':    { bg: '#FCEBEB', color: '#501313' },
+      'SEM RESPOSTA PRESTADOR':  { bg: '#FCEBEB', color: '#501313' },
+      'SEM RESPOSTA CLIENTE':    { bg: '#FCEBEB', color: '#501313' },
+      'NÃO FECHOU':              { bg: '#f1f5f9', color: '#64748b' },
+      'CANCELADO':               { bg: '#f1f5f9', color: '#64748b' },
+      'ENCERRADO':               { bg: '#f1f5f9', color: '#64748b' },
     };
+    const style = map[s] || { bg: '#f1f5f9', color: '#64748b' };
     return (
-      <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${map[s] || 'bg-gray-100 text-gray-600'}`}>
+      <span className="inline-flex rounded-full text-[10.5px] font-bold px-2.5 py-0.5 whitespace-nowrap"
+        style={{ background: style.bg, color: style.color }}>
         {s}
       </span>
     );
@@ -416,28 +408,38 @@ export function Admin() {
     return `há ${Math.floor(h / 24)}d`;
   };
 
-  const tbl = "w-full text-sm border-collapse";
-  const th = "px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider bg-slate-50 border-b";
-  const td = "px-4 py-3 border-b border-border";
+  const tbl = 'w-full text-left border-collapse';
+  const th = 'px-5 py-3 text-[11px] font-bold uppercase text-[#64748b] tracking-wider bg-[#f8fafc] border-b border-[#e2e8f0]';
+  const td = 'px-5 py-3.5 border-b border-[#f1f5f9] text-sm';
+
+  // ── MODAL SHARED STYLES ─────────────────────────────────────
+  const inputCls = 'w-full border border-[#e2e8f0] rounded-[12px] px-3 py-2.5 text-sm outline-none focus:border-[#030213]';
+  const labelCls = 'text-xs font-bold text-[#64748b] uppercase tracking-wider mb-1.5 block';
 
   // ── LOGIN ─────────────────────────────────────────────────
   if (!logado) return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50">
-      <div className="bg-white rounded-2xl border p-8 w-full max-w-sm shadow-sm">
+    <div className="min-h-screen flex items-center justify-center bg-[#f8fafc]">
+      <div className="bg-white rounded-[20px] border border-[#e2e8f0] p-8 w-full max-w-sm shadow-[0_8px_32px_-8px_rgba(3,2,19,0.12)]">
         <div className="text-center mb-6">
-          <Logo className="h-10 mx-auto mb-3" />
-          <h2 className="font-bold text-primary">Painel Admin</h2>
+          <div className="w-12 h-12 rounded-[14px] flex items-center justify-center mx-auto mb-3" style={{ background: '#030213' }}>
+            <Shield className="h-6 w-6 text-white" />
+          </div>
+          <h2 className="font-extrabold text-[#030213] text-xl">Painel Admin</h2>
+          <p className="text-[#64748b] text-sm mt-1">Serviço Seguro</p>
         </div>
         {erroLogin && (
-          <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-xl mb-4">❌ {erroLogin}</div>
+          <div className="bg-[#FCEBEB] border border-[#f5c6c6] text-[#501313] text-sm px-4 py-3 rounded-[12px] mb-4">
+            {erroLogin}
+          </div>
         )}
         <div className="space-y-3">
           <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-            placeholder="Email" className="w-full border border-border rounded-xl px-4 py-3 text-sm outline-none focus:border-primary" />
+            placeholder="Email" className={inputCls} />
           <input type="password" value={senha} onChange={e => setSenha(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && fazerLogin()}
-            placeholder="Senha" className="w-full border border-border rounded-xl px-4 py-3 text-sm outline-none focus:border-primary" />
-          <button onClick={fazerLogin} className="w-full py-3 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 transition-colors">
+            placeholder="Senha" className={inputCls} />
+          <button onClick={fazerLogin}
+            className="w-full py-3 bg-[#030213] text-white rounded-[12px] font-bold text-sm hover:bg-[#030213]/90 transition-colors">
             Entrar no painel
           </button>
         </div>
@@ -447,40 +449,74 @@ export function Admin() {
 
   // ── LAYOUT ────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-slate-50 flex">
+    <div className="min-h-screen bg-[#f8fafc] flex">
 
       {/* SIDEBAR */}
-      <aside className={`fixed left-0 top-0 h-full w-60 bg-primary z-40 flex flex-col transition-transform lg:translate-x-0 ${mobileMenu ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="p-4 border-b border-white/10"><Logo className="h-8" /></div>
-        <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">
-          {navItems.map(({ id, label, icon: Icon }) => (
-            <button key={id} onClick={() => irPara(id)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${aba === id ? 'bg-white/15 text-white' : 'text-white/60 hover:bg-white/10 hover:text-white'}`}>
-              <Icon className="h-4 w-4" />{label}
-            </button>
-          ))}
+      <aside className={`w-[250px] flex-shrink-0 bg-[#030213] text-white min-h-screen flex flex-col sticky top-0 h-screen overflow-y-auto z-40 fixed left-0 top-0 transition-transform lg:translate-x-0 ${mobileMenu ? 'translate-x-0' : '-translate-x-full'}`}>
+        {/* Header */}
+        <div className="px-5 py-5 border-b border-white/10">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-white/10 rounded-[9px] flex items-center justify-center text-sm font-bold">SS</div>
+            <div>
+              <div className="font-extrabold text-sm leading-tight">Serviço Seguro</div>
+              <div className="text-[10px] text-white/45 uppercase tracking-widest mt-0.5">Painel Admin</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Nav */}
+        <nav className="flex-1 p-2.5 space-y-0.5 overflow-y-auto">
+          {navItems.map(({ id, label, icon: Icon }) => {
+            const isActive = aba === id;
+            const alertCount = id === 'kanban' ? getLeadsDaFase(FASES.find(f => f.id === 'atencao')!).length : 0;
+            return (
+              <button key={id} onClick={() => irPara(id)}
+                className={`w-full flex items-center gap-2.5 px-[13px] py-[10px] rounded-[10px] text-[13.5px] font-semibold transition-all relative ${isActive ? 'bg-[rgba(255,255,255,0.13)] text-white' : 'text-white/60 hover:bg-[rgba(255,255,255,0.08)] hover:text-white'}`}>
+                <Icon className="h-4 w-4 flex-shrink-0" />
+                <span className="flex-1 text-left">{label}</span>
+                {alertCount > 0 && id === 'kanban' && (
+                  <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                    {alertCount}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </nav>
-        <div className="p-3 border-t border-white/10">
+
+        {/* Bottom user row */}
+        <div className="px-4 py-4 border-t border-white/10 flex items-center gap-2.5 mt-auto">
+          <div className="w-[34px] h-[34px] rounded-full flex items-center justify-center font-bold text-xs flex-shrink-0"
+            style={{ background: 'oklch(0.6 0.118 184.704)', color: 'white' }}>
+            AD
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="font-bold text-sm leading-tight">Admin</div>
+            <div className="text-white/45 text-xs truncate">admin@admin.com</div>
+          </div>
           <button onClick={() => { localStorage.removeItem('ss_admin'); setLogado(false); }}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-white/60 hover:bg-white/10 hover:text-white transition-all">
-            <LogOut className="h-4 w-4" />Sair
+            className="text-white/50 hover:text-white transition-colors ml-auto flex-shrink-0" title="Sair">
+            <LogOut className="h-4 w-4" />
           </button>
         </div>
       </aside>
 
       {/* MAIN */}
-      <div className="flex-1 lg:ml-60 flex flex-col min-h-screen">
+      <div className="flex-1 lg:ml-[250px] flex flex-col min-h-screen">
 
         {/* TOPBAR */}
-        <div className="bg-white border-b px-6 py-4 flex items-center justify-between sticky top-0 z-30">
+        <div className="bg-white border-b border-[#e2e8f0] px-7 py-4 flex items-center justify-between sticky top-0 z-30">
           <div className="flex items-center gap-3">
-            <button onClick={() => setMobileMenu(!mobileMenu)} className="lg:hidden p-2 hover:bg-slate-100 rounded-lg">
-              <LayoutDashboard className="h-5 w-5" />
+            <button onClick={() => setMobileMenu(!mobileMenu)}
+              className="lg:hidden p-2 hover:bg-[#f8fafc] rounded-[10px] transition-colors">
+              <Menu className="h-5 w-5 text-[#64748b]" />
             </button>
             <div>
-              <h1 className="font-bold text-primary">{navItems.find(n => n.id === aba)?.label || 'Admin'}</h1>
+              <h1 className="font-extrabold text-xl text-[#030213]">
+                {navItems.find(n => n.id === aba)?.label || 'Admin'}
+              </h1>
               {aba === 'kanban' && (
-                <p className="text-xs text-muted-foreground">
+                <p className="text-sm text-[#64748b]">
                   {orcs.length} ORCs totais · {orcs.filter(o => !['ENCERRADO', 'NÃO FECHOU', 'CANCELADO'].includes(o.status)).length} ativos
                 </p>
               )}
@@ -488,11 +524,11 @@ export function Admin() {
           </div>
           <div className="flex items-center gap-2">
             {aba === 'kanban' && (
-              <button onClick={carregarOrcs} className="p-2 hover:bg-slate-100 rounded-lg text-muted-foreground hover:text-foreground transition-colors">
+              <button onClick={carregarOrcs}
+                className="p-2 hover:bg-[#f8fafc] rounded-[10px] text-[#64748b] hover:text-[#030213] transition-colors border border-[#e2e8f0]">
                 <RefreshCw className="h-4 w-4" />
               </button>
             )}
-            <span className="bg-primary text-white text-xs font-bold px-3 py-1 rounded-full">⚙️ Admin</span>
           </div>
         </div>
 
@@ -504,52 +540,85 @@ export function Admin() {
             <div>
               {orcsLoading ? (
                 <div className="flex justify-center py-20">
-                  <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+                  <div className="animate-spin w-8 h-8 border-4 border-[#030213] border-t-transparent rounded-full" />
                 </div>
               ) : (
-
-                /* KANBAN VIEW */
                 viewMode === 'kanban' && (
                   <div>
-                    {/* GRID DE FASES */}
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
+                    {/* KANBAN COLUMNS */}
+                    <div className="flex gap-3.5 overflow-x-auto pb-4">
                       {FASES.map(fase => {
                         const leads = getLeadsDaFase(fase);
                         const count = leads.length;
                         const Icon = fase.icon;
                         return (
-                          <button key={fase.id} onClick={() => abrirFase(fase)}
-                            className={`text-left bg-white rounded-2xl border overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 group ${fase.alert && count > 0 ? 'border-red-300' : 'border-border'}`}>
-                            <div className="p-4">
-                              <div className="flex items-center justify-between mb-3">
-                                <div className="p-2 rounded-xl" style={{ background: fase.bg }}>
-                                  <Icon className="h-4 w-4" style={{ color: fase.color }} />
-                                </div>
-                                <ChevronRight className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                          <div key={fase.id}
+                            className="w-[270px] flex-shrink-0 bg-white rounded-[14px] border-t-[3px] overflow-hidden"
+                            style={{ borderTopColor: fase.color }}>
+                            {/* Column header */}
+                            <div className="px-3.5 py-3 flex items-center justify-between border-b border-[#f1f5f9]">
+                              <div className="flex items-center gap-2">
+                                <Icon className="h-4 w-4" style={{ color: fase.color }} />
+                                <span className="font-semibold text-[13.5px] text-[#030213]">{fase.label}</span>
                               </div>
-                              <div className="text-2xl font-bold text-primary mb-1">{count}</div>
-                              <div className="text-xs font-semibold text-muted-foreground truncate">{fase.label}</div>
-                              {fase.alert && count > 0 && (
-                                <div className="mt-2 text-xs font-bold text-red-600 flex items-center gap-1">
-                                  <AlertTriangle className="h-3 w-3" /> Requer atenção
+                              <span className="rounded-full text-[10.5px] font-bold px-2 py-0.5 min-w-[22px] text-center"
+                                style={{ background: fase.bg, color: fase.text }}>
+                                {count}
+                              </span>
+                            </div>
+                            {/* Cards */}
+                            <div className="py-2 max-h-[calc(100vh-240px)] overflow-y-auto">
+                              {leads.length === 0 ? (
+                                <div className="mx-2 mb-2 py-6 text-center text-[#94a3b8] text-xs">
+                                  Nenhum lead
                                 </div>
+                              ) : (
+                                leads.map((orc: any) => (
+                                  <div key={orc.id}
+                                    className="mx-2 mb-2 border border-[#e2e8f0] rounded-[11px] p-3 cursor-pointer hover:shadow-[0_4px_12px_-2px_rgba(3,2,19,0.15)] hover:border-[#cbd5e1] transition-all"
+                                    onClick={() => abrirOrc(orc)}>
+                                    <div className="font-mono font-bold text-xs text-[#030213]">{orc.codigo}</div>
+                                    <div className="text-[13px] text-[#475569] line-clamp-2 mt-1">
+                                      {orc.canal === 'whatsapp' ? '📱 ' : '💻 '}
+                                      {orc.servicos?.titulo || orc.resumo_anamnese?.split('\n')[0] || 'Sem resumo'}
+                                    </div>
+                                    <div className="text-[#94a3b8] text-xs mt-1">{orc.nome_cliente || '—'}</div>
+                                    {orc.prestadores?.nome && (
+                                      <div className="mt-1.5">
+                                        <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold"
+                                          style={{ background: 'oklch(0.95 0.03 184)', color: 'oklch(0.45 0.1 184)' }}>
+                                          👷 {orc.prestadores.nome}
+                                        </span>
+                                      </div>
+                                    )}
+                                    <div className="flex items-center justify-between mt-2">
+                                      <span className="text-[#94a3b8] text-[11px]">{timeAgo(orc.criado_em)}</span>
+                                      <button onClick={e => deletarOrc(orc.id, e)}
+                                        className="text-[#f87171] hover:text-red-600 text-[11px] font-semibold opacity-0 group-hover:opacity-100 transition-opacity">
+                                        ✕
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))
                               )}
                             </div>
-                            {/* barra de progresso */}
-                            <div className="h-1 bg-slate-100">
-                              <div className="h-full rounded-r transition-all"
-                                style={{ width: `${Math.min(100, count * 20)}%`, background: fase.color }} />
-                            </div>
-                          </button>
+                            {/* View all button */}
+                            {count > 0 && (
+                              <button onClick={() => abrirFase(fase)}
+                                className="w-full px-3.5 py-2.5 text-[12px] font-semibold text-[#64748b] hover:text-[#030213] border-t border-[#f1f5f9] hover:bg-[#f8fafc] transition-colors text-left flex items-center gap-1">
+                                Ver todos <ChevronRight className="h-3 w-3" />
+                              </button>
+                            )}
+                          </div>
                         );
                       })}
                     </div>
 
-                    {/* RESUMO RÁPIDO */}
-                    <div className="bg-white rounded-2xl border overflow-hidden">
-                      <div className="px-5 py-4 border-b flex items-center justify-between">
-                        <h2 className="font-bold text-primary">Todos os ORCs recentes</h2>
-                        <span className="text-xs text-muted-foreground">{orcs.length} total</span>
+                    {/* TABELA RESUMO */}
+                    <div className="bg-white rounded-[14px] border border-[#e2e8f0] overflow-hidden mt-4">
+                      <div className="px-5 py-4 border-b border-[#e2e8f0] flex items-center justify-between">
+                        <h2 className="font-bold text-[#030213]">Todos os ORCs recentes</h2>
+                        <span className="text-xs text-[#64748b]">{orcs.length} total</span>
                       </div>
                       <div className="overflow-x-auto">
                         <table className={tbl}>
@@ -560,28 +629,29 @@ export function Admin() {
                           </tr></thead>
                           <tbody>
                             {orcs.map((o: any) => (
-                              <tr key={o.id} className="hover:bg-slate-50/50 cursor-pointer" onClick={() => abrirOrc(o)}>
-                                <td className={td}><span className="font-mono font-bold text-primary text-xs">{o.codigo}</span></td>
-                                <td className={td}><span className="font-medium text-sm">{o.nome_cliente || '—'}</span></td>
-                                <td className={td + " text-xs text-muted-foreground"}>{o.servicos?.titulo || '—'}</td>
+                              <tr key={o.id} className="hover:bg-[#f8fafc] cursor-pointer" onClick={() => abrirOrc(o)}>
+                                <td className={td}><span className="font-mono font-bold text-[#030213] text-xs">{o.codigo}</span></td>
+                                <td className={td}><span className="font-medium">{o.nome_cliente || '—'}</span></td>
+                                <td className={`${td} text-xs text-[#64748b]`}>{o.servicos?.titulo || '—'}</td>
                                 <td className={td}>{statusBadge(o.status)}</td>
-                                <td className={td + " max-w-xs"}>
+                                <td className={`${td} max-w-xs`}>
                                   {o.resumo_anamnese ? (
                                     <div className="space-y-0.5">
                                       {o.resumo_anamnese.split('\n').filter((l: string) => l.trim()).slice(0, 2).map((l: string, i: number) => (
-                                        <div key={i} className="text-xs text-muted-foreground flex items-start gap-1">
-                                          <span className="text-success">•</span>
+                                        <div key={i} className="text-xs text-[#64748b] flex items-start gap-1">
+                                          <span className="text-[#3B6D11]">•</span>
                                           <span>{l.replace(/^[•\-\*]\s*/, '')}</span>
                                         </div>
                                       ))}
                                     </div>
                                   ) : (
-                                    <span className="text-xs text-muted-foreground italic">Em andamento...</span>
+                                    <span className="text-xs text-[#94a3b8] italic">Em andamento...</span>
                                   )}
                                 </td>
-                                <td className={td + " text-xs text-muted-foreground whitespace-nowrap"}>
+                                <td className={`${td} text-xs text-[#64748b] whitespace-nowrap`}>
                                   <div>{timeAgo(o.criado_em)}</div>
-                                  <button onClick={e => deletarOrc(o.id, e)} className="text-red-400 hover:text-red-600 text-xs mt-0.5">✕ remover</button>
+                                  <button onClick={e => deletarOrc(o.id, e)}
+                                    className="text-[#f87171] hover:text-red-600 text-xs mt-0.5">✕ remover</button>
                                 </td>
                               </tr>
                             ))}
@@ -598,23 +668,24 @@ export function Admin() {
                 <div>
                   <div className="flex items-center gap-3 mb-5">
                     <button onClick={voltarParaKanban}
-                      className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
+                      className="flex items-center gap-2 text-sm text-[#64748b] hover:text-[#030213] transition-colors">
                       <ArrowLeft className="h-4 w-4" /> Kanban
                     </button>
-                    <span className="text-muted-foreground">/</span>
+                    <span className="text-[#94a3b8]">/</span>
                     <div className="flex items-center gap-2">
-                      <div className="p-1.5 rounded-lg" style={{ background: faseSelecionada.bg }}>
+                      <div className="p-1.5 rounded-[8px]" style={{ background: faseSelecionada.bg }}>
                         <faseSelecionada.icon className="h-3.5 w-3.5" style={{ color: faseSelecionada.color }} />
                       </div>
-                      <span className="font-bold text-primary">{faseSelecionada.label}</span>
-                      <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: faseSelecionada.bg, color: faseSelecionada.text }}>
+                      <span className="font-bold text-[#030213]">{faseSelecionada.label}</span>
+                      <span className="text-xs font-bold rounded-full px-2.5 py-0.5"
+                        style={{ background: faseSelecionada.bg, color: faseSelecionada.text }}>
                         {getLeadsDaFase(faseSelecionada).length} leads
                       </span>
                     </div>
                   </div>
 
                   {getLeadsDaFase(faseSelecionada).length === 0 ? (
-                    <div className="bg-white rounded-2xl border py-16 text-center text-muted-foreground">
+                    <div className="bg-white rounded-[14px] border border-[#e2e8f0] py-16 text-center text-[#94a3b8]">
                       <ClipboardList className="h-10 w-10 mx-auto mb-3 opacity-30" />
                       <p>Nenhum lead nesta fase.</p>
                     </div>
@@ -622,84 +693,78 @@ export function Admin() {
                     <div className="grid md:grid-cols-2 gap-4">
                       {getLeadsDaFase(faseSelecionada).map((orc: any) => (
                         <div key={orc.id}
-                          className="bg-white rounded-2xl border hover:shadow-md hover:border-primary/20 transition-all duration-200 overflow-hidden cursor-pointer"
+                          className="bg-white rounded-[14px] border border-[#e2e8f0] hover:shadow-[0_4px_12px_-2px_rgba(3,2,19,0.12)] hover:border-[#cbd5e1] transition-all cursor-pointer overflow-hidden"
                           onClick={() => abrirOrc(orc)}>
                           <div className="p-5">
-                            {/* Header do card */}
                             <div className="flex items-start gap-3 mb-3">
-                              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm flex-shrink-0">
+                              <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0 text-white"
+                                style={{ background: 'oklch(0.6 0.118 184.704)' }}>
                                 {initials(orc.nome_cliente || 'X')}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <div className="font-bold text-primary truncate">{orc.nome_cliente || 'Cliente'}</div>
-                                <div className="font-mono text-xs text-muted-foreground">{orc.codigo}</div>
+                                <div className="font-bold text-[#030213] truncate">{orc.nome_cliente || 'Cliente'}</div>
+                                <div className="font-mono text-xs text-[#94a3b8]">{orc.codigo}</div>
                               </div>
                               {statusBadge(orc.status)}
                             </div>
 
-                            {/* Serviço */}
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
+                            <div className="flex items-center gap-2 text-sm text-[#64748b] mb-3">
                               <Wrench className="h-3.5 w-3.5 flex-shrink-0" />
                               <span>{orc.servicos?.titulo || orc.servicos?.categorias?.nome || 'Serviço não especificado'}</span>
                             </div>
 
-                            {/* Resumo da IA */}
-                            <div className={`rounded-xl p-3 mb-3 ${orc.resumo_anamnese ? 'bg-green-50 border border-green-100' : 'bg-slate-50 border border-border'}`}>
+                            <div className={`rounded-[10px] p-3 mb-3 ${orc.resumo_anamnese ? 'bg-[#EAF3DE] border border-[#c8e6a8]' : 'bg-[#f8fafc] border border-[#e2e8f0]'}`}>
                               <div className="flex items-center gap-1.5 mb-2">
-                                <Sparkles className="h-3 w-3 text-success" />
-                                <span className="text-xs font-bold text-success uppercase tracking-wider">Resumo do serviço</span>
+                                <Sparkles className="h-3 w-3 text-[#3B6D11]" />
+                                <span className="text-xs font-bold text-[#3B6D11] uppercase tracking-wider">Resumo do serviço</span>
                               </div>
                               {orc.resumo_anamnese ? (
                                 <div className="space-y-1">
                                   {orc.resumo_anamnese.split('\n').filter((l: string) => l.trim()).map((linha: string, i: number) => (
-                                    <div key={i} className="flex items-start gap-1.5 text-xs text-foreground">
-                                      <span className="text-success mt-0.5 flex-shrink-0">•</span>
+                                    <div key={i} className="flex items-start gap-1.5 text-xs text-[#030213]">
+                                      <span className="text-[#3B6D11] mt-0.5 flex-shrink-0">•</span>
                                       <span className="leading-relaxed">{linha.replace(/^[•\-\*]\s*/, '')}</span>
                                     </div>
                                   ))}
                                 </div>
                               ) : (
-                                <p className="text-xs text-muted-foreground italic">Anamnese em andamento...</p>
+                                <p className="text-xs text-[#94a3b8] italic">Anamnese em andamento...</p>
                               )}
                             </div>
 
-                            {/* Prestador vinculado */}
                             {orc.prestadores?.nome && (
-                              <div className="flex items-center gap-2 text-xs text-muted-foreground mb-3">
+                              <div className="flex items-center gap-2 text-xs text-[#64748b] mb-3">
                                 <Users className="h-3.5 w-3.5" />
                                 <span>Prestador: <strong>{orc.prestadores.nome}</strong></span>
                                 {orc.prestadores.telefone && (
-                                  <span className="text-muted-foreground">· {orc.prestadores.telefone}</span>
+                                  <span className="text-[#94a3b8]">· {orc.prestadores.telefone}</span>
                                 )}
                               </div>
                             )}
 
-                            {/* Tempo */}
-                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <div className="flex items-center gap-1.5 text-xs text-[#94a3b8]">
                               <Clock className="h-3 w-3" />
                               {timeAgo(orc.criado_em)}
                               {orc.canal && <span className="ml-2">{orc.canal === 'whatsapp' ? '📱 WhatsApp' : '💻 Site'}</span>}
                             </div>
                           </div>
 
-                          {/* Footer com ações */}
-                          <div className="px-5 py-3 bg-slate-50 border-t flex items-center gap-2">
+                          <div className="px-5 py-3 bg-[#f8fafc] border-t border-[#e2e8f0] flex items-center gap-2">
                             <button
                               onClick={e => { e.stopPropagation(); abrirOrc(orc); }}
-                              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors">
+                              className="flex items-center gap-1.5 text-xs text-[#64748b] hover:text-[#030213] transition-colors">
                               <MessageSquare className="h-3.5 w-3.5" /> Ver conversa
                             </button>
                             {faseSelecionada.id === 'atencao' && (
                               <button
                                 onClick={e => e.stopPropagation()}
-                                className="ml-auto flex items-center gap-1.5 text-xs bg-red-100 text-red-700 px-3 py-1.5 rounded-lg hover:bg-red-200 transition-colors">
+                                className="ml-auto flex items-center gap-1.5 text-xs bg-[#FCEBEB] text-[#501313] px-3 py-1.5 rounded-[8px] hover:bg-red-200 transition-colors">
                                 <AlertTriangle className="h-3.5 w-3.5" /> Resolver
                               </button>
                             )}
                             <button
                               onClick={e => deletarOrc(orc.id, e)}
-                              title="Remover ORC"
-                              className="ml-auto flex items-center gap-1 text-xs text-red-400 hover:text-red-600 hover:bg-red-50 px-2 py-1.5 rounded-lg transition-colors">
+                              className="ml-auto flex items-center gap-1 text-xs text-[#f87171] hover:text-red-600 hover:bg-[#FCEBEB] px-2 py-1.5 rounded-[8px] transition-colors">
                               <X className="h-3.5 w-3.5" /> Remover
                             </button>
                           </div>
@@ -713,29 +778,27 @@ export function Admin() {
               {/* CONVERSA BRUTA + RESUMO IA */}
               {viewMode === 'chat' && orcSelecionado && (
                 <div>
-                  {/* Breadcrumb */}
                   <div className="flex items-center gap-2 mb-5 text-sm">
-                    <button onClick={voltarParaKanban} className="text-muted-foreground hover:text-foreground transition-colors">Kanban</button>
-                    <span className="text-muted-foreground">/</span>
-                    <button onClick={voltarParaLista} className="text-muted-foreground hover:text-foreground transition-colors">
+                    <button onClick={voltarParaKanban} className="text-[#64748b] hover:text-[#030213] transition-colors">Kanban</button>
+                    <span className="text-[#94a3b8]">/</span>
+                    <button onClick={voltarParaLista} className="text-[#64748b] hover:text-[#030213] transition-colors">
                       {faseSelecionada?.label}
                     </button>
-                    <span className="text-muted-foreground">/</span>
-                    <span className="font-bold text-primary">{orcSelecionado.nome_cliente}</span>
+                    <span className="text-[#94a3b8]">/</span>
+                    <span className="font-bold text-[#030213]">{orcSelecionado.nome_cliente}</span>
                   </div>
 
                   <div className="grid lg:grid-cols-3 gap-5">
-                    {/* COLUNA ESQUERDA — info do ORC */}
                     <div className="space-y-4">
-                      {/* Card do ORC */}
-                      <div className="bg-white rounded-2xl border p-5">
+                      <div className="bg-white rounded-[14px] border border-[#e2e8f0] p-5">
                         <div className="flex items-center gap-3 mb-4">
-                          <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
+                          <div className="w-12 h-12 rounded-full flex items-center justify-center font-bold text-white"
+                            style={{ background: 'oklch(0.6 0.118 184.704)' }}>
                             {initials(orcSelecionado.nome_cliente || 'X')}
                           </div>
                           <div>
-                            <div className="font-bold text-primary">{orcSelecionado.nome_cliente}</div>
-                            <div className="font-mono text-xs text-muted-foreground">{orcSelecionado.codigo}</div>
+                            <div className="font-bold text-[#030213]">{orcSelecionado.nome_cliente}</div>
+                            <div className="font-mono text-xs text-[#94a3b8]">{orcSelecionado.codigo}</div>
                           </div>
                         </div>
                         <div className="space-y-2.5 text-sm">
@@ -747,25 +810,25 @@ export function Admin() {
                             { label: 'Criado', value: orcSelecionado.criado_em ? new Date(orcSelecionado.criado_em).toLocaleString('pt-BR') : '—' },
                           ].map(f => (
                             <div key={f.label} className="flex items-start justify-between gap-3">
-                              <span className="text-muted-foreground text-xs">{f.label}</span>
-                              <span className="text-xs font-medium text-right">{f.value}</span>
+                              <span className="text-[#94a3b8] text-xs">{f.label}</span>
+                              <span className="text-xs font-medium text-right text-[#030213]">{f.value}</span>
                             </div>
                           ))}
                         </div>
                       </div>
 
-                      {/* Prestador vinculado */}
                       {orcSelecionado.prestadores?.nome && (
-                        <div className="bg-white rounded-2xl border p-5">
-                          <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">Prestador</div>
+                        <div className="bg-white rounded-[14px] border border-[#e2e8f0] p-5">
+                          <div className="text-xs font-bold text-[#64748b] uppercase tracking-wider mb-3">Prestador</div>
                           <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-full bg-success/10 flex items-center justify-center text-success font-bold text-sm">
+                            <div className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm text-white"
+                              style={{ background: 'oklch(0.6 0.118 184.704)' }}>
                               {initials(orcSelecionado.prestadores.nome)}
                             </div>
                             <div>
-                              <div className="font-bold text-sm">{orcSelecionado.prestadores.nome}</div>
+                              <div className="font-bold text-sm text-[#030213]">{orcSelecionado.prestadores.nome}</div>
                               {orcSelecionado.prestadores.telefone && (
-                                <div className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                                <div className="text-xs text-[#94a3b8] flex items-center gap-1 mt-0.5">
                                   <Phone className="h-3 w-3" />{orcSelecionado.prestadores.telefone}
                                 </div>
                               )}
@@ -774,26 +837,24 @@ export function Admin() {
                         </div>
                       )}
 
-                      {/* Resumo da IA */}
                       {orcSelecionado.resumo_anamnese && (
-                        <div className="bg-green-50 border border-green-200 rounded-2xl p-5">
+                        <div className="bg-[#EAF3DE] border border-[#c8e6a8] rounded-[14px] p-5">
                           <div className="flex items-center gap-2 mb-3">
-                            <Sparkles className="h-4 w-4 text-success" />
-                            <span className="text-xs font-bold text-success uppercase tracking-wider">Resumo gerado pela IA</span>
+                            <Sparkles className="h-4 w-4 text-[#3B6D11]" />
+                            <span className="text-xs font-bold text-[#3B6D11] uppercase tracking-wider">Resumo gerado pela IA</span>
                           </div>
-                          <p className="text-sm text-foreground leading-relaxed">{orcSelecionado.resumo_anamnese}</p>
+                          <p className="text-sm text-[#030213] leading-relaxed">{orcSelecionado.resumo_anamnese}</p>
                         </div>
                       )}
 
-                      {/* Valor */}
                       {orcSelecionado.valor_final && (
-                        <div className="bg-white rounded-2xl border p-5">
-                          <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Valor acordado</div>
-                          <div className="text-2xl font-bold text-success">
+                        <div className="bg-white rounded-[14px] border border-[#e2e8f0] p-5">
+                          <div className="text-xs font-bold text-[#64748b] uppercase tracking-wider mb-2">Valor acordado</div>
+                          <div className="text-2xl font-extrabold text-[#3B6D11]">
                             {Number(orcSelecionado.valor_final).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                           </div>
                           {orcSelecionado.comissao_valor && (
-                            <div className="text-xs text-muted-foreground mt-1">
+                            <div className="text-xs text-[#64748b] mt-1">
                               Comissão: {Number(orcSelecionado.comissao_valor).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                             </div>
                           )}
@@ -801,27 +862,25 @@ export function Admin() {
                       )}
                     </div>
 
-                    {/* COLUNA DIREITA — chat entre usuários */}
                     <div className="lg:col-span-2 space-y-4">
-                      {/* Chat de negociação */}
-                      <div className="bg-white rounded-2xl border overflow-hidden flex flex-col">
-                        <div className="px-5 py-4 border-b flex items-center justify-between flex-wrap gap-2">
+                      <div className="bg-white rounded-[14px] border border-[#e2e8f0] overflow-hidden flex flex-col">
+                        <div className="px-5 py-4 border-b border-[#e2e8f0] flex items-center justify-between flex-wrap gap-2">
                           <div className="flex items-center gap-2">
-                            <MessageSquare className="h-4 w-4 text-primary" />
-                            <span className="font-bold text-primary text-sm">Chat entre usuários</span>
-                            <span className="text-xs text-muted-foreground">{mensagensChat.length} mensagens</span>
+                            <MessageSquare className="h-4 w-4 text-[#030213]" />
+                            <span className="font-bold text-[#030213] text-sm">Chat entre usuários</span>
+                            <span className="text-xs text-[#94a3b8]">{mensagensChat.length} mensagens</span>
                           </div>
                           {chatDoOrc && (
                             <div className="flex items-center gap-2">
-                              <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
-                                chatDoOrc.status === 'finalizado' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'
-                              }`}>{chatDoOrc.status}</span>
-                              <a
-                                href={`${window.location.origin}/chat/${chatDoOrc.link_token}?papel=cliente`}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-xs text-primary underline"
-                              >
+                              <span className="text-[10.5px] font-bold rounded-full px-2.5 py-0.5"
+                                style={chatDoOrc.status === 'finalizado'
+                                  ? { background: '#EAF3DE', color: '#173404' }
+                                  : { background: '#E6F1FB', color: '#0C447C' }}>
+                                {chatDoOrc.status}
+                              </span>
+                              <a href={`${window.location.origin}/chat/${chatDoOrc.link_token}?papel=cliente`}
+                                target="_blank" rel="noreferrer"
+                                className="text-xs font-semibold underline" style={{ color: 'oklch(0.45 0.1 184)' }}>
                                 🔗 Abrir chat
                               </a>
                             </div>
@@ -831,15 +890,15 @@ export function Admin() {
                         <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-3 min-h-0" style={{ maxHeight: '400px' }}>
                           {msgLoading ? (
                             <div className="flex justify-center py-8">
-                              <div className="animate-spin w-6 h-6 border-2 border-primary border-t-transparent rounded-full" />
+                              <div className="animate-spin w-6 h-6 border-2 border-[#030213] border-t-transparent rounded-full" />
                             </div>
                           ) : !chatDoOrc ? (
-                            <div className="text-center py-10 text-muted-foreground">
+                            <div className="text-center py-10 text-[#94a3b8]">
                               <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-30" />
                               <p className="text-sm">Chat ainda não foi gerado para este ORC.</p>
                             </div>
                           ) : mensagensChat.length === 0 ? (
-                            <div className="text-center py-10 text-muted-foreground">
+                            <div className="text-center py-10 text-[#94a3b8]">
                               <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-30" />
                               <p className="text-sm">Nenhuma mensagem no chat ainda.</p>
                               <p className="text-xs mt-1">O link foi enviado mas ninguém escreveu ainda.</p>
@@ -850,17 +909,15 @@ export function Admin() {
                               return (
                                 <div key={i} className={`flex ${isCliente ? 'justify-end' : 'justify-start'}`}>
                                   <div className="max-w-[75%]">
-                                    <div className={`text-xs font-semibold mb-1 ${isCliente ? 'text-right text-blue-600' : 'text-left text-green-700'}`}>
+                                    <div className={`text-xs font-semibold mb-1 ${isCliente ? 'text-right text-blue-600' : 'text-left text-[#3B6D11]'}`}>
                                       {isCliente ? `👤 ${orcSelecionado.nome_cliente}` : `👷 ${orcSelecionado.prestadores?.nome || 'Prestador'}`}
                                     </div>
-                                    <div className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
-                                      isCliente ? 'bg-primary text-white rounded-tr-sm' : 'bg-slate-100 text-foreground rounded-tl-sm'
-                                    }`}>
+                                    <div className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${isCliente ? 'bg-[#030213] text-white rounded-tr-sm' : 'bg-[#f8fafc] text-[#030213] rounded-tl-sm border border-[#e2e8f0]'}`}>
                                       {msg.tipo === 'texto' && msg.conteudo}
                                       {msg.tipo === 'imagem' && <img src={msg.conteudo} alt="imagem" className="rounded-xl max-w-full max-h-48 object-cover" />}
                                       {msg.tipo === 'audio' && <audio controls src={msg.conteudo} className="max-w-full" />}
                                     </div>
-                                    <div className={`text-xs text-muted-foreground mt-1 ${isCliente ? 'text-right' : 'text-left'}`}>
+                                    <div className={`text-xs text-[#94a3b8] mt-1 ${isCliente ? 'text-right' : 'text-left'}`}>
                                       {new Date(msg.criado_em).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
                                     </div>
                                   </div>
@@ -871,10 +928,9 @@ export function Admin() {
                         </div>
                       </div>
 
-                      {/* Anamnese com IA — colapsável */}
                       {mensagens.length > 0 && (
-                        <details className="bg-slate-50 border border-border rounded-2xl overflow-hidden">
-                          <summary className="px-5 py-3 cursor-pointer text-xs font-semibold text-muted-foreground flex items-center gap-2 select-none">
+                        <details className="bg-[#f8fafc] border border-[#e2e8f0] rounded-[14px] overflow-hidden">
+                          <summary className="px-5 py-3 cursor-pointer text-xs font-semibold text-[#64748b] flex items-center gap-2 select-none">
                             <Sparkles className="h-3.5 w-3.5" /> Anamnese com IA ({mensagens.length} msgs) — clique para expandir
                           </summary>
                           <div className="p-5 flex flex-col gap-2 max-h-64 overflow-y-auto">
@@ -884,11 +940,11 @@ export function Admin() {
                               return (
                                 <div key={i} className={`flex ${isCliente ? 'justify-end' : 'justify-start'}`}>
                                   {isSistema ? (
-                                    <div className="self-center bg-slate-200 text-slate-500 text-xs px-3 py-1 rounded-full">
+                                    <div className="self-center bg-[#e2e8f0] text-[#64748b] text-xs px-3 py-1 rounded-full">
                                       Sistema: {msg.conteudo}
                                     </div>
                                   ) : (
-                                    <div className={`max-w-[80%] px-3 py-2 rounded-xl text-xs ${isCliente ? 'bg-blue-100 text-blue-900' : 'bg-white border text-slate-700'}`}>
+                                    <div className={`max-w-[80%] px-3 py-2 rounded-xl text-xs ${isCliente ? 'bg-[#E6F1FB] text-[#0C447C]' : 'bg-white border border-[#e2e8f0] text-[#475569]'}`}>
                                       {msg.conteudo}
                                     </div>
                                   )}
@@ -907,20 +963,21 @@ export function Admin() {
 
           {loading && aba !== 'kanban' && (
             <div className="flex justify-center py-16">
-              <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+              <div className="animate-spin w-8 h-8 border-4 border-[#030213] border-t-transparent rounded-full" />
             </div>
           )}
 
           {/* HISTÓRICO DE CHATS */}
           {!loading && aba === 'chats' && (
             <div className={chatSelecionado ? 'grid grid-cols-1 lg:grid-cols-2 gap-4' : ''}>
-              {/* TABELA */}
               <div>
                 <div className="flex items-center justify-between mb-4">
-                  <span className="text-sm text-muted-foreground">{(dados.chats || []).length} chats registrados — clique para ver detalhes</span>
-                  {chatSelecionado && <button onClick={() => setChatSelecionado(null)} className="text-xs text-muted-foreground hover:text-foreground">✕ Fechar painel</button>}
+                  <span className="text-sm text-[#64748b]">{(dados.chats || []).length} chats registrados — clique para ver detalhes</span>
+                  {chatSelecionado && (
+                    <button onClick={() => setChatSelecionado(null)} className="text-xs text-[#64748b] hover:text-[#030213]">✕ Fechar painel</button>
+                  )}
                 </div>
-                <div className="bg-white rounded-2xl border overflow-hidden">
+                <div className="bg-white rounded-[14px] border border-[#e2e8f0] overflow-hidden">
                   <div className="overflow-x-auto">
                     <table className={tbl}>
                       <thead><tr>
@@ -930,38 +987,40 @@ export function Admin() {
                       </tr></thead>
                       <tbody>
                         {(dados.chats || []).map((c: any) => {
-                          const statusColor: Record<string, string> = {
-                            conversando: 'bg-blue-100 text-blue-800',
-                            aguardando_orcamento: 'bg-amber-100 text-amber-800',
-                            orcamento_enviado: 'bg-purple-100 text-purple-800',
-                            elaborando_contrato: 'bg-violet-100 text-violet-800',
-                            contrato_gerado: 'bg-orange-100 text-orange-800',
-                            finalizado: 'bg-green-100 text-green-800',
+                          const statusColor: Record<string, { bg: string; color: string }> = {
+                            conversando:           { bg: '#E6F1FB', color: '#0C447C' },
+                            aguardando_orcamento:  { bg: '#FEF3C7', color: '#92400e' },
+                            orcamento_enviado:     { bg: '#EEEDFE', color: '#26215C' },
+                            elaborando_contrato:   { bg: '#EEEDFE', color: '#3C3489' },
+                            contrato_gerado:       { bg: '#FFF3E0', color: '#7c3b0a' },
+                            finalizado:            { bg: '#EAF3DE', color: '#173404' },
                           };
+                          const sc = statusColor[c.status] || { bg: '#f1f5f9', color: '#64748b' };
                           const selecionado = chatSelecionado?.id === c.id;
                           return (
                             <tr key={c.id} onClick={() => abrirChatDetalhe(c)}
-                              className={`cursor-pointer transition-colors ${selecionado ? 'bg-primary/5 border-l-2 border-primary' : 'hover:bg-slate-50'}`}>
-                              <td className={td}><span className="font-mono font-bold text-primary text-xs">{c.orcs?.codigo || '—'}</span></td>
-                              <td className={td + ' text-xs text-muted-foreground max-w-[120px] truncate'}>{c.orcs?.servicos?.titulo || c.orcs?.servico_nome || '—'}</td>
-                              <td className={td}><span className="text-sm font-medium">{c.orcs?.nome_cliente || '—'}</span></td>
-                              <td className={td}><span className="text-sm">{c.orcs?.prestadores?.nome || '—'}</span></td>
+                              className={`cursor-pointer transition-colors ${selecionado ? 'bg-[#f8fafc]' : 'hover:bg-[#f8fafc]'}`}>
+                              <td className={td}><span className="font-mono font-bold text-[#030213] text-xs">{c.orcs?.codigo || '—'}</span></td>
+                              <td className={`${td} text-xs text-[#64748b] max-w-[120px] truncate`}>{c.orcs?.servicos?.titulo || c.orcs?.servico_nome || '—'}</td>
+                              <td className={td}><span className="font-medium">{c.orcs?.nome_cliente || '—'}</span></td>
+                              <td className={td}><span>{c.orcs?.prestadores?.nome || '—'}</span></td>
                               <td className={td}>
-                                <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${statusColor[c.status] || 'bg-slate-100 text-slate-600'}`}>
+                                <span className="rounded-full text-[10.5px] font-bold px-2.5 py-0.5"
+                                  style={{ background: sc.bg, color: sc.color }}>
                                   {c.status}
                                 </span>
                               </td>
-                              <td className={td + ' text-center'}>
-                                <span className="text-sm font-bold text-primary">{c.total_mensagens}</span>
+                              <td className={`${td} text-center`}>
+                                <span className="font-bold text-[#030213]">{c.total_mensagens}</span>
                               </td>
-                              <td className={td + ' text-xs text-muted-foreground whitespace-nowrap'}>
+                              <td className={`${td} text-xs text-[#94a3b8] whitespace-nowrap`}>
                                 {c.criado_em ? new Date(c.criado_em).toLocaleDateString('pt-BR') : '—'}
                               </td>
                             </tr>
                           );
                         })}
                         {(dados.chats || []).length === 0 && (
-                          <tr><td colSpan={7} className="text-center py-12 text-muted-foreground text-sm">Nenhum chat registrado ainda.</td></tr>
+                          <tr><td colSpan={7} className="text-center py-12 text-[#94a3b8] text-sm">Nenhum chat registrado ainda.</td></tr>
                         )}
                       </tbody>
                     </table>
@@ -969,21 +1028,19 @@ export function Admin() {
                 </div>
               </div>
 
-              {/* PAINEL DETALHE DO CHAT */}
               {chatSelecionado && (
                 <div className="space-y-4">
-                  {/* Meta info */}
-                  <div className="bg-white rounded-2xl border p-5">
+                  <div className="bg-white rounded-[14px] border border-[#e2e8f0] p-5">
                     <div className="flex items-start justify-between mb-3">
                       <div>
-                        <span className="font-mono font-bold text-primary text-sm">{chatSelecionado.orcs?.codigo || '—'}</span>
-                        <div className="text-xs text-muted-foreground mt-0.5">{chatSelecionado.orcs?.servicos?.titulo || chatSelecionado.orcs?.servico_nome || '—'}</div>
+                        <span className="font-mono font-bold text-[#030213] text-sm">{chatSelecionado.orcs?.codigo || '—'}</span>
+                        <div className="text-xs text-[#64748b] mt-0.5">{chatSelecionado.orcs?.servicos?.titulo || chatSelecionado.orcs?.servico_nome || '—'}</div>
                       </div>
                       <div className="flex gap-2">
                         <a href={`${window.location.origin}/chat/${chatSelecionado.link_token}?papel=cliente`} target="_blank" rel="noreferrer"
                           className="text-xs text-blue-600 underline">👤 Abrir cliente</a>
                         <a href={`${window.location.origin}/chat/${chatSelecionado.link_token}?papel=prestador`} target="_blank" rel="noreferrer"
-                          className="text-xs text-green-700 underline">👷 Abrir prestador</a>
+                          className="text-xs text-[#3B6D11] underline">👷 Abrir prestador</a>
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-3 text-xs">
@@ -998,33 +1055,32 @@ export function Admin() {
                         ['Finalizado', chatSelecionado.finalizado_em ? new Date(chatSelecionado.finalizado_em).toLocaleString('pt-BR') : '—'],
                       ].map(([l, v]) => (
                         <div key={l}>
-                          <div className="text-muted-foreground mb-0.5">{l}</div>
-                          <div className="font-semibold text-foreground">{v}</div>
+                          <div className="text-[#94a3b8] mb-0.5">{l}</div>
+                          <div className="font-semibold text-[#030213]">{v}</div>
                         </div>
                       ))}
                     </div>
                     {chatSelecionado.orcs?.resumo_anamnese && (
-                      <div className="mt-3 bg-success/5 border border-success/20 rounded-xl p-3">
-                        <div className="text-xs font-bold text-success mb-1">✨ Resumo da Anamnese (IA)</div>
-                        <p className="text-xs text-foreground leading-relaxed">{chatSelecionado.orcs.resumo_anamnese}</p>
+                      <div className="mt-3 bg-[#EAF3DE] border border-[#c8e6a8] rounded-[10px] p-3">
+                        <div className="text-xs font-bold text-[#3B6D11] mb-1">✨ Resumo da Anamnese (IA)</div>
+                        <p className="text-xs text-[#030213] leading-relaxed">{chatSelecionado.orcs.resumo_anamnese}</p>
                       </div>
                     )}
                   </div>
 
-                  {/* Mensagens do chat */}
-                  <div className="bg-white rounded-2xl border overflow-hidden">
-                    <div className="px-5 py-3 border-b flex items-center gap-2">
-                      <MessageSquare className="h-4 w-4 text-primary" />
-                      <span className="font-bold text-sm text-primary">Conversa completa</span>
-                      <span className="text-xs text-muted-foreground">({chatMsgsDetalhe.length} mensagens)</span>
+                  <div className="bg-white rounded-[14px] border border-[#e2e8f0] overflow-hidden">
+                    <div className="px-5 py-3 border-b border-[#e2e8f0] flex items-center gap-2">
+                      <MessageSquare className="h-4 w-4 text-[#030213]" />
+                      <span className="font-bold text-sm text-[#030213]">Conversa completa</span>
+                      <span className="text-xs text-[#94a3b8]">({chatMsgsDetalhe.length} mensagens)</span>
                     </div>
                     <div className="p-4 flex flex-col gap-3 max-h-[480px] overflow-y-auto">
                       {chatMsgDetalhando ? (
                         <div className="flex justify-center py-8">
-                          <div className="animate-spin w-6 h-6 border-2 border-primary border-t-transparent rounded-full" />
+                          <div className="animate-spin w-6 h-6 border-2 border-[#030213] border-t-transparent rounded-full" />
                         </div>
                       ) : chatMsgsDetalhe.length === 0 ? (
-                        <div className="text-center py-8 text-muted-foreground text-sm">Nenhuma mensagem ainda.</div>
+                        <div className="text-center py-8 text-[#94a3b8] text-sm">Nenhuma mensagem ainda.</div>
                       ) : (
                         chatMsgsDetalhe.map((msg: any, i: number) => {
                           const isCliente = msg.remetente === 'cliente';
@@ -1032,18 +1088,18 @@ export function Admin() {
                           return (
                             <div key={i} className={`flex ${isCliente ? 'justify-end' : isIA ? 'justify-center' : 'justify-start'}`}>
                               {isIA ? (
-                                <div className="bg-slate-100 text-slate-500 text-xs px-3 py-1.5 rounded-full max-w-[90%] text-center">
+                                <div className="bg-[#f8fafc] border border-[#e2e8f0] text-[#64748b] text-xs px-3 py-1.5 rounded-full max-w-[90%] text-center">
                                   🤖 {msg.conteudo}
                                 </div>
                               ) : (
                                 <div className="max-w-[78%]">
-                                  <div className={`text-xs font-semibold mb-1 ${isCliente ? 'text-right text-blue-600' : 'text-left text-green-700'}`}>
+                                  <div className={`text-xs font-semibold mb-1 ${isCliente ? 'text-right text-blue-600' : 'text-left text-[#3B6D11]'}`}>
                                     {isCliente ? `👤 ${chatSelecionado.orcs?.nome_cliente || 'Cliente'}` : `👷 ${chatSelecionado.orcs?.prestadores?.nome || 'Prestador'}`}
                                   </div>
-                                  <div className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${isCliente ? 'bg-primary text-white rounded-tr-sm' : 'bg-slate-100 text-foreground rounded-tl-sm'}`}>
+                                  <div className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${isCliente ? 'bg-[#030213] text-white rounded-tr-sm' : 'bg-[#f8fafc] text-[#030213] rounded-tl-sm border border-[#e2e8f0]'}`}>
                                     {msg.tipo === 'imagem' ? <img src={msg.conteudo} alt="" className="rounded-xl max-w-full max-h-40 object-cover" /> : msg.conteudo}
                                   </div>
-                                  <div className={`text-xs text-muted-foreground mt-1 ${isCliente ? 'text-right' : 'text-left'}`}>
+                                  <div className={`text-xs text-[#94a3b8] mt-1 ${isCliente ? 'text-right' : 'text-left'}`}>
                                     {new Date(msg.criado_em).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
                                   </div>
                                 </div>
@@ -1071,10 +1127,10 @@ export function Admin() {
                 { l: 'Contratos', v: dados.total_contratos || 0, ic: '📄' },
                 { l: 'Comissão Total', v: 'R$ ' + (dados.total_comissao || 0).toFixed(2), ic: '💰' },
               ].map(s => (
-                <div key={s.l} className="bg-white rounded-2xl border p-5">
+                <div key={s.l} className="bg-white border border-[#e2e8f0] rounded-[16px] p-5">
                   <div className="text-2xl mb-2">{s.ic}</div>
-                  <div className="text-2xl font-bold text-primary">{s.v}</div>
-                  <div className="text-xs text-muted-foreground mt-1">{s.l}</div>
+                  <div className="text-[26px] font-extrabold text-[#030213]">{s.v}</div>
+                  <div className="text-sm text-[#64748b] font-semibold mb-1">{s.l}</div>
                 </div>
               ))}
             </div>
@@ -1084,140 +1140,67 @@ export function Admin() {
           {!loading && aba === 'prestadores' && (
             <div>
               <div className="flex justify-between items-center mb-4">
-                <span className="text-sm text-muted-foreground">{(dados.prestadores || []).length} prestadores cadastrados</span>
+                <span className="text-sm text-[#64748b]">{(dados.prestadores || []).length} prestadores cadastrados</span>
                 <button onClick={() => setModalPrestador(true)}
-                  className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors">
+                  className="flex items-center gap-2 bg-[#030213] text-white px-4 py-2 rounded-[12px] text-sm font-bold hover:bg-[#030213]/90 transition-colors">
                   <Plus className="h-4 w-4" /> Novo Prestador
                 </button>
               </div>
-              <div className="bg-white rounded-2xl border overflow-hidden">
+              <div className="bg-white rounded-[14px] border border-[#e2e8f0] overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className={tbl}>
                     <thead><tr>{['Nome', 'Telefone', 'Cidade', 'Status', 'Verificado', 'Ação'].map(h => <th key={h} className={th}>{h}</th>)}</tr></thead>
                     <tbody>
                       {(dados.prestadores || []).map((p: any) => (
-                        <tr key={p.id} className="hover:bg-slate-50">
+                        <tr key={p.id} className="hover:bg-[#f8fafc]">
                           <td className={td}>
-                            <div className="font-semibold">{p.nome}</div>
-                            {p.email && <div className="text-xs text-muted-foreground">{p.email}</div>}
+                            <div className="font-semibold text-[#030213]">{p.nome}</div>
+                            {p.email && <div className="text-xs text-[#94a3b8]">{p.email}</div>}
                           </td>
                           <td className={td}>{p.telefone}</td>
                           <td className={td}>{p.cidade}</td>
-                          <td className={td}><span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${p.ativo ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{p.ativo ? 'Ativo' : 'Inativo'}</span></td>
-                          <td className={td}><span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${p.verificado ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}`}>{p.verificado ? '✓ Verificado' : 'Pendente'}</span></td>
-                          <td className={td}><button onClick={() => toggleVerificado(p.id, p.verificado)} className={`text-xs px-3 py-1 rounded-lg font-semibold ${p.verificado ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>{p.verificado ? 'Remover' : 'Aprovar'}</button></td>
+                          <td className={td}>
+                            <span className="rounded-full text-[10.5px] font-bold px-2.5 py-0.5"
+                              style={p.ativo ? { background: '#EAF3DE', color: '#173404' } : { background: '#FCEBEB', color: '#501313' }}>
+                              {p.ativo ? 'Ativo' : 'Inativo'}
+                            </span>
+                          </td>
+                          <td className={td}>
+                            <span className="rounded-full text-[10.5px] font-bold px-2.5 py-0.5"
+                              style={p.verificado ? { background: '#EAF3DE', color: '#173404' } : { background: '#FEF3C7', color: '#92400e' }}>
+                              {p.verificado ? '✓ Verificado' : 'Pendente'}
+                            </span>
+                          </td>
+                          <td className={td}>
+                            <button onClick={() => toggleVerificado(p.id, p.verificado)}
+                              className="text-xs px-3 py-1 rounded-[8px] font-semibold transition-colors"
+                              style={p.verificado ? { background: '#FCEBEB', color: '#501313' } : { background: '#EAF3DE', color: '#173404' }}>
+                              {p.verificado ? 'Remover' : 'Aprovar'}
+                            </button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
               </div>
-
-              {/* MODAL EDITAR CONTRATO */}
-              {modalEditContrato && (
-                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={e => { if (e.target === e.currentTarget) setModalEditContrato(false); }}>
-                  <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-y-auto max-h-[90vh]">
-                    <div className="flex items-center justify-between px-6 py-4 border-b">
-                      <h3 className="font-bold text-primary">✏️ Editar Contrato</h3>
-                      <button onClick={() => setModalEditContrato(false)} className="p-2 hover:bg-slate-100 rounded-lg"><X className="h-4 w-4" /></button>
-                    </div>
-                    <div className="p-6 space-y-4">
-                      {erroContrato && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-xl">❌ {erroContrato}</div>}
-                      <div>
-                        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1 block">Tipo</label>
-                        <select value={formContrato.tipo} onChange={e => setFormContrato(f => ({ ...f, tipo: e.target.value }))} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-primary">
-                          <option value="carta_aceite">📜 Carta Aceite</option>
-                          <option value="servico_seguro">🛡️ Contrato Seguro</option>
-                        </select>
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1 block">Valor (R$)</label>
-                          <input type="number" value={formContrato.valor} onChange={e => setFormContrato(f => ({ ...f, valor: e.target.value }))} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-primary" />
-                        </div>
-                        <div>
-                          <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1 block">Comissão (R$)</label>
-                          <input type="number" value={formContrato.comissao} onChange={e => setFormContrato(f => ({ ...f, comissao: e.target.value }))} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-primary" />
-                        </div>
-                      </div>
-                      <div>
-                        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1 block">Prazo de execução</label>
-                        <input type="text" value={formContrato.prazo} onChange={e => setFormContrato(f => ({ ...f, prazo: e.target.value }))} placeholder="Ex: 5 dias úteis" className="w-full border border-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-primary" />
-                      </div>
-                      <div>
-                        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1 block">Forma de pagamento</label>
-                        <input type="text" value={formContrato.pagamento} onChange={e => setFormContrato(f => ({ ...f, pagamento: e.target.value }))} placeholder="Ex: À vista" className="w-full border border-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-primary" />
-                      </div>
-                      <div>
-                        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1 block">Garantia</label>
-                        <input type="text" value={formContrato.garantia} onChange={e => setFormContrato(f => ({ ...f, garantia: e.target.value }))} placeholder="Ex: 90 dias" className="w-full border border-border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-primary" />
-                      </div>
-                      <div className="flex gap-3 pt-2">
-                        <button onClick={() => setModalEditContrato(false)} className="flex-1 py-3 border border-border rounded-xl text-sm font-semibold hover:bg-slate-50">Cancelar</button>
-                        <button onClick={salvarContrato} disabled={salvando} className="flex-1 py-3 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 disabled:opacity-50">
-                          {salvando ? 'Salvando...' : 'Salvar alterações'}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* MODAL NOVO PRESTADOR */}
-              {modalPrestador && (
-                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={e => { if (e.target === e.currentTarget) setModalPrestador(false); }}>
-                  <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-y-auto max-h-[90vh]">
-                    <div className="px-6 py-4 border-b flex items-center justify-between">
-                      <h3 className="font-bold text-primary">Novo Prestador</h3>
-                      <button onClick={() => setModalPrestador(false)}><X className="h-5 w-5" /></button>
-                    </div>
-                    <div className="p-6 space-y-4">
-                      {[
-                        { label: 'Nome completo *', key: 'nome', placeholder: 'João Silva', type: 'text' },
-                        { label: 'Telefone * (com DDI+DDD)', key: 'telefone', placeholder: '5555999998888', type: 'text' },
-                        { label: 'Email', key: 'email', placeholder: 'joao@email.com', type: 'email' },
-                        { label: 'Senha (para acesso ao painel)', key: 'senha', placeholder: '••••••••', type: 'password' },
-                        { label: 'CPF', key: 'cpf', placeholder: '000.000.000-00', type: 'text' },
-                        { label: 'Cidade', key: 'cidade', placeholder: 'Santa Maria', type: 'text' },
-                      ].map(f => (
-                        <div key={f.key}>
-                          <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5 block">{f.label}</label>
-                          <input type={f.type} value={(formPrestador as any)[f.key] || ''} onChange={e => setFormPrestador((p: any) => ({ ...p, [f.key]: e.target.value }))}
-                            placeholder={f.placeholder}
-                            className="w-full border border-border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-primary" />
-                        </div>
-                      ))}
-                      <div>
-                        <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5 block">Bio / Apresentação</label>
-                        <textarea value={formPrestador.bio || ''} onChange={e => setFormPrestador((p: any) => ({ ...p, bio: e.target.value }))}
-                          placeholder="Breve apresentação do prestador..."
-                          rows={3} className="w-full border border-border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-primary resize-none" />
-                      </div>
-                      <button onClick={salvarPrestador} disabled={salvando}
-                        className="w-full py-3 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 disabled:opacity-50 transition-colors">
-                        {salvando ? 'Salvando...' : '✓ Cadastrar prestador'}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
           )}
 
           {/* USUARIOS */}
           {!loading && aba === 'usuarios' && (
-            <div className="bg-white rounded-2xl border overflow-hidden">
+            <div className="bg-white rounded-[14px] border border-[#e2e8f0] overflow-hidden">
               <div className="overflow-x-auto">
                 <table className={tbl}>
                   <thead><tr>{['Nome', 'Email', 'Telefone', 'Cidade', 'Cadastro'].map(h => <th key={h} className={th}>{h}</th>)}</tr></thead>
                   <tbody>
                     {(dados.usuarios || []).map((u: any) => (
-                      <tr key={u.id} className="hover:bg-slate-50">
-                        <td className={td}><span className="font-semibold">{u.nome}</span></td>
-                        <td className={td + " text-xs"}>{u.email}</td>
+                      <tr key={u.id} className="hover:bg-[#f8fafc]">
+                        <td className={td}><span className="font-semibold text-[#030213]">{u.nome}</span></td>
+                        <td className={`${td} text-xs`}>{u.email}</td>
                         <td className={td}>{u.telefone}</td>
                         <td className={td}>{u.cidade}</td>
-                        <td className={td + " text-xs text-muted-foreground"}>{u.criado_em ? new Date(u.criado_em).toLocaleDateString('pt-BR') : '—'}</td>
+                        <td className={`${td} text-xs text-[#94a3b8]`}>{u.criado_em ? new Date(u.criado_em).toLocaleDateString('pt-BR') : '—'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1230,114 +1213,59 @@ export function Admin() {
           {!loading && aba === 'servicos' && (
             <div>
               <div className="flex justify-between items-center mb-4">
-                <span className="text-sm text-muted-foreground">{(dados.servicos || []).length} serviços cadastrados</span>
-                <button onClick={() => { setModalServico(true); supabase.from('prestadores').select('id,nome').eq('ativo', true).order('nome').then(({ data }) => setPrestadoresList(data || [])); supabase.from('categorias').select('id,nome,icone').eq('ativa', true).order('nome').then(({ data }) => setCategoriasList(data || [])); }}
-                  className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors">
+                <span className="text-sm text-[#64748b]">{(dados.servicos || []).length} serviços cadastrados</span>
+                <button onClick={() => {
+                  setModalServico(true);
+                  supabase.from('prestadores').select('id,nome').eq('ativo', true).order('nome').then(({ data }) => setPrestadoresList(data || []));
+                  supabase.from('categorias').select('id,nome,icone').eq('ativa', true).order('nome').then(({ data }) => setCategoriasList(data || []));
+                }}
+                  className="flex items-center gap-2 bg-[#030213] text-white px-4 py-2 rounded-[12px] text-sm font-bold hover:bg-[#030213]/90 transition-colors">
                   <Plus className="h-4 w-4" /> Novo Serviço
                 </button>
               </div>
-              <div className="bg-white rounded-2xl border overflow-hidden">
+              <div className="bg-white rounded-[14px] border border-[#e2e8f0] overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className={tbl}>
                     <thead><tr>{['Título', 'Categoria', 'Prestador', 'Online', 'Status'].map(h => <th key={h} className={th}>{h}</th>)}</tr></thead>
                     <tbody>
                       {(dados.servicos || []).map((s: any) => (
-                        <tr key={s.id} className="hover:bg-slate-50">
-                          <td className={td}><span className="font-semibold">{s.titulo}</span></td>
+                        <tr key={s.id} className="hover:bg-[#f8fafc]">
+                          <td className={td}><span className="font-semibold text-[#030213]">{s.titulo}</span></td>
                           <td className={td}>{s.categorias?.nome || '—'}</td>
                           <td className={td}>{s.prestadores?.nome || '—'}</td>
-                          <td className={td}><span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${s.aceita_orcamento_online ? 'bg-blue-100 text-blue-800' : 'bg-slate-100 text-slate-600'}`}>{s.aceita_orcamento_online ? '✓ Sim' : 'Não'}</span></td>
-                          <td className={td}><span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${s.ativo ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{s.ativo ? 'Ativo' : 'Inativo'}</span></td>
+                          <td className={td}>
+                            <span className="rounded-full text-[10.5px] font-bold px-2.5 py-0.5"
+                              style={s.aceita_orcamento_online ? { background: '#E6F1FB', color: '#0C447C' } : { background: '#f1f5f9', color: '#64748b' }}>
+                              {s.aceita_orcamento_online ? '✓ Sim' : 'Não'}
+                            </span>
+                          </td>
+                          <td className={td}>
+                            <span className="rounded-full text-[10.5px] font-bold px-2.5 py-0.5"
+                              style={s.ativo ? { background: '#EAF3DE', color: '#173404' } : { background: '#FCEBEB', color: '#501313' }}>
+                              {s.ativo ? 'Ativo' : 'Inativo'}
+                            </span>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
               </div>
-
-              {/* MODAL NOVO SERVIÇO */}
-              {modalServico && (
-                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={e => { if (e.target === e.currentTarget) setModalServico(false); }}>
-                  <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-y-auto max-h-[90vh]">
-                    <div className="px-6 py-4 border-b flex items-center justify-between">
-                      <h3 className="font-bold text-primary">Novo Serviço</h3>
-                      <button onClick={() => setModalServico(false)}><X className="h-5 w-5" /></button>
-                    </div>
-                    <div className="p-6 space-y-4">
-                      <div>
-                        <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5 block">Título do serviço *</label>
-                        <input value={formServico.titulo} onChange={e => setFormServico((f: any) => ({ ...f, titulo: e.target.value }))}
-                          placeholder="Ex: Instalação elétrica residencial"
-                          className="w-full border border-border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-primary" />
-                      </div>
-                      <div>
-                        <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5 block">Prestador *</label>
-                        <select value={formServico.prestador_id} onChange={e => setFormServico((f: any) => ({ ...f, prestador_id: e.target.value }))}
-                          className="w-full border border-border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-primary bg-white">
-                          <option value="">Selecione o prestador</option>
-                          {prestadoresList.map((p: any) => <option key={p.id} value={p.id}>{p.nome}</option>)}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5 block">Categoria</label>
-                        <select value={formServico.categoria_id} onChange={e => setFormServico((f: any) => ({ ...f, categoria_id: e.target.value }))}
-                          className="w-full border border-border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-primary bg-white">
-                          <option value="">Selecione a categoria</option>
-                          {categoriasList.map((c: any) => <option key={c.id} value={c.id}>{c.icone} {c.nome}</option>)}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5 block">Descrição</label>
-                        <textarea value={formServico.descricao} onChange={e => setFormServico((f: any) => ({ ...f, descricao: e.target.value }))}
-                          placeholder="Descrição do serviço (opcional)"
-                          rows={3} className="w-full border border-border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-primary resize-none" />
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <div className="flex-1">
-                          <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5 block">Tipo de preço</label>
-                          <select value={formServico.tipo} onChange={e => setFormServico((f: any) => ({ ...f, tipo: e.target.value }))}
-                            className="w-full border border-border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-primary bg-white">
-                            <option value="orcamento">Sob orçamento</option>
-                            <option value="fixo">Preço fixo</option>
-                          </select>
-                        </div>
-                        {formServico.tipo === 'fixo' && (
-                          <div className="flex-1">
-                            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5 block">Valor (R$)</label>
-                            <input type="number" value={formServico.valor_fixo || ''} onChange={e => setFormServico((f: any) => ({ ...f, valor_fixo: e.target.value }))}
-                              placeholder="0,00" className="w-full border border-border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-primary" />
-                          </div>
-                        )}
-                      </div>
-                      <label className="flex items-center gap-3 cursor-pointer">
-                        <input type="checkbox" checked={formServico.aceita_online || false} onChange={e => setFormServico((f: any) => ({ ...f, aceita_online: e.target.checked }))}
-                          className="w-4 h-4 rounded" />
-                        <span className="text-sm">Aceita orçamento online (sem visita)</span>
-                      </label>
-                      <button onClick={salvarServico} disabled={salvando}
-                        className="w-full py-3 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 disabled:opacity-50 transition-colors">
-                        {salvando ? 'Salvando...' : '✓ Criar serviço'}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
           )}
 
           {/* CATEGORIAS */}
           {!loading && aba === 'categorias' && (
             <div>
-              {/* Formulário nova categoria */}
-              <div className="bg-white rounded-2xl border p-5 mb-4">
-                <h3 className="font-bold text-primary text-sm mb-3">Nova Categoria</h3>
+              <div className="bg-white rounded-[14px] border border-[#e2e8f0] p-5 mb-4">
+                <h3 className="font-bold text-[#030213] text-sm mb-3">Nova Categoria</h3>
                 <div className="flex gap-3 flex-wrap">
                   <input id="cat-icone" placeholder="Ícone (ex: 🔧)" maxLength={4}
-                    className="w-24 border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-primary text-center text-xl" />
+                    className="w-24 border border-[#e2e8f0] rounded-[12px] px-3 py-2 text-sm outline-none focus:border-[#030213] text-center text-xl" />
                   <input id="cat-nome" placeholder="Nome da categoria"
-                    className="flex-1 min-w-[160px] border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-primary" />
+                    className="flex-1 min-w-[160px] border border-[#e2e8f0] rounded-[12px] px-3 py-2 text-sm outline-none focus:border-[#030213]" />
                   <input id="cat-descricao" placeholder="Descrição (opcional)"
-                    className="flex-1 min-w-[200px] border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-primary" />
+                    className="flex-1 min-w-[200px] border border-[#e2e8f0] rounded-[12px] px-3 py-2 text-sm outline-none focus:border-[#030213]" />
                   <button
                     onClick={async () => {
                       const icone = (document.getElementById('cat-icone') as HTMLInputElement).value.trim();
@@ -1350,31 +1278,30 @@ export function Admin() {
                       (document.getElementById('cat-descricao') as HTMLInputElement).value = '';
                       carregarDados('categorias');
                     }}
-                    className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors flex items-center gap-2"
-                  >
+                    className="px-4 py-2 bg-[#030213] text-white rounded-[12px] text-sm font-bold hover:bg-[#030213]/90 transition-colors flex items-center gap-2">
                     <Plus className="h-4 w-4" /> Adicionar
                   </button>
                 </div>
               </div>
 
-              <div className="bg-white rounded-2xl border overflow-hidden">
+              <div className="bg-white rounded-[14px] border border-[#e2e8f0] overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className={tbl}>
                     <thead><tr>{['Ícone', 'Nome', 'Descrição', 'Status', 'Ação'].map(h => <th key={h} className={th}>{h}</th>)}</tr></thead>
                     <tbody>
                       {(dados.categorias || []).map((c: any) => (
-                        <tr key={c.id} className="hover:bg-slate-50">
-                          <td className={td + ' text-xl'}>{c.icone || '📋'}</td>
-                          <td className={td}><span className="font-semibold">{c.nome}</span></td>
-                          <td className={td + ' text-xs text-muted-foreground'}>{c.descricao || '—'}</td>
+                        <tr key={c.id} className="hover:bg-[#f8fafc]">
+                          <td className={`${td} text-xl`}>{c.icone || '📋'}</td>
+                          <td className={td}><span className="font-semibold text-[#030213]">{c.nome}</span></td>
+                          <td className={`${td} text-xs text-[#94a3b8]`}>{c.descricao || '—'}</td>
                           <td className={td}>
                             <button
                               onClick={async () => {
                                 await supabase.from('categorias').update({ ativa: !c.ativa }).eq('id', c.id);
                                 carregarDados('categorias');
                               }}
-                              className={`text-xs px-2 py-0.5 rounded-full font-semibold cursor-pointer ${c.ativa ? 'bg-green-100 text-green-800 hover:bg-red-100 hover:text-red-800' : 'bg-red-100 text-red-800 hover:bg-green-100 hover:text-green-800'}`}
-                            >
+                              className="rounded-full text-[10.5px] font-bold px-2.5 py-0.5 cursor-pointer transition-colors"
+                              style={c.ativa ? { background: '#EAF3DE', color: '#173404' } : { background: '#FCEBEB', color: '#501313' }}>
                               {c.ativa ? 'Ativa' : 'Inativa'}
                             </button>
                           </td>
@@ -1385,8 +1312,7 @@ export function Admin() {
                                 await supabase.from('categorias').delete().eq('id', c.id);
                                 carregarDados('categorias');
                               }}
-                              className="text-xs px-2 py-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
-                            >
+                              className="text-xs px-2 py-1 text-[#f87171] hover:text-red-600 hover:bg-[#FCEBEB] rounded-[8px] transition-colors">
                               <X className="h-3.5 w-3.5" />
                             </button>
                           </td>
@@ -1401,8 +1327,8 @@ export function Admin() {
 
           {/* CONTRATOS */}
           {!loading && aba === 'contratos' && (
-            <div className="bg-white rounded-2xl border overflow-hidden">
-              <div className="px-5 py-3 border-b text-xs text-muted-foreground bg-slate-50">
+            <div className="bg-white rounded-[14px] border border-[#e2e8f0] overflow-hidden">
+              <div className="px-5 py-3 border-b border-[#e2e8f0] text-xs text-[#64748b] bg-[#f8fafc]">
                 Contratos não assinados por nenhuma parte podem ser editados pelo Admin.
               </div>
               <div className="overflow-x-auto">
@@ -1412,19 +1338,26 @@ export function Admin() {
                     {(dados.contratos || []).map((c: any) => {
                       const nenhumAssinou = !c.assinado_cliente && !c.assinado_prestador;
                       return (
-                        <tr key={c.id} className="hover:bg-slate-50">
-                          <td className={td}><span className="font-mono font-bold text-primary text-xs">{c.orcs?.codigo}</span></td>
+                        <tr key={c.id} className="hover:bg-[#f8fafc]">
+                          <td className={td}><span className="font-mono font-bold text-[#030213] text-xs">{c.orcs?.codigo}</span></td>
                           <td className={td}>{c.tipo === 'carta_aceite' ? '📜 Carta Aceite' : '🛡️ Contrato Seguro'}</td>
-                          <td className={td}><span className="font-bold text-success">R$ {Number(c.valor || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></td>
-                          <td className={td}><span className="text-xs text-muted-foreground">R$ {Number(c.comissao || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></td>
+                          <td className={td}><span className="font-bold text-[#3B6D11]">R$ {Number(c.valor || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></td>
+                          <td className={td}><span className="text-xs text-[#94a3b8]">R$ {Number(c.comissao || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></td>
                           <td className={td}><span className="text-xs">{c.prazo || '—'}</span></td>
                           <td className={td}>{c.assinado_cliente ? '✅' : '⏳'}</td>
                           <td className={td}>{c.assinado_prestador ? '✅' : '⏳'}</td>
-                          <td className={td}><span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${c.assinado_cliente && c.assinado_prestador ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}`}>{c.assinado_cliente && c.assinado_prestador ? 'Assinado' : 'Pendente'}</span></td>
+                          <td className={td}>
+                            <span className="rounded-full text-[10.5px] font-bold px-2.5 py-0.5"
+                              style={c.assinado_cliente && c.assinado_prestador
+                                ? { background: '#EAF3DE', color: '#173404' }
+                                : { background: '#FEF3C7', color: '#92400e' }}>
+                              {c.assinado_cliente && c.assinado_prestador ? 'Assinado' : 'Pendente'}
+                            </span>
+                          </td>
                           <td className={td}>
                             {nenhumAssinou && (
                               <button onClick={() => abrirEditContrato(c)}
-                                className="text-xs px-2 py-1 bg-primary/10 text-primary rounded-lg hover:bg-primary/20 font-semibold transition">
+                                className="text-xs px-2 py-1 bg-[#f8fafc] text-[#030213] border border-[#e2e8f0] rounded-[8px] hover:bg-[#e2e8f0] font-semibold transition-colors">
                                 ✏️ Editar
                               </button>
                             )}
@@ -1440,18 +1373,18 @@ export function Admin() {
 
           {/* AVALIAÇÕES */}
           {!loading && aba === 'avaliacoes' && (
-            <div className="bg-white rounded-2xl border overflow-hidden">
+            <div className="bg-white rounded-[14px] border border-[#e2e8f0] overflow-hidden">
               <div className="overflow-x-auto">
                 <table className={tbl}>
                   <thead><tr>{['Avaliado', 'Tipo', 'Nota', 'Comentário', 'Data'].map(h => <th key={h} className={th}>{h}</th>)}</tr></thead>
                   <tbody>
                     {(dados.avaliacoes || []).map((a: any) => (
-                      <tr key={a.id} className="hover:bg-slate-50">
+                      <tr key={a.id} className="hover:bg-[#f8fafc]">
                         <td className={td}>{a.avaliado_id?.substring(0, 8)}...</td>
                         <td className={td}>{a.avaliado_tipo}</td>
                         <td className={td}>{'⭐'.repeat(a.nota)}</td>
-                        <td className={td + " text-xs text-muted-foreground max-w-xs truncate"}>{a.comentario || '—'}</td>
-                        <td className={td + " text-xs text-muted-foreground"}>{a.criado_em ? new Date(a.criado_em).toLocaleDateString('pt-BR') : '—'}</td>
+                        <td className={`${td} text-xs text-[#94a3b8] max-w-xs truncate`}>{a.comentario || '—'}</td>
+                        <td className={`${td} text-xs text-[#94a3b8]`}>{a.criado_em ? new Date(a.criado_em).toLocaleDateString('pt-BR') : '—'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1463,15 +1396,15 @@ export function Admin() {
           {/* COMISSÕES */}
           {!loading && aba === 'comissoes' && (
             <div>
-              <p className="text-xs text-muted-foreground mb-3">Edite o valor da taxa diretamente na tabela e clique em Salvar.</p>
-              <div className="bg-white rounded-2xl border overflow-hidden">
+              <p className="text-xs text-[#64748b] mb-3">Edite o valor da taxa diretamente na tabela e clique em Salvar.</p>
+              <div className="bg-white rounded-[14px] border border-[#e2e8f0] overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className={tbl}>
                     <thead><tr>{['Ordem', 'Valor Mín', 'Valor Máx', 'Tipo', 'Taxa', 'Ação'].map(h => <th key={h} className={th}>{h}</th>)}</tr></thead>
                     <tbody>
                       {(dados.comissoes || []).map((c: any) => (
-                        <tr key={c.id} className="hover:bg-slate-50">
-                          <td className={td}><span className="font-semibold">#{c.ordem}</span></td>
+                        <tr key={c.id} className="hover:bg-[#f8fafc]">
+                          <td className={td}><span className="font-semibold text-[#030213]">#{c.ordem}</span></td>
                           <td className={td}>R$ {Number(c.valor_min || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                           <td className={td}>{c.valor_max ? 'R$ ' + Number(c.valor_max).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : 'Sem limite'}</td>
                           <td className={td}>{c.tipo === 'fixo' ? 'Fixo (R$)' : 'Percentual (%)'}</td>
@@ -1480,7 +1413,7 @@ export function Admin() {
                               type="number"
                               defaultValue={c.valor}
                               id={`comissao-${c.id}`}
-                              className="w-24 border border-border rounded-lg px-2 py-1 text-sm outline-none focus:border-primary font-bold text-success"
+                              className="w-24 border border-[#e2e8f0] rounded-[10px] px-2 py-1 text-sm outline-none focus:border-[#030213] font-bold text-[#3B6D11]"
                             />
                           </td>
                           <td className={td}>
@@ -1492,8 +1425,7 @@ export function Admin() {
                                 await supabase.from('comissoes').update({ valor: novoValor }).eq('id', c.id);
                                 carregarDados('comissoes');
                               }}
-                              className="text-xs px-3 py-1.5 bg-primary text-white rounded-lg hover:bg-primary/90 font-semibold transition-colors"
-                            >
+                              className="text-xs px-3 py-1.5 bg-[#030213] text-white rounded-[8px] hover:bg-[#030213]/90 font-semibold transition-colors">
                               Salvar
                             </button>
                           </td>
@@ -1510,27 +1442,38 @@ export function Admin() {
           {!loading && aba === 'biometria' && (
             <div>
               <div className="grid grid-cols-2 gap-4 mb-5">
-                <div className="bg-green-50 border border-green-200 rounded-2xl p-5">
-                  <div className="text-2xl font-bold text-success">{(dados.biometria || []).filter((p: any) => p.verificado).length}</div>
-                  <div className="text-sm text-green-700">Verificados</div>
+                <div className="bg-white border border-[#e2e8f0] rounded-[16px] p-5">
+                  <div className="text-[26px] font-extrabold text-[#030213]">{(dados.biometria || []).filter((p: any) => p.verificado).length}</div>
+                  <div className="text-sm text-[#64748b] font-semibold mb-1">Verificados</div>
                 </div>
-                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5">
-                  <div className="text-2xl font-bold text-amber-600">{(dados.biometria || []).filter((p: any) => !p.verificado).length}</div>
-                  <div className="text-sm text-amber-700">Pendentes</div>
+                <div className="bg-white border border-[#e2e8f0] rounded-[16px] p-5">
+                  <div className="text-[26px] font-extrabold text-[#030213]">{(dados.biometria || []).filter((p: any) => !p.verificado).length}</div>
+                  <div className="text-sm text-[#64748b] font-semibold mb-1">Pendentes</div>
                 </div>
               </div>
-              <div className="bg-white rounded-2xl border overflow-hidden">
+              <div className="bg-white rounded-[14px] border border-[#e2e8f0] overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className={tbl}>
                     <thead><tr>{['Nome', 'Telefone', 'Cidade', 'Status', 'Ação'].map(h => <th key={h} className={th}>{h}</th>)}</tr></thead>
                     <tbody>
                       {(dados.biometria || []).map((p: any) => (
-                        <tr key={p.id} className="hover:bg-slate-50">
-                          <td className={td}><span className="font-semibold">{p.nome}</span></td>
+                        <tr key={p.id} className="hover:bg-[#f8fafc]">
+                          <td className={td}><span className="font-semibold text-[#030213]">{p.nome}</span></td>
                           <td className={td}>{p.telefone}</td>
                           <td className={td}>{p.cidade}</td>
-                          <td className={td}><span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${p.verificado ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}`}>{p.verificado ? '🤳 Verificado' : '⏳ Pendente'}</span></td>
-                          <td className={td}><button onClick={() => toggleVerificado(p.id, p.verificado)} className={`text-xs px-3 py-1.5 rounded-lg font-semibold transition-colors ${p.verificado ? 'bg-red-100 text-red-700 hover:bg-red-200' : 'bg-green-100 text-green-700 hover:bg-green-200'}`}>{p.verificado ? '✕ Remover' : '✓ Aprovar'}</button></td>
+                          <td className={td}>
+                            <span className="rounded-full text-[10.5px] font-bold px-2.5 py-0.5"
+                              style={p.verificado ? { background: '#EAF3DE', color: '#173404' } : { background: '#FEF3C7', color: '#92400e' }}>
+                              {p.verificado ? '🤳 Verificado' : '⏳ Pendente'}
+                            </span>
+                          </td>
+                          <td className={td}>
+                            <button onClick={() => toggleVerificado(p.id, p.verificado)}
+                              className="text-xs px-3 py-1.5 rounded-[8px] font-semibold transition-colors"
+                              style={p.verificado ? { background: '#FCEBEB', color: '#501313' } : { background: '#EAF3DE', color: '#173404' }}>
+                              {p.verificado ? '✕ Remover' : '✓ Aprovar'}
+                            </button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -1540,15 +1483,199 @@ export function Admin() {
             </div>
           )}
 
-          {/* CONFIG — PROMPTS DA IA */}
-          {aba === 'config' && (
-            <AdminPrompts />
-          )}
+          {/* CONFIG */}
+          {aba === 'config' && <AdminPrompts />}
 
         </div>
       </div>
 
-      {mobileMenu && <div className="fixed inset-0 bg-black/40 z-30 lg:hidden" onClick={() => setMobileMenu(false)} />}
+      {/* MODALS */}
+
+      {/* MODAL EDITAR CONTRATO */}
+      {modalEditContrato && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+          onClick={e => { if (e.target === e.currentTarget) setModalEditContrato(false); }}>
+          <div className="bg-white rounded-[20px] shadow-[0_24px_60px_-24px_rgba(3,2,19,0.45)] w-full max-w-md overflow-y-auto max-h-[90vh]">
+            <div className="px-6 py-4 border-b border-[#e2e8f0] flex items-center justify-between">
+              <h3 className="font-extrabold text-[#030213]">✏️ Editar Contrato</h3>
+              <button onClick={() => setModalEditContrato(false)}
+                className="p-2 hover:bg-[#f8fafc] rounded-[10px] transition-colors text-[#64748b]">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              {erroContrato && (
+                <div className="bg-[#FCEBEB] border border-[#f5c6c6] text-[#501313] text-sm px-4 py-3 rounded-[12px]">
+                  {erroContrato}
+                </div>
+              )}
+              <div>
+                <label className={labelCls}>Tipo</label>
+                <select value={formContrato.tipo} onChange={e => setFormContrato(f => ({ ...f, tipo: e.target.value }))}
+                  className={inputCls + ' bg-white'}>
+                  <option value="carta_aceite">📜 Carta Aceite</option>
+                  <option value="servico_seguro">🛡️ Contrato Seguro</option>
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelCls}>Valor (R$)</label>
+                  <input type="number" value={formContrato.valor} onChange={e => setFormContrato(f => ({ ...f, valor: e.target.value }))} className={inputCls} />
+                </div>
+                <div>
+                  <label className={labelCls}>Comissão (R$)</label>
+                  <input type="number" value={formContrato.comissao} onChange={e => setFormContrato(f => ({ ...f, comissao: e.target.value }))} className={inputCls} />
+                </div>
+              </div>
+              <div>
+                <label className={labelCls}>Prazo de execução</label>
+                <input type="text" value={formContrato.prazo} onChange={e => setFormContrato(f => ({ ...f, prazo: e.target.value }))}
+                  placeholder="Ex: 5 dias úteis" className={inputCls} />
+              </div>
+              <div>
+                <label className={labelCls}>Forma de pagamento</label>
+                <input type="text" value={formContrato.pagamento} onChange={e => setFormContrato(f => ({ ...f, pagamento: e.target.value }))}
+                  placeholder="Ex: À vista" className={inputCls} />
+              </div>
+              <div>
+                <label className={labelCls}>Garantia</label>
+                <input type="text" value={formContrato.garantia} onChange={e => setFormContrato(f => ({ ...f, garantia: e.target.value }))}
+                  placeholder="Ex: 90 dias" className={inputCls} />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button onClick={() => setModalEditContrato(false)}
+                  className="flex-1 border border-[#e2e8f0] rounded-[12px] py-3 font-semibold text-sm hover:bg-[#f8fafc] transition-colors">
+                  Cancelar
+                </button>
+                <button onClick={salvarContrato} disabled={salvando}
+                  className="flex-1 py-3 bg-[#030213] text-white rounded-[12px] font-bold text-sm hover:bg-[#030213]/90 disabled:opacity-50 transition-colors">
+                  {salvando ? 'Salvando...' : 'Salvar alterações'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL NOVO PRESTADOR */}
+      {modalPrestador && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+          onClick={e => { if (e.target === e.currentTarget) setModalPrestador(false); }}>
+          <div className="bg-white rounded-[20px] shadow-[0_24px_60px_-24px_rgba(3,2,19,0.45)] w-full max-w-md overflow-y-auto max-h-[90vh]">
+            <div className="px-6 py-4 border-b border-[#e2e8f0] flex items-center justify-between">
+              <h3 className="font-extrabold text-[#030213]">Novo Prestador</h3>
+              <button onClick={() => setModalPrestador(false)}
+                className="p-2 hover:bg-[#f8fafc] rounded-[10px] transition-colors text-[#64748b]">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              {[
+                { label: 'Nome completo *', key: 'nome', placeholder: 'João Silva', type: 'text' },
+                { label: 'Telefone * (com DDI+DDD)', key: 'telefone', placeholder: '5555999998888', type: 'text' },
+                { label: 'Email', key: 'email', placeholder: 'joao@email.com', type: 'email' },
+                { label: 'Senha (para acesso ao painel)', key: 'senha', placeholder: '••••••••', type: 'password' },
+                { label: 'CPF', key: 'cpf', placeholder: '000.000.000-00', type: 'text' },
+                { label: 'Cidade', key: 'cidade', placeholder: 'Santa Maria', type: 'text' },
+              ].map(f => (
+                <div key={f.key}>
+                  <label className={labelCls}>{f.label}</label>
+                  <input type={f.type} value={(formPrestador as any)[f.key] || ''}
+                    onChange={e => setFormPrestador((p: any) => ({ ...p, [f.key]: e.target.value }))}
+                    placeholder={f.placeholder} className={inputCls} />
+                </div>
+              ))}
+              <div>
+                <label className={labelCls}>Bio / Apresentação</label>
+                <textarea value={formPrestador.bio || ''}
+                  onChange={e => setFormPrestador((p: any) => ({ ...p, bio: e.target.value }))}
+                  placeholder="Breve apresentação do prestador..."
+                  rows={3} className={inputCls + ' resize-none'} />
+              </div>
+              <button onClick={salvarPrestador} disabled={salvando}
+                className="w-full py-3 bg-[#030213] text-white rounded-[12px] font-bold text-sm hover:bg-[#030213]/90 disabled:opacity-50 transition-colors">
+                {salvando ? 'Salvando...' : '✓ Cadastrar prestador'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL NOVO SERVIÇO */}
+      {modalServico && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+          onClick={e => { if (e.target === e.currentTarget) setModalServico(false); }}>
+          <div className="bg-white rounded-[20px] shadow-[0_24px_60px_-24px_rgba(3,2,19,0.45)] w-full max-w-md overflow-y-auto max-h-[90vh]">
+            <div className="px-6 py-4 border-b border-[#e2e8f0] flex items-center justify-between">
+              <h3 className="font-extrabold text-[#030213]">Novo Serviço</h3>
+              <button onClick={() => setModalServico(false)}
+                className="p-2 hover:bg-[#f8fafc] rounded-[10px] transition-colors text-[#64748b]">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className={labelCls}>Título do serviço *</label>
+                <input value={formServico.titulo} onChange={e => setFormServico((f: any) => ({ ...f, titulo: e.target.value }))}
+                  placeholder="Ex: Instalação elétrica residencial" className={inputCls} />
+              </div>
+              <div>
+                <label className={labelCls}>Prestador *</label>
+                <select value={formServico.prestador_id} onChange={e => setFormServico((f: any) => ({ ...f, prestador_id: e.target.value }))}
+                  className={inputCls + ' bg-white'}>
+                  <option value="">Selecione o prestador</option>
+                  {prestadoresList.map((p: any) => <option key={p.id} value={p.id}>{p.nome}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className={labelCls}>Categoria</label>
+                <select value={formServico.categoria_id} onChange={e => setFormServico((f: any) => ({ ...f, categoria_id: e.target.value }))}
+                  className={inputCls + ' bg-white'}>
+                  <option value="">Selecione a categoria</option>
+                  {categoriasList.map((c: any) => <option key={c.id} value={c.id}>{c.icone} {c.nome}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className={labelCls}>Descrição</label>
+                <textarea value={formServico.descricao} onChange={e => setFormServico((f: any) => ({ ...f, descricao: e.target.value }))}
+                  placeholder="Descrição do serviço (opcional)"
+                  rows={3} className={inputCls + ' resize-none'} />
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="flex-1">
+                  <label className={labelCls}>Tipo de preço</label>
+                  <select value={formServico.tipo} onChange={e => setFormServico((f: any) => ({ ...f, tipo: e.target.value }))}
+                    className={inputCls + ' bg-white'}>
+                    <option value="orcamento">Sob orçamento</option>
+                    <option value="fixo">Preço fixo</option>
+                  </select>
+                </div>
+                {formServico.tipo === 'fixo' && (
+                  <div className="flex-1">
+                    <label className={labelCls}>Valor (R$)</label>
+                    <input type="number" value={formServico.valor_fixo || ''} onChange={e => setFormServico((f: any) => ({ ...f, valor_fixo: e.target.value }))}
+                      placeholder="0,00" className={inputCls} />
+                  </div>
+                )}
+              </div>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input type="checkbox" checked={formServico.aceita_online || false}
+                  onChange={e => setFormServico((f: any) => ({ ...f, aceita_online: e.target.checked }))}
+                  className="w-4 h-4 rounded" />
+                <span className="text-sm text-[#030213]">Aceita orçamento online (sem visita)</span>
+              </label>
+              <button onClick={salvarServico} disabled={salvando}
+                className="w-full py-3 bg-[#030213] text-white rounded-[12px] font-bold text-sm hover:bg-[#030213]/90 disabled:opacity-50 transition-colors">
+                {salvando ? 'Salvando...' : '✓ Criar serviço'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {mobileMenu && (
+        <div className="fixed inset-0 bg-black/40 z-30 lg:hidden" onClick={() => setMobileMenu(false)} />
+      )}
     </div>
   );
 }
