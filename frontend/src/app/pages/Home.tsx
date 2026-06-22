@@ -130,6 +130,13 @@ export function Home() {
 
           {/* Nav */}
           <div className="flex items-center gap-1">
+            <Link to="/profissionais"
+              className="hidden md:block text-sm px-3 py-2 rounded-[10px] transition-colors"
+              style={{ color: '#717182' }}
+              onMouseEnter={e => (e.currentTarget.style.color = '#030213')}
+              onMouseLeave={e => (e.currentTarget.style.color = '#717182')}>
+              Profissionais
+            </Link>
             <Link to="/como-funciona"
               className="hidden md:block text-sm px-3 py-2 rounded-[10px] transition-colors"
               style={{ color: '#717182' }}

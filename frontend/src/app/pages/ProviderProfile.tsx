@@ -23,12 +23,22 @@ export function ProviderProfile() {
     setLoading(true);
     try {
       // Dados do prestador
-      const { data: p } = await supabase
+      const { data: p, error: errP } = await supabase
         .from('prestadores')
-        .select('*, prestador_categorias(categorias(id, nome, icone))')
+        .select('*')
         .eq('id', id)
         .single();
+      if (errP || !p) { setLoading(false); return; }
       setPrestador(p);
+
+      // Categorias via tabela de ligação (query separada para evitar falha de FK)
+      const { data: pcs } = await supabase
+        .from('prestador_categorias')
+        .select('categorias(id, nome, icone)')
+        .eq('prestador_id', id);
+      if (pcs) {
+        setPrestador((prev: any) => ({ ...prev, _categorias: pcs.map((r: any) => r.categorias).filter(Boolean) }));
+      }
 
       // Serviços do prestador
       const { data: svs } = await supabase
@@ -72,7 +82,7 @@ export function ProviderProfile() {
     );
   }
 
-  const categorias = prestador.prestador_categorias?.map((pc: any) => pc.categorias).filter(Boolean) || [];
+  const categorias = prestador._categorias || [];
   const notaArredondada = Number(prestador.nota_media || 0).toFixed(1);
   const totalAvaliacoes = prestador.total_avaliacoes || 0;
 

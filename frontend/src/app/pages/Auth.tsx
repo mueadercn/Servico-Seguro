@@ -20,6 +20,7 @@ export function Auth() {
   const [erro, setErro] = useState('');
   const [categorias, setCategorias] = useState<any[]>([]);
   const [tipoPessoa, setTipoPessoa] = useState<'pf' | 'pj'>('pf');
+  const [cpfErro, setCpfErro] = useState('');
 
   const [form, setForm] = useState({
     nome: '', email: '', telefone: '', cpf: '', cnpj: '', razao_social: '',
@@ -82,11 +83,13 @@ export function Auth() {
       if (!validarCPF(form.cpf)) { setErro('CPF inválido. Verifique os dígitos.'); return; }
     }
     if (tipo === 'prestador') {
-      if (tipoPessoa === 'pf' && form.cpf && !validarCPF(form.cpf)) {
-        setErro('CPF inválido. Verifique os dígitos.'); return;
+      if (tipoPessoa === 'pf') {
+        if (!form.cpf) { setErro('CPF é obrigatório para pessoa física.'); return; }
+        if (!validarCPF(form.cpf)) { setErro('CPF inválido. Verifique os dígitos.'); return; }
       }
-      if (tipoPessoa === 'pj' && form.cnpj && !validarCNPJ(form.cnpj)) {
-        setErro('CNPJ inválido. Verifique os dígitos.'); return;
+      if (tipoPessoa === 'pj') {
+        if (!form.cnpj) { setErro('CNPJ é obrigatório para pessoa jurídica.'); return; }
+        if (!validarCNPJ(form.cnpj)) { setErro('CNPJ inválido. Verifique os dígitos.'); return; }
       }
     }
 
@@ -333,21 +336,34 @@ export function Auth() {
                     {/* CPF ou CNPJ */}
                     {(tipo === 'contratante' || tipoPessoa === 'pf') ? (
                       <div>
-                        <label className={labelCls}>CPF</label>
+                        <label className={labelCls}>CPF{tipo === 'prestador' ? ' *' : ''}</label>
                         <input type="text" value={form.cpf}
-                          onChange={e => set('cpf', mascaraCPF(e.target.value))}
-                          placeholder="000.000.000-00" maxLength={14} className={inputCls} />
+                          onChange={e => { set('cpf', mascaraCPF(e.target.value)); setCpfErro(''); }}
+                          onBlur={() => {
+                            if (form.cpf && !validarCPF(form.cpf)) setCpfErro('CPF inválido');
+                            else setCpfErro('');
+                          }}
+                          placeholder="000.000.000-00" maxLength={14}
+                          className={inputCls}
+                          style={cpfErro ? { borderColor: '#ef4444' } : {}} />
+                        {cpfErro && <p className="text-red-500 text-xs mt-1">{cpfErro}</p>}
                       </div>
                     ) : (
                       <div>
-                        <label className={labelCls}>CNPJ</label>
+                        <label className={labelCls}>CNPJ *</label>
                         <div className="relative">
                           <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#94a3b8]" />
                           <input type="text" value={form.cnpj}
-                            onChange={e => set('cnpj', mascaraCNPJ(e.target.value))}
+                            onChange={e => { set('cnpj', mascaraCNPJ(e.target.value)); setCpfErro(''); }}
+                            onBlur={() => {
+                              if (form.cnpj && !validarCNPJ(form.cnpj)) setCpfErro('CNPJ inválido');
+                              else setCpfErro('');
+                            }}
                             placeholder="00.000.000/0000-00" maxLength={18}
-                            className="w-full pl-10 pr-4 py-3 border border-[#e2e8f0] rounded-[12px] bg-[#f8fafc] text-sm outline-none focus:border-[#030213] transition-colors" />
+                            className="w-full pl-10 pr-4 py-3 border border-[#e2e8f0] rounded-[12px] bg-[#f8fafc] text-sm outline-none focus:border-[#030213] transition-colors"
+                            style={cpfErro ? { borderColor: '#ef4444' } : {}} />
                         </div>
+                        {cpfErro && <p className="text-red-500 text-xs mt-1">{cpfErro}</p>}
                       </div>
                     )}
                     <div>
@@ -472,6 +488,15 @@ export function Auth() {
                     onClick={() => {
                       if (step === 1 && (!form.nome || !form.email || !form.telefone)) {
                         setErro('Preencha nome, email e WhatsApp.'); return;
+                      }
+                      if (step === 1 && tipoPessoa === 'pf' && !form.cpf) {
+                        setErro('CPF é obrigatório para pessoa física.'); return;
+                      }
+                      if (step === 1 && tipoPessoa === 'pf' && !validarCPF(form.cpf)) {
+                        setErro('CPF inválido. Verifique os dígitos.'); return;
+                      }
+                      if (step === 1 && tipoPessoa === 'pj' && form.cnpj && !validarCNPJ(form.cnpj)) {
+                        setErro('CNPJ inválido. Verifique os dígitos.'); return;
                       }
                       if (step === 2 && !form.categorias.length) {
                         setErro('Selecione ao menos uma categoria.'); return;
