@@ -486,7 +486,18 @@ export function Chat() {
           <div style={{ background: '#fff', borderTop: '1px solid rgba(0,0,0,0.08)' }} className="px-5 py-6 text-center">
             <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin mx-auto mb-3" style={{ borderColor: TEAL, borderTopColor: 'transparent' }} />
             <p className="font-bold text-[#030213]">Aguardando {outroNome}...</p>
-            <p className="text-sm mt-1" style={{ color: '#717182' }}>{outroNome} está redigindo e assinando o contrato. Você poderá assinar em seguida.</p>
+            <p className="text-sm mt-1 mb-4" style={{ color: '#717182' }}>{outroNome} está redigindo e assinando o contrato.</p>
+            <div className="flex gap-2 justify-center flex-wrap">
+              <a href={`/contrato?orc=${chat.orc_id}&papel=${papel}`}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-[10px] font-semibold text-sm text-white"
+                style={{ background: '#030213' }}>
+                <FileText size={14} /> Ir para o contrato
+              </a>
+              <button onClick={abrirFormContrato}
+                className="px-4 py-2 rounded-[10px] font-semibold text-sm border border-[#e2e8f0] text-[#64748b] hover:bg-[#f8fafc]">
+                Preencher valores
+              </button>
+            </div>
           </div>
         ) : chat.status === 'finalizado' || chat.status === 'elaborando_contrato' ? (
           <div style={{ background: '#fff', borderTop: '1px solid rgba(0,0,0,0.08)' }} className="px-5 py-6 text-center">
