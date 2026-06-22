@@ -123,9 +123,28 @@ export function Contrato() {
     setComissao(calcularComissaoValor(v, comissaoTabela));
   }
 
+  function validarNomeCompleto(nome: string) {
+    return nome.trim().split(/\s+/).filter(Boolean).length >= 2;
+  }
+
   async function gerarContrato() {
     if (!form.contNome || !form.prestNome || !form.servico || !form.valor) {
       setErro('Preencha todos os campos obrigatórios.'); return;
+    }
+    if (!validarNomeCompleto(form.contNome)) {
+      setErro('Informe o nome completo do contratante (nome e sobrenome).'); return;
+    }
+    if (!validarNomeCompleto(form.prestNome)) {
+      setErro('Informe o nome completo do prestador (nome e sobrenome).'); return;
+    }
+    if (!form.contCpf || form.contCpf.replace(/\D/g, '').length !== 11) {
+      setErro('CPF do contratante é obrigatório e deve ter 11 dígitos.'); return;
+    }
+    if (!validarCPF(form.contCpf.replace(/\D/g, ''))) {
+      setErro('CPF do contratante é inválido.'); return;
+    }
+    if (parseFloat(form.valor) <= 0) {
+      setErro('Informe um valor válido para o serviço.'); return;
     }
     setLoading(true); setErro('');
     try {
@@ -395,16 +414,17 @@ export function Contrato() {
                 <div>
                   <label className="text-xs font-semibold text-[#94a3b8] uppercase tracking-wider mb-1 block">Nome do Contratante *</label>
                   <input type="text" value={form.contNome} onChange={e => set('contNome', e.target.value)}
-                    readOnly={papel === 'cliente' && !!getContratante()?.nome}
-                    className="w-full border border-[#e2e8f0] rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#030213] read-only:bg-slate-50 read-only:text-[#64748b]" />
+                    readOnly={papel === 'cliente' && validarNomeCompleto(getContratante()?.nome || '')}
+                    placeholder="Nome e sobrenome"
+                    className={`w-full border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#030213] read-only:bg-slate-50 read-only:text-[#64748b] ${!form.contNome || !validarNomeCompleto(form.contNome) ? 'border-amber-300' : 'border-[#e2e8f0]'}`} />
                 </div>
                 <div>
                   <label className="text-xs font-semibold text-[#94a3b8] uppercase tracking-wider mb-1 block">CPF do Contratante</label>
                   <input type="text" value={form.contCpf}
                     onChange={e => set('contCpf', mascaraCPF(e.target.value))}
-                    readOnly={papel === 'cliente' && !!(getContratante() as any)?.cpf}
+                    readOnly={papel === 'cliente' && !!(getContratante() as any)?.cpf && validarCPF(((getContratante() as any)?.cpf || '').replace(/\D/g, ''))}
                     placeholder="000.000.000-00" maxLength={14}
-                    className="w-full border border-[#e2e8f0] rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#030213] read-only:bg-slate-50 read-only:text-[#64748b]" />
+                    className={`w-full border rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#030213] read-only:bg-slate-50 read-only:text-[#64748b] ${!form.contCpf || form.contCpf.replace(/\D/g,'').length !== 11 ? 'border-amber-300' : 'border-[#e2e8f0]'}`} />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -463,6 +483,25 @@ export function Contrato() {
                   <div className="text-xs font-semibold text-[#94a3b8] uppercase tracking-wider mb-1">Comissão da Plataforma</div>
                   <div className="text-2xl font-bold" style={{ color: TEAL }}>{fmtBRL(comissao.valor)}</div>
                   <div className="text-xs text-[#717182]">{comissao.pct} sobre o valor do serviço</div>
+                </div>
+              )}
+              {/* Resumo de revisão antes de gerar */}
+              {!retificando && (
+                <div className="rounded-xl border p-4 space-y-1.5 text-sm"
+                  style={{ background: '#f8fafc', borderColor: '#e2e8f0' }}>
+                  <p className="text-xs font-bold uppercase tracking-wide text-[#64748b] mb-2">Revisão antes de continuar</p>
+                  <div className={`flex items-center gap-2 ${validarNomeCompleto(form.contNome) ? 'text-[#173404]' : 'text-amber-700 font-semibold'}`}>
+                    {validarNomeCompleto(form.contNome) ? '✓' : '⚠️'} Contratante: <span className="font-medium">{form.contNome || '—'}</span>
+                  </div>
+                  <div className={`flex items-center gap-2 ${form.contCpf?.replace(/\D/g,'').length === 11 ? 'text-[#173404]' : 'text-amber-700 font-semibold'}`}>
+                    {form.contCpf?.replace(/\D/g,'').length === 11 ? '✓' : '⚠️'} CPF contratante: <span className="font-medium">{form.contCpf || '—'}</span>
+                  </div>
+                  <div className={`flex items-center gap-2 ${validarNomeCompleto(form.prestNome) ? 'text-[#173404]' : 'text-amber-700 font-semibold'}`}>
+                    {validarNomeCompleto(form.prestNome) ? '✓' : '⚠️'} Prestador: <span className="font-medium">{form.prestNome || '—'}</span>
+                  </div>
+                  <div className={`flex items-center gap-2 ${parseFloat(form.valor) > 0 ? 'text-[#173404]' : 'text-amber-700 font-semibold'}`}>
+                    {parseFloat(form.valor) > 0 ? '✓' : '⚠️'} Valor: <span className="font-medium">{parseFloat(form.valor) > 0 ? `R$ ${parseFloat(form.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '—'}</span>
+                  </div>
                 </div>
               )}
               <div className="flex gap-3">
