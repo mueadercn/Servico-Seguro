@@ -14,6 +14,38 @@ import { supabase, apiCall } from '../../lib/supabase';
 const ADMIN_EMAIL = 'admin@admin.com';
 const ADMIN_SENHA = 'admin123';
 
+function ComissaoTemplateEditor({ onSave }: { onSave: () => void }) {
+  const [template, setTemplate] = useState('');
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    supabase.from('configuracoes').select('valor').eq('chave', 'comissao_mensagem_template').maybeSingle()
+      .then(({ data }) => { if (data?.valor) setTemplate(data.valor); });
+  }, []);
+
+  const salvar = async () => {
+    await supabase.from('configuracoes').upsert({ chave: 'comissao_mensagem_template', valor: template }, { onConflict: 'chave' });
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+    onSave();
+  };
+
+  return (
+    <div>
+      <textarea
+        value={template}
+        onChange={e => setTemplate(e.target.value)}
+        rows={5}
+        placeholder={`Exemplo:\n💰 Olá {NOME}! O contrato {ORC} foi assinado.\nA comissão é de {VALOR}. Pague via PIX: chave@email.com`}
+        className="w-full border border-[#e2e8f0] rounded-[12px] px-3 py-2 text-sm outline-none focus:border-[#030213] font-mono resize-none"
+      />
+      <button onClick={salvar} className="mt-2 bg-[#030213] text-white text-sm font-bold px-4 py-2 rounded-[10px] hover:bg-[#030213]/90 transition-colors">
+        {saved ? '✓ Salvo' : 'Salvar template'}
+      </button>
+    </div>
+  );
+}
+
 const FASES = [
   { id: 'anamnese', label: 'Anamnese', icon: MessageSquare, color: '#7F77DD', bg: '#EEEDFE', text: '#3C3489', statuses: ['NOVO', 'EM ANAMNESE'], alert: false },
   { id: 'chat', label: 'Chat ativo', icon: CheckCircle2, color: '#185FA5', bg: '#E6F1FB', text: '#042C53', statuses: ['ANAMNESE CONCLUÍDA', 'PRESTADOR NOTIFICADO', 'AGUARDANDO PRESTADOR'], alert: false },
@@ -34,6 +66,7 @@ const navItems = [
   { id: 'contratos', label: 'Contratos', icon: FileText },
   { id: 'avaliacoes', label: 'Avaliações', icon: Star },
   { id: 'comissoes', label: 'Comissões', icon: DollarSign },
+  { id: 'comissoes-contratos', label: 'Comissões Contratos', icon: DollarSign },
   { id: 'biometria', label: 'Verificações', icon: Shield },
   { id: 'suporte', label: 'Suporte', icon: MessageSquare },
   { id: 'config', label: 'Configurações', icon: Settings },
@@ -78,6 +111,8 @@ export function Admin() {
   const [formContrato, setFormContrato] = useState({ tipo: '', valor: '', prazo: '', pagamento: '', garantia: '', comissao: '' });
   const [erroContrato, setErroContrato] = useState('');
 
+  const [servicoDetalhe, setServicoDetalhe] = useState<any>(null);
+  const [filtroServicoCidade, setFiltroServicoCidade] = useState('');
   const [chatSelecionado, setChatSelecionado] = useState<any | null>(null);
   const [chatMsgsDetalhe, setChatMsgsDetalhe] = useState<any[]>([]);
   const [chatMsgDetalhando, setChatMsgDetalhando] = useState(false);
@@ -263,7 +298,7 @@ export function Admin() {
         const { data } = await supabase.from('usuarios').select('*').order('criado_em', { ascending: false });
         setDados({ usuarios: data || [] });
       } else if (pagina === 'servicos') {
-        const { data } = await supabase.from('servicos').select('*, prestadores(nome), categorias(nome)').order('criado_em', { ascending: false });
+        const { data } = await supabase.from('servicos').select('*, prestadores(nome, cidade), categorias(nome,icone)').order('criado_em', { ascending: false });
         setDados({ servicos: data || [] });
       } else if (pagina === 'categorias') {
         const { data } = await supabase.from('categorias').select('*').order('nome');
@@ -277,6 +312,9 @@ export function Admin() {
       } else if (pagina === 'comissoes') {
         const { data } = await supabase.from('comissoes').select('*').order('ordem');
         setDados({ comissoes: data || [] });
+      } else if (pagina === 'comissoes-contratos') {
+        const res = await apiCall('/api/admin/comissoes-contratos');
+        setDados({ comissoesContratos: res.comissoes || [] });
       } else if (pagina === 'biometria') {
         const { data } = await supabase.from('prestadores').select('id,nome,telefone,cidade,verificado').order('criado_em', { ascending: false });
         setDados({ biometria: data || [] });
@@ -1371,27 +1409,55 @@ export function Admin() {
                   <Plus className="h-4 w-4" /> Novo Serviço
                 </button>
               </div>
+              <div className="mb-3">
+                <input
+                  type="text"
+                  placeholder="Filtrar por cidade..."
+                  value={filtroServicoCidade}
+                  onChange={e => setFiltroServicoCidade(e.target.value)}
+                  className="w-full max-w-xs border border-[#e2e8f0] rounded-[12px] px-3 py-2 text-sm outline-none focus:border-[#030213]"
+                />
+              </div>
               <div className="bg-white rounded-[14px] border border-[#e2e8f0] overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className={tbl}>
-                    <thead><tr>{['Título', 'Categoria', 'Prestador', 'Online', 'Status'].map(h => <th key={h} className={th}>{h}</th>)}</tr></thead>
+                    <thead><tr>{['Título', 'Categoria', 'Prestador', 'Cidade', 'Status', 'Ações'].map(h => <th key={h} className={th}>{h}</th>)}</tr></thead>
                     <tbody>
-                      {(dados.servicos || []).map((s: any) => (
-                        <tr key={s.id} className="hover:bg-[#f8fafc]">
+                      {(dados.servicos || [])
+                        .filter((s: any) => !filtroServicoCidade || (s.prestadores?.cidade || '').toLowerCase().includes(filtroServicoCidade.toLowerCase()))
+                        .map((s: any) => (
+                        <tr key={s.id} className="hover:bg-[#f8fafc] cursor-pointer" onClick={() => setServicoDetalhe(s)}>
                           <td className={td}><span className="font-semibold text-[#030213]">{s.titulo}</span></td>
-                          <td className={td}>{s.categorias?.nome || '—'}</td>
+                          <td className={td}>{s.categorias?.icone} {s.categorias?.nome || '—'}</td>
                           <td className={td}>{s.prestadores?.nome || '—'}</td>
-                          <td className={td}>
-                            <span className="rounded-full text-[10.5px] font-bold px-2.5 py-0.5"
-                              style={s.aceita_orcamento_online ? { background: '#E6F1FB', color: '#0C447C' } : { background: '#f1f5f9', color: '#64748b' }}>
-                              {s.aceita_orcamento_online ? '✓ Sim' : 'Não'}
-                            </span>
-                          </td>
+                          <td className={td}>{s.prestadores?.cidade || '—'}</td>
                           <td className={td}>
                             <span className="rounded-full text-[10.5px] font-bold px-2.5 py-0.5"
                               style={s.ativo ? { background: '#EAF3DE', color: '#173404' } : { background: '#FCEBEB', color: '#501313' }}>
                               {s.ativo ? 'Ativo' : 'Inativo'}
                             </span>
+                          </td>
+                          <td className={td} onClick={e => e.stopPropagation()}>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={async () => {
+                                  await supabase.from('servicos').update({ ativo: !s.ativo }).eq('id', s.id);
+                                  carregarDados('servicos');
+                                }}
+                                className="text-[11px] font-bold px-2.5 py-1 rounded-[8px] border border-[#e2e8f0] hover:bg-[#f1f5f9] transition-colors"
+                                title={s.ativo ? 'Desativar' : 'Ativar'}>
+                                {s.ativo ? 'Desativar' : 'Ativar'}
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  if (!confirm(`Remover o serviço "${s.titulo}"? Esta ação não pode ser desfeita.`)) return;
+                                  await supabase.from('servicos').delete().eq('id', s.id);
+                                  carregarDados('servicos');
+                                }}
+                                className="text-[11px] font-bold px-2.5 py-1 rounded-[8px] border border-red-200 text-red-600 hover:bg-red-50 transition-colors">
+                                Remover
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -1399,6 +1465,43 @@ export function Admin() {
                   </table>
                 </div>
               </div>
+              {/* Service detail modal */}
+              {servicoDetalhe && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setServicoDetalhe(null)}>
+                  <div className="bg-white rounded-[18px] shadow-xl p-6 max-w-lg w-full mx-4 max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                    <div className="flex items-start justify-between mb-4">
+                      <div>
+                        <h3 className="font-bold text-[#030213] text-lg">{servicoDetalhe.titulo}</h3>
+                        <p className="text-sm text-[#64748b]">{servicoDetalhe.categorias?.icone} {servicoDetalhe.categorias?.nome}</p>
+                      </div>
+                      <button onClick={() => setServicoDetalhe(null)} className="text-[#64748b] hover:text-[#030213] text-xl font-bold">✕</button>
+                    </div>
+                    <div className="space-y-3 text-sm">
+                      <div><span className="font-semibold text-[#030213]">Prestador:</span> <span className="text-[#374151]">{servicoDetalhe.prestadores?.nome || '—'}</span></div>
+                      <div><span className="font-semibold text-[#030213]">Cidade:</span> <span className="text-[#374151]">{servicoDetalhe.prestadores?.cidade || '—'}</span></div>
+                      {servicoDetalhe.descricao && (
+                        <div><span className="font-semibold text-[#030213]">Descrição:</span> <p className="text-[#374151] mt-1 leading-relaxed">{servicoDetalhe.descricao}</p></div>
+                      )}
+                      {servicoDetalhe.preco_base && (
+                        <div><span className="font-semibold text-[#030213]">Preço base:</span> <span className="text-[#374151]">R$ {Number(servicoDetalhe.preco_base).toFixed(2)}</span></div>
+                      )}
+                      {servicoDetalhe.area_atendimento && (
+                        <div><span className="font-semibold text-[#030213]">Área de atendimento:</span> <span className="text-[#374151]">{servicoDetalhe.area_atendimento}</span></div>
+                      )}
+                      <div className="flex gap-3 pt-2">
+                        <span className="rounded-full text-[10.5px] font-bold px-2.5 py-0.5"
+                          style={servicoDetalhe.ativo ? { background: '#EAF3DE', color: '#173404' } : { background: '#FCEBEB', color: '#501313' }}>
+                          {servicoDetalhe.ativo ? 'Ativo' : 'Inativo'}
+                        </span>
+                        <span className="rounded-full text-[10.5px] font-bold px-2.5 py-0.5"
+                          style={servicoDetalhe.aceita_orcamento_online ? { background: '#E6F1FB', color: '#0C447C' } : { background: '#f1f5f9', color: '#64748b' }}>
+                          {servicoDetalhe.aceita_orcamento_online ? 'Online: Sim' : 'Online: Não'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -1627,6 +1730,80 @@ export function Admin() {
                     </tbody>
                   </table>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* COMISSÕES CONTRATOS */}
+          {aba === 'comissoes-contratos' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <h2 className="text-lg font-extrabold text-[#030213]">Comissões de Contratos</h2>
+                  <p className="text-xs text-[#94a3b8]">Contratos assinados — rastreamento de pagamento de comissão</p>
+                </div>
+                <div className="text-sm text-[#64748b] font-semibold">
+                  {(dados.comissoesContratos || []).filter((c: any) => c.status_comissao === 'pendente').length} pendentes
+                </div>
+              </div>
+              <div className="bg-white rounded-[14px] border border-[#e2e8f0] overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className={tbl}>
+                    <thead><tr>{['ORC', 'Prestador', 'Cliente', 'Comissão', 'Assinado em', 'Status', 'Ação'].map(h => <th key={h} className={th}>{h}</th>)}</tr></thead>
+                    <tbody>
+                      {(dados.comissoesContratos || []).map((c: any) => (
+                        <tr key={c.id} className="hover:bg-[#f8fafc]">
+                          <td className={td}><span className="font-mono text-xs">{c.orcs?.codigo || '—'}</span></td>
+                          <td className={td}>{c.orcs?.prestadores?.nome || '—'}</td>
+                          <td className={td}>{c.orcs?.nome_cliente || '—'}</td>
+                          <td className={td}>{c.comissao ? `R$ ${Number(c.comissao).toFixed(2)}` : '—'}</td>
+                          <td className={td}>{c.assinado_em ? new Date(c.assinado_em).toLocaleDateString('pt-BR') : '—'}</td>
+                          <td className={td}>
+                            <span className="rounded-full text-[10.5px] font-bold px-2.5 py-0.5"
+                              style={c.status_comissao === 'pago'
+                                ? { background: '#EAF3DE', color: '#173404' }
+                                : c.status_comissao === 'isento'
+                                ? { background: '#f1f5f9', color: '#64748b' }
+                                : { background: '#FEF3C7', color: '#92400E' }}>
+                              {c.status_comissao === 'pago' ? '✓ Pago' : c.status_comissao === 'isento' ? 'Isento' : '⏳ Pendente'}
+                            </span>
+                          </td>
+                          <td className={td}>
+                            {c.status_comissao === 'pendente' && (
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={async () => {
+                                    await apiCall(`/api/admin/comissoes-contratos/${c.id}`, 'PATCH', { status_comissao: 'pago' });
+                                    carregarDados('comissoes-contratos');
+                                  }}
+                                  className="text-[11px] font-bold px-2.5 py-1 rounded-[8px] bg-[#EAF3DE] text-[#173404] hover:bg-[#d4edba] transition-colors">
+                                  Marcar Pago
+                                </button>
+                                <button
+                                  onClick={async () => {
+                                    await apiCall(`/api/admin/comissoes-contratos/${c.id}`, 'PATCH', { status_comissao: 'isento' });
+                                    carregarDados('comissoes-contratos');
+                                  }}
+                                  className="text-[11px] font-bold px-2.5 py-1 rounded-[8px] border border-[#e2e8f0] text-[#64748b] hover:bg-[#f1f5f9] transition-colors">
+                                  Isento
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                      {!(dados.comissoesContratos || []).length && (
+                        <tr><td colSpan={7} className="text-center py-8 text-[#94a3b8] text-sm">Nenhum contrato assinado ainda</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              {/* Template da mensagem de comissão */}
+              <div className="bg-white rounded-[14px] border border-[#e2e8f0] p-5">
+                <h3 className="font-bold text-[#030213] text-sm mb-1">Mensagem de cobrança de comissão</h3>
+                <p className="text-xs text-[#94a3b8] mb-3">Use {'{NOME}'}, {'{VALOR}'}, {'{ORC}'} como variáveis. Enviada ao prestador no momento da assinatura e nos dias 2, 3 e 7 seguintes.</p>
+                <ComissaoTemplateEditor onSave={() => carregarDados('comissoes-contratos')} />
               </div>
             </div>
           )}

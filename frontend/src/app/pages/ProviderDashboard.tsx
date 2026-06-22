@@ -20,6 +20,7 @@ const navItems = [
   { id: 'chats', label: 'Contratos', icon: FileText },
   { id: 'servicos', label: 'Serviços', icon: Settings },
   { id: 'avaliacoes', label: 'Avaliações', icon: Star },
+  { id: 'financeiro', label: 'Financeiro', icon: DollarSign },
   { id: 'perfil', label: 'Perfil', icon: User },
 ];
 
@@ -903,6 +904,56 @@ export function ProviderDashboard() {
                   ))}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* ── FINANCEIRO ── */}
+          {aba === 'financeiro' && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 mb-2">
+                <div className="bg-white border border-[#e2e8f0] rounded-[16px] p-5">
+                  <p className="text-xs text-[#94a3b8] mb-1">Comissões pendentes</p>
+                  <p className="text-2xl font-extrabold text-amber-600">
+                    R$ {contratos.filter((c: any) => c.status_comissao === 'pendente' && c.assinado_cliente && c.assinado_prestador).reduce((acc: number, c: any) => acc + (Number(c.comissao) || 0), 0).toFixed(2)}
+                  </p>
+                </div>
+                <div className="bg-white border border-[#e2e8f0] rounded-[16px] p-5">
+                  <p className="text-xs text-[#94a3b8] mb-1">Comissões pagas</p>
+                  <p className="text-2xl font-extrabold text-green-600">
+                    R$ {contratos.filter((c: any) => c.status_comissao === 'pago').reduce((acc: number, c: any) => acc + (Number(c.comissao) || 0), 0).toFixed(2)}
+                  </p>
+                </div>
+              </div>
+              <div className="bg-white border border-[#e2e8f0] rounded-[16px] overflow-hidden">
+                <div className="px-5 py-4 border-b border-[#e2e8f0]">
+                  <h3 className="font-bold text-[#030213] text-sm">Histórico de comissões</h3>
+                </div>
+                {!contratos.length ? (
+                  <div className="py-12 text-center text-[#94a3b8] text-sm">Nenhum contrato assinado ainda</div>
+                ) : (
+                  <div className="divide-y divide-[#f1f5f9]">
+                    {contratos.filter((c: any) => c.assinado_cliente && c.assinado_prestador).map((c: any) => (
+                      <div key={c.id} className="px-5 py-4 flex items-center justify-between gap-4">
+                        <div>
+                          <p className="font-semibold text-[#030213] text-sm">{c.orcs?.codigo || c.id.slice(0, 8)}</p>
+                          <p className="text-xs text-[#94a3b8]">{c.orcs?.nome_cliente} · {c.assinado_em ? new Date(c.assinado_em).toLocaleDateString('pt-BR') : new Date(c.criado_em).toLocaleDateString('pt-BR')}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-[#030213] text-sm">{c.comissao ? `R$ ${Number(c.comissao).toFixed(2)}` : '—'}</p>
+                          <span className="rounded-full text-[10px] font-bold px-2 py-0.5"
+                            style={c.status_comissao === 'pago'
+                              ? { background: '#EAF3DE', color: '#173404' }
+                              : c.status_comissao === 'isento'
+                              ? { background: '#f1f5f9', color: '#64748b' }
+                              : { background: '#FEF3C7', color: '#92400E' }}>
+                            {c.status_comissao === 'pago' ? '✓ Pago' : c.status_comissao === 'isento' ? 'Isento' : '⏳ Pendente'}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
