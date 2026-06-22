@@ -77,21 +77,29 @@ export function ProviderDashboard() {
   const [erroPerfil, setErroPerfil] = useState('');
   const [uploadingDoc, setUploadingDoc] = useState<'selfie' | 'documento' | null>(null);
   const [solicitandoVerif, setSolicitandoVerif] = useState(false);
+  const [uploadMsg, setUploadMsg] = useState<{ tipo: 'ok' | 'erro'; texto: string } | null>(null);
+
+  function mostrarMsg(tipo: 'ok' | 'erro', texto: string) {
+    setUploadMsg({ tipo, texto });
+    setTimeout(() => setUploadMsg(null), 4000);
+  }
 
   async function uploadFoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file || !prestador) return;
     setUploadingFoto(true);
     try {
-      const ext = file.name.split('.').pop() || 'jpg';
+      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
       const storagePath = `fotos/${prestador.id}/perfil.${ext}`;
-      const { error: upErr } = await supabase.storage.from('chat-arquivos').upload(storagePath, file, { upsert: true });
-      if (upErr) throw upErr;
+      const { error: upErr } = await supabase.storage.from('chat-arquivos').upload(storagePath, file, { upsert: true, contentType: file.type });
+      if (upErr) { mostrarMsg('erro', `Erro ao enviar foto: ${upErr.message}`); setUploadingFoto(false); e.target.value = ''; return; }
       const { data: urlData } = supabase.storage.from('chat-arquivos').getPublicUrl(storagePath);
       const url = urlData.publicUrl;
-      await supabase.from('prestadores').update({ foto_url: url }).eq('id', prestador.id);
+      const { error: dbErr } = await supabase.from('prestadores').update({ foto_url: url }).eq('id', prestador.id);
+      if (dbErr) { mostrarMsg('erro', `Erro ao salvar URL: ${dbErr.message}`); setUploadingFoto(false); e.target.value = ''; return; }
       setPerfil((p: any) => ({ ...p, foto_url: url }));
-    } catch (err) { console.error('Erro upload foto:', err); }
+      mostrarMsg('ok', 'Foto de perfil atualizada!');
+    } catch (err: any) { mostrarMsg('erro', err.message || 'Erro desconhecido'); }
     setUploadingFoto(false);
     e.target.value = '';
   }
@@ -101,16 +109,18 @@ export function ProviderDashboard() {
     if (!file || !prestador) return;
     setUploadingDoc(tipo);
     try {
-      const ext = file.name.split('.').pop() || 'jpg';
+      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
       const storagePath = `documentos/${prestador.id}/${tipo}.${ext}`;
-      const { error: upErr } = await supabase.storage.from('chat-arquivos').upload(storagePath, file, { upsert: true });
-      if (upErr) throw upErr;
+      const { error: upErr } = await supabase.storage.from('chat-arquivos').upload(storagePath, file, { upsert: true, contentType: file.type });
+      if (upErr) { mostrarMsg('erro', `Erro ao enviar ${tipo}: ${upErr.message}`); setUploadingDoc(null); e.target.value = ''; return; }
       const { data: urlData } = supabase.storage.from('chat-arquivos').getPublicUrl(storagePath);
       const url = urlData.publicUrl;
       const field = tipo === 'selfie' ? 'selfie_url' : 'doc_identidade_url';
-      await supabase.from('prestadores').update({ [field]: url }).eq('id', prestador.id);
+      const { error: dbErr } = await supabase.from('prestadores').update({ [field]: url }).eq('id', prestador.id);
+      if (dbErr) { mostrarMsg('erro', `Erro ao salvar no banco: ${dbErr.message}`); setUploadingDoc(null); e.target.value = ''; return; }
       setPerfil((p: any) => ({ ...p, [field]: url }));
-    } catch (err) { console.error(`Erro upload ${tipo}:`, err); }
+      mostrarMsg('ok', tipo === 'selfie' ? 'Selfie enviada com sucesso!' : 'Documento enviado com sucesso!');
+    } catch (err: any) { mostrarMsg('erro', err.message || 'Erro desconhecido'); }
     setUploadingDoc(null);
     e.target.value = '';
   }
@@ -387,6 +397,16 @@ export function ProviderDashboard() {
             {sidebarContent}
           </aside>
         </>
+      )}
+
+      {/* TOAST UPLOAD */}
+      {uploadMsg && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] px-5 py-3 rounded-[14px] shadow-lg text-sm font-semibold flex items-center gap-2 transition-all"
+          style={uploadMsg.tipo === 'ok'
+            ? { background: '#EAF3DE', color: '#173404', border: '1px solid #b7e08a' }
+            : { background: '#FCEBEB', color: '#501313', border: '1px solid #f5c6c6' }}>
+          {uploadMsg.tipo === 'ok' ? '✓' : '✕'} {uploadMsg.texto}
+        </div>
       )}
 
       {/* MAIN */}
