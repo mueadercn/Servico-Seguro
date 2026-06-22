@@ -194,75 +194,46 @@ export function Busca() {
           </select>
         </div>
 
-        {/* ── HEADER ROW 2 — filter pills ── */}
-        <div className="px-4 py-2 flex gap-2 overflow-x-auto border-t border-[rgba(0,0,0,0.06)] scrollbar-hide">
-          {/* Verified */}
-          <button
-            onClick={() => setSoVerificados(!soVerificados)}
-            className={soVerificados ? pillActiveTeal : pillInactive}
-          >
+        {/* ── HEADER ROW 2 — filtros principais (wrap) ── */}
+        <div className="px-4 pt-2 pb-1 flex flex-wrap gap-2 border-t border-[rgba(0,0,0,0.06)]">
+          <button onClick={() => setSoVerificados(!soVerificados)} className={soVerificados ? pillActiveTeal : pillInactive}>
             🤳 Verificados
           </button>
-
-          {/* Online */}
-          <button
-            onClick={() => setAceitaOnline(!aceitaOnline)}
-            className={aceitaOnline ? pillActiveTeal : pillInactive}
-          >
+          <button onClick={() => setAceitaOnline(!aceitaOnline)} className={aceitaOnline ? pillActiveTeal : pillInactive}>
             ⚡ Orça online
           </button>
-
-          {/* Rating pills */}
           {NOTAS.map(n => (
-            <button
-              key={n}
-              onClick={() => setNotaMin(notaMin === n ? 0 : n)}
-              className={notaMin === n ? pillActiveDark : pillInactive}
-            >
+            <button key={n} onClick={() => setNotaMin(notaMin === n ? 0 : n)} className={notaMin === n ? pillActiveDark : pillInactive}>
               ⭐ {n}+
             </button>
           ))}
-
-          {/* Price type */}
-          <button
-            onClick={() => setModalidade(modalidade === 'fixo' ? '' : 'fixo')}
-            className={modalidade === 'fixo' ? pillActiveDark : pillInactive}
-          >
+          <button onClick={() => setModalidade(modalidade === 'fixo' ? '' : 'fixo')} className={modalidade === 'fixo' ? pillActiveDark : pillInactive}>
             💰 Preço fixo
           </button>
-          <button
-            onClick={() => setModalidade(modalidade === 'orcamento' ? '' : 'orcamento')}
-            className={modalidade === 'orcamento' ? pillActiveDark : pillInactive}
-          >
+          <button onClick={() => setModalidade(modalidade === 'orcamento' ? '' : 'orcamento')} className={modalidade === 'orcamento' ? pillActiveDark : pillInactive}>
             📋 Sob orçamento
           </button>
-
-          {/* Divider */}
-          {categorias.length > 0 && (
-            <div className="w-px h-5 bg-[rgba(0,0,0,0.1)] self-center mx-1 flex-shrink-0" />
-          )}
-
-          {/* Category pills */}
-          {categorias.map((c: any) => (
-            <button
-              key={c.id}
-              onClick={() => setCatAtiva(catAtiva === c.nome ? '' : c.nome)}
-              className={catAtiva === c.nome ? pillActiveDark : pillInactive}
-            >
-              <span className="mr-1">{c.icone}</span>{c.nome}
-            </button>
-          ))}
-
-          {/* Clear */}
           {filtrosCount > 0 && (
-            <button
-              onClick={limparFiltros}
-              className="flex items-center gap-1 text-[12.5px] font-semibold text-red-500 hover:text-red-700 flex-shrink-0 px-2"
-            >
+            <button onClick={limparFiltros} className="flex items-center gap-1 text-[12.5px] font-semibold text-red-500 hover:text-red-700 px-2">
               <X className="h-3 w-3" /> Limpar
             </button>
           )}
         </div>
+
+        {/* ── HEADER ROW 3 — categorias (scroll horizontal só se necessário) ── */}
+        {categorias.length > 0 && (
+          <div className="px-4 py-2 flex gap-2 overflow-x-auto border-t border-[rgba(0,0,0,0.04)] scrollbar-hide">
+            {categorias.map((c: any) => (
+              <button
+                key={c.id}
+                onClick={() => setCatAtiva(catAtiva === c.nome ? '' : c.nome)}
+                className={catAtiva === c.nome ? pillActiveDark : pillInactive}
+              >
+                <span className="mr-1">{c.icone}</span>{c.nome}
+              </button>
+            ))}
+          </div>
+        )}
       </header>
 
       {/* ── RESULTS ── */}
