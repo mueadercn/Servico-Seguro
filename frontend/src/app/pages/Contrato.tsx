@@ -250,6 +250,7 @@ export function Contrato() {
 
       setEvidencias({ ip, geo, ua, telefone, timestamp: new Date().toISOString() });
       setContratoData((prev: any) => prev ? { ...prev, ...result.contrato } : result.contrato);
+      setJaSigned(true);
       setConcluido(true);
     } catch (e: any) { setErro(e.message); }
     setLoading(false);

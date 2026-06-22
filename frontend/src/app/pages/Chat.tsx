@@ -193,7 +193,10 @@ export function Chat() {
       const saved = await apiCall(`/api/chat/${token}/mensagens`, {
         method: 'POST', body: { remetente: papel, tipo: 'texto', conteudo: txt },
       });
-      setMensagens(prev => prev.map(m => m.id === tempId ? { ...saved } : m));
+      setMensagens(prev => {
+        const semDup = prev.filter(m => m.id !== saved.id);
+        return semDup.map(m => m.id === tempId ? { ...saved } : m);
+      });
       ultimaMsgRef.current = saved.id;
     } catch {
       setInput(txt);
@@ -289,7 +292,7 @@ export function Chat() {
           prazo: formulario.prazo || 'A combinar',
           garantia: formulario.garantia || '90 dias',
           pagamento: formulario.pagamento || 'A combinar',
-          tipo: 'contrato_padrao',
+          tipo: 'servico_seguro',
         },
       });
       setChat(prev => prev ? { ...prev, status: 'contrato_gerado' } : prev);

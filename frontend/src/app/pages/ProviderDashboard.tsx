@@ -16,6 +16,7 @@ const PRIMARY = '#030213';
 const navItems = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'leads', label: 'Meus ORCs', icon: ClipboardList },
+  { id: 'conversas', label: 'Conversas', icon: MessageSquare },
   { id: 'chats', label: 'Contratos', icon: FileText },
   { id: 'servicos', label: 'Serviços', icon: Settings },
   { id: 'avaliacoes', label: 'Avaliações', icon: Star },
@@ -587,6 +588,45 @@ export function ProviderDashboard() {
                   </div>
                 ))
               )}
+            </div>
+          )}
+
+          {/* ── CONVERSAS ── */}
+          {aba === 'conversas' && (
+            <div className="space-y-3">
+              {!chats.length ? (
+                <div className="bg-white border border-[#e2e8f0] rounded-[16px] py-16 text-center text-[#64748b]">
+                  <MessageSquare className="h-10 w-10 mx-auto mb-3 opacity-25" />
+                  <p className="text-sm">Nenhuma conversa ainda.</p>
+                </div>
+              ) : chats.map((c: any) => {
+                const ativo = !c.finalizado_cliente || !c.finalizado_prestador;
+                return (
+                  <div key={c.id} className="bg-white border border-[#e2e8f0] rounded-[16px] p-5 flex items-center gap-4 hover:shadow-sm transition-shadow">
+                    <div className="w-10 h-10 rounded-[12px] flex items-center justify-center flex-shrink-0 text-base"
+                      style={{ background: ativo ? 'oklch(0.95 0.03 184)' : '#f1f5f9' }}>
+                      {ativo ? '💬' : '✓'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className="font-mono font-bold text-sm text-[#030213]">{c.orcs?.codigo || '—'}</span>
+                        <span className="rounded-full text-[10.5px] font-bold px-2 py-0.5"
+                          style={ativo
+                            ? { background: 'oklch(0.95 0.03 184)', color: 'oklch(0.45 0.1 184)' }
+                            : { background: '#f1f5f9', color: '#64748b' }}>
+                          {ativo ? 'Ativo' : 'Encerrado'}
+                        </span>
+                      </div>
+                      <p className="text-sm text-[#64748b] truncate">{c.orcs?.nome_cliente || 'Cliente'}</p>
+                      <p className="text-xs text-[#94a3b8] mt-0.5">{c.criado_em ? new Date(c.criado_em).toLocaleDateString('pt-BR') : ''}</p>
+                    </div>
+                    <Link to={`/chat/${c.link_token}?papel=prestador`}
+                      className="text-xs font-bold px-3 py-1.5 rounded-[8px] border border-[#e2e8f0] text-[#030213] hover:bg-[#f8fafc] transition-colors flex-shrink-0">
+                      Abrir chat
+                    </Link>
+                  </div>
+                );
+              })}
             </div>
           )}
 
