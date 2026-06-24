@@ -223,52 +223,16 @@ export function ProviderDashboard() {
     if (!modalAvalCliente || !prestador) return;
     setEnviandoAvalCliente(true);
     try {
-      // Buscar usuario_id do ORC
-      const { data: orc } = await supabase.from('orcs').select('usuario_id, nome_cliente, telefone_cliente').eq('id', modalAvalCliente.orc_id).single();
-      let usuarioId = orc?.usuario_id;
-
-      // Fallback: buscar usuário pelo telefone do ORC (ORCs antigos sem usuario_id)
-      if (!usuarioId && orc?.telefone_cliente) {
-        const tel = orc.telefone_cliente.replace(/\D/g, '');
-        // Usa os últimos 8 dígitos — parte mais única do número, independente do formato
-        const sufixo = tel.slice(-8);
-        if (sufixo.length === 8) {
-          const { data: usuariosPorTel } = await supabase
-            .from('usuarios')
-            .select('id')
-            .ilike('telefone', `%${sufixo}`)
-            .limit(1);
-          usuarioId = usuariosPorTel?.[0]?.id || null;
-        }
-      }
-
-      // Fallback 2: buscar pelo nome do cliente (último recurso)
-      if (!usuarioId && orc?.nome_cliente) {
-        const { data: usuariosPorNome } = await supabase
-          .from('usuarios')
-          .select('id')
-          .ilike('nome', `%${orc.nome_cliente.trim()}%`)
-          .limit(1);
-        usuarioId = usuariosPorNome?.[0]?.id || null;
-      }
-
-      if (!usuarioId) {
-        alert('Este cliente ainda não tem cadastro na plataforma e não pode ser avaliado.');
-        setModalAvalCliente(null);
-        setEnviandoAvalCliente(false);
-        return;
-      }
       const API_URL = import.meta.env.VITE_API_URL || 'https://servi-o-seguro-production.up.railway.app';
       const res = await fetch(`${API_URL}/api/admin/avaliacoes/publica`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           orc_id: modalAvalCliente.orc_id,
-          avaliado_id: usuarioId,
           avaliado_tipo: 'usuario',
+          avaliador_tipo: 'prestador',
           nota: formAvalCliente.nota,
           comentario: formAvalCliente.comentario,
-          avaliador_nome: prestador.nome || 'Prestador',
         }),
       });
       const json = await res.json();

@@ -413,10 +413,26 @@ router.delete('/orcs/:id', async (req, res) => {
 // POST /api/admin/avaliacoes/publica — avaliação pós-contrato (cliente ou prestador)
 router.post('/avaliacoes/publica', async (req, res) => {
   try {
-    const { orc_id, avaliado_id, avaliado_tipo, nota, comentario, avaliador_nome, avaliador_tipo } = req.body;
-    if (!orc_id || !avaliado_id || !avaliado_tipo || !nota) {
-      return res.status(400).json({ ok: false, error: 'Campos obrigatórios: orc_id, avaliado_id, avaliado_tipo, nota' });
+    const { orc_id, avaliado_id, avaliado_tipo, nota, comentario, avaliador_tipo } = req.body;
+    if (!orc_id || !avaliado_tipo || !nota) {
+      return res.status(400).json({ ok: false, error: 'Campos obrigatórios: orc_id, avaliado_tipo, nota' });
     }
+
+    // Para avaliação de usuário, se não veio avaliado_id, busca no ORC
+    let avaliado_id_final = avaliado_id || null;
+    if (!avaliado_id_final && avaliado_tipo === 'usuario') {
+      const { data: orc } = await supabase.from('orcs').select('usuario_id, telefone_cliente').eq('id', orc_id).single();
+      avaliado_id_final = orc?.usuario_id || null;
+      // Fallback por telefone
+      if (!avaliado_id_final && orc?.telefone_cliente) {
+        const sufixo = orc.telefone_cliente.replace(/\D/g, '').slice(-8);
+        if (sufixo) {
+          const { data: us } = await supabase.from('usuarios').select('id').ilike('telefone', `%${sufixo}`).limit(1);
+          avaliado_id_final = us?.[0]?.id || null;
+        }
+      }
+    }
+
     // Checar se já existe avaliação desse tipo para esse ORC
     const { data: existe } = await supabase.from('avaliacoes')
       .select('id').eq('orc_id', orc_id).eq('avaliado_tipo', avaliado_tipo).maybeSingle();
@@ -425,7 +441,7 @@ router.post('/avaliacoes/publica', async (req, res) => {
     // avaliador deve ser 'cliente' ou 'prestador' (constraint no banco)
     const avaliador = avaliador_tipo || (avaliado_tipo === 'prestador' ? 'cliente' : 'prestador');
     const { data, error } = await supabase.from('avaliacoes')
-      .insert({ orc_id, avaliado_id, avaliado_tipo, nota, comentario, avaliador })
+      .insert({ orc_id, avaliado_id: avaliado_id_final, avaliado_tipo, nota, comentario, avaliador })
       .select().single();
     if (error) throw error;
 
