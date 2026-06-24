@@ -130,16 +130,23 @@ router.post('/:id/assinar', async (req, res) => {
         .eq('id', data.orc_id).single();
 
       if (orc) {
-        const msgConcluido = `✅ Contrato assinado por ambas as partes!\n\n` +
-          `📋 Código: ${orc.codigo}\n` +
-          `🛡️ Tipo: ${data.tipo === 'carta_aceite' ? 'Carta Aceite' : 'Contrato Seguro'}\n\n` +
-          `Bom serviço! _Serviço Seguro_ 🛡️`;
-
-        if (orc.telefone_cliente) await enviarMensagem(orc.telefone_cliente, msgConcluido);
-        if (orc.prestadores?.telefone) await enviarMensagem(orc.prestadores.telefone, msgConcluido);
+        const { data: cfgContratoAssinado } = await supabase
+          .from('configuracoes').select('valor').eq('chave', 'followup_contrato_assinado_ativo').maybeSingle();
+        if (cfgContratoAssinado?.valor !== 'false') {
+          const msgConcluido = `✅ Contrato assinado por ambas as partes!\n\n` +
+            `📋 Código: ${orc.codigo}\n` +
+            `🛡️ Tipo: ${data.tipo === 'carta_aceite' ? 'Carta Aceite' : 'Contrato Seguro'}\n\n` +
+            `Bom serviço! _Serviço Seguro_ 🛡️`;
+          if (orc.telefone_cliente) await enviarMensagem(orc.telefone_cliente, msgConcluido);
+          if (orc.prestadores?.telefone) await enviarMensagem(orc.prestadores.telefone, msgConcluido);
+        }
 
         // T+0: lembrete de comissão imediato ao prestador
         try {
+          const { data: cfgComissaoAtivo } = await supabase
+            .from('configuracoes').select('valor').eq('chave', 'followup_comissao_ativo').maybeSingle();
+          if (cfgComissaoAtivo?.valor === 'false') throw new Error('comissão desativada');
+
           const { data: cfgTemplate } = await supabase
             .from('configuracoes').select('valor').eq('chave', 'comissao_mensagem_template').maybeSingle();
           const templateComissao = cfgTemplate?.valor || null;

@@ -5,7 +5,7 @@ import {
   DollarSign, Settings, Shield, FileText, LogOut, ArrowLeft,
   MessageSquare, Sparkles, Clock, AlertTriangle, ChevronRight,
   UserPlus, CheckCircle2, Phone, Calendar, Trophy, X, Plus,
-  RefreshCw, Menu
+  RefreshCw, Menu, Bell
 } from 'lucide-react';
 import { Logo } from '../components/Logo';
 import { AdminPrompts } from './AdminPrompts';
@@ -102,11 +102,80 @@ const navItems = [
   { id: 'biometria', label: 'Verificações', icon: Shield },
   { id: 'suporte', label: 'Suporte', icon: MessageSquare },
   { id: 'config', label: 'Configurações', icon: Settings },
+  { id: 'follow_up', label: 'Follow Up', icon: Bell },
 ];
 
 type ViewMode = 'kanban' | 'list' | 'chat';
 type Fase = typeof FASES[0];
 type ORC = any;
+
+function FollowUpPanel() {
+  const [items, setItems] = useState<any[]>([]);
+  const [salvando, setSalvando] = useState<string | null>(null);
+
+  useEffect(() => {
+    apiCall('/api/admin/followup').then(r => { if (r.ok) setItems(r.items); });
+  }, []);
+
+  async function toggle(chave: string, valorAtual: string) {
+    const novoValor = valorAtual === 'true' ? 'false' : 'true';
+    setSalvando(chave);
+    try {
+      await apiCall('/api/admin/followup', { method: 'POST', body: { chave, valor: novoValor } });
+      setItems(prev => prev.map(i => i.chave === chave ? { ...i, valor: novoValor } : i));
+    } catch (e) { /* ignore */ }
+    setSalvando(null);
+  }
+
+  const destinatarioCor: Record<string, string> = {
+    'Prestador': '#e0f2fe',
+    'Cliente + Prestador': '#f0fdf4',
+    'Cliente ou Prestador': '#f0fdf4',
+    'Admin + partes': '#fef3c7',
+  };
+  const destinatarioText: Record<string, string> = {
+    'Prestador': '#0369a1',
+    'Cliente + Prestador': '#166534',
+    'Cliente ou Prestador': '#166534',
+    'Admin + partes': '#92400e',
+  };
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-xl font-extrabold text-[#030213]">Follow Up — Mensagens Ativas</h2>
+        <p className="text-sm text-[#717182] mt-1">Controle quais mensagens automáticas via WhatsApp estão ativas. Ative apenas o necessário para evitar riscos de bloqueio.</p>
+      </div>
+      {items.length === 0 && <div className="text-sm text-[#717182]">Carregando…</div>}
+      {items.map(item => {
+        const ativo = item.valor === 'true';
+        const loading = salvando === item.chave;
+        return (
+          <div key={item.chave} className="bg-white rounded-[16px] border border-[rgba(0,0,0,0.08)] p-5 flex items-start gap-4">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                <span className="font-bold text-[#030213] text-sm">{item.label}</span>
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-full"
+                  style={{ background: destinatarioCor[item.destinatario] || '#f1f5f9', color: destinatarioText[item.destinatario] || '#475569' }}>
+                  {item.destinatario}
+                </span>
+              </div>
+              <p className="text-xs text-[#717182] leading-relaxed">{item.descricao}</p>
+            </div>
+            <button
+              onClick={() => toggle(item.chave, item.valor)}
+              disabled={loading}
+              className="flex-shrink-0 w-12 h-6 rounded-full transition-colors relative"
+              style={{ background: ativo ? '#16a34a' : '#e2e8f0', opacity: loading ? 0.6 : 1 }}>
+              <span className="absolute top-0.5 transition-all w-5 h-5 rounded-full bg-white shadow"
+                style={{ left: ativo ? '26px' : '2px' }} />
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 export function Admin() {
   const [logado, setLogado] = useState(false);
@@ -1950,6 +2019,8 @@ export function Admin() {
               <AdminPrompts />
             </div>
           )}
+
+          {aba === 'follow_up' && <FollowUpPanel />}
 
         </div>
       </div>

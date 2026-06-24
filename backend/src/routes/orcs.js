@@ -1,4 +1,5 @@
 const express = require('express');
+const crypto = require('crypto');
 const router = express.Router();
 const supabase = require('../services/supabase');
 const { enviarMensagem, templates } = require('../services/whatsapp');
@@ -10,10 +11,21 @@ router.post('/', async (req, res) => {
   try {
     const {
       servico_id, nome_cliente, telefone_cliente,
-      canal = 'site', cat_nome, servico_nome
+      canal = 'site', cat_nome, servico_nome,
+      prestador_id, status
     } = req.body;
 
     const codigo = gerarCodigo();
+
+    const statusValidos = [
+      'NOVO', 'EM ANAMNESE', 'ANAMNESE CONCLUÍDA', 'PRESTADOR NOTIFICADO',
+      'AGUARDANDO PRESTADOR', 'VISITA AGENDADA', 'ORÇAMENTO ONLINE',
+      'VISITA REALIZADA', 'AGUARDANDO DECISÃO', 'FECHADO',
+      'CONTRATO GERADO', 'AGUARDANDO ASSINATURA', 'CONTRATO ASSINADO',
+      'SERVIÇO CONCLUÍDO', 'AVALIAÇÃO PENDENTE', 'ENCERRADO',
+      'DIVERGÊNCIA DE VALOR', 'SEM RESPOSTA CLIENTE',
+      'SEM RESPOSTA PRESTADOR', 'NÃO FECHOU', 'CANCELADO'
+    ];
 
     const { data, error } = await supabase
       .from('orcs')
@@ -23,7 +35,8 @@ router.post('/', async (req, res) => {
         nome_cliente,
         telefone_cliente,
         canal,
-        status: 'NOVO'
+        status: (status && statusValidos.includes(status)) ? status : 'NOVO',
+        prestador_id: prestador_id || null,
       })
       .select()
       .single();
@@ -123,6 +136,59 @@ router.patch('/:id/status', async (req, res) => {
     });
 
     res.json({ ok: true, orc: data });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ── INICIAR CHAT APÓS ANAMNESE WEB ───────────────────────────
+// POST /api/orcs/:id/iniciar-chat
+router.post('/:id/iniciar-chat', async (req, res) => {
+  try {
+    const { resumo } = req.body;
+    const orcId = req.params.id;
+
+    // 1. Atualiza ORC
+    await supabase.from('orcs')
+      .update({ resumo_anamnese: resumo, status: 'ANAMNESE CONCLUÍDA', atualizado_em: new Date().toISOString() })
+      .eq('id', orcId);
+
+    // 2. Cria chat_negociacao
+    const link_token = crypto.randomBytes(16).toString('hex');
+    await supabase.from('chat_negociacao').insert({
+      orc_id: orcId,
+      link_token,
+      status: 'ativo',
+    });
+
+    // 3. Busca ORC + prestador para notificar
+    const { data: orc } = await supabase
+      .from('orcs')
+      .select('*, prestadores(id, nome, telefone)')
+      .eq('id', orcId)
+      .single();
+
+    // 4. Guard: checar se envio de novo lead está ativo
+    const { data: cfgLead } = await supabase
+      .from('configuracoes').select('valor').eq('chave', 'followup_novo_lead_ativo').maybeSingle();
+    const leadAtivo = cfgLead?.valor !== 'false';
+
+    if (leadAtivo && orc?.prestadores?.telefone) {
+      const linkPrestador = `${process.env.FRONTEND_URL}/chat/${link_token}?papel=prestador`;
+      const msg = templates.novoLead(
+        orc.prestadores.nome,
+        orc.codigo,
+        resumo,
+        null
+      ) + `\n\n🔗 Acesse o chat: ${linkPrestador}`;
+      await enviarMensagem(orc.prestadores.telefone, msg);
+
+      await supabase.from('orcs')
+        .update({ status: 'PRESTADOR NOTIFICADO', atualizado_em: new Date().toISOString() })
+        .eq('id', orcId);
+    }
+
+    res.json({ ok: true, link_token });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
   }

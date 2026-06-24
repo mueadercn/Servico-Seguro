@@ -464,4 +464,48 @@ router.post('/avaliacoes/publica', async (req, res) => {
   }
 });
 
+// ── FOLLOW UP — listar e controlar mensagens ativas ──────────
+const FOLLOWUP_META = [
+  { chave: 'followup_novo_lead_ativo', label: 'Notificação de novo lead ao prestador', descricao: 'Mensagem enviada ao prestador quando um cliente inicia a anamnese e ela é concluída.', destinatario: 'Prestador', default: 'true' },
+  { chave: 'followup_pos_visita_ativo', label: 'Follow-up pós-visita', descricao: 'Mensagem enviada automaticamente 1 dia após uma visita agendada, para confirmar como foi.', destinatario: 'Cliente + Prestador', default: 'true' },
+  { chave: 'followup_chat_sem_resposta_ativo', label: 'Lembrete de chat sem resposta', descricao: 'Lembrete enviado quando o chat de negociação fica sem resposta por várias horas.', destinatario: 'Cliente ou Prestador', default: 'true' },
+  { chave: 'followup_contrato_pendente_ativo', label: 'Lembrete de contrato pendente', descricao: 'Alerta de assinatura pendente e aviso ao admin quando contrato não é gerado após negociação.', destinatario: 'Admin + partes', default: 'true' },
+  { chave: 'followup_contrato_assinado_ativo', label: 'Confirmação de contrato assinado', descricao: 'Mensagem enviada às duas partes quando o contrato é assinado por ambas.', destinatario: 'Cliente + Prestador', default: 'false' },
+  { chave: 'followup_comissao_ativo', label: 'Cobrança de comissão', descricao: 'Lembretes de pagamento de comissão enviados ao prestador nos dias T+0, T+2, T+3 e T+7 após assinatura.', destinatario: 'Prestador', default: 'false' },
+];
+
+router.get('/followup', async (req, res) => {
+  try {
+    const { data: cfgs } = await supabase.from('configuracoes')
+      .select('chave, valor')
+      .in('chave', FOLLOWUP_META.map(m => m.chave));
+
+    const valorMap = Object.fromEntries((cfgs || []).map(c => [c.chave, c.valor]));
+
+    const resultado = FOLLOWUP_META.map(m => ({
+      ...m,
+      valor: valorMap[m.chave] ?? m.default,
+    }));
+
+    res.json({ ok: true, items: resultado });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+router.post('/followup', async (req, res) => {
+  try {
+    const { chave, valor } = req.body;
+    if (!chave || valor === undefined) return res.status(400).json({ ok: false, error: 'chave e valor obrigatórios' });
+
+    const { error } = await supabase.from('configuracoes')
+      .upsert({ chave, valor: String(valor) }, { onConflict: 'chave' });
+    if (error) throw error;
+
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 module.exports = router;

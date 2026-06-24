@@ -564,12 +564,12 @@ export function Home() {
           className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
           style={{ background: 'rgba(3,2,19,0.55)' }}
           onClick={e => { if (e.target === e.currentTarget) setServicoSelecionado(null); }}>
-          <div className="bg-white w-full max-w-lg max-h-[90vh] overflow-y-auto"
-            style={{ borderRadius: 20, boxShadow: '0 24px 60px -24px rgba(3,2,19,0.45)' }}>
+          <div className="bg-white w-full max-w-lg flex flex-col"
+            style={{ borderRadius: 20, maxHeight: '90vh', boxShadow: '0 24px 60px -24px rgba(3,2,19,0.45)' }}>
 
-            {/* Modal header */}
-            <div className="sticky top-0 bg-white px-5 py-4 flex items-center justify-between border-b"
-              style={{ borderColor: 'rgba(0,0,0,0.07)' }}>
+            {/* Modal header — sticky */}
+            <div className="sticky top-0 bg-white px-5 py-4 flex items-center justify-between border-b flex-shrink-0"
+              style={{ borderColor: 'rgba(0,0,0,0.07)', borderRadius: '20px 20px 0 0' }}>
               <div>
                 <div className="flex items-center gap-1.5 mb-0.5">
                   <span className="text-base">{servicoSelecionado.categorias?.icone || '🔧'}</span>
@@ -589,7 +589,8 @@ export function Home() {
               </button>
             </div>
 
-            <div className="p-5 space-y-4">
+            {/* Scrollable content */}
+            <div className="overflow-y-auto flex-1 p-5 space-y-4">
               {servicoSelecionado.prestadores?.aceita_orcamento_online && (
                 <div className="rounded-[12px] px-4 py-3 text-sm"
                   style={{ background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1d4ed8' }}>
@@ -653,39 +654,39 @@ export function Home() {
                   </div>
                 </div>
               </div>
+            </div>
 
-              {/* Action buttons */}
-              <div className="grid grid-cols-2 gap-3">
-                <a
-                  href={`https://wa.me/${WHATSAPP_NUMERO}?text=${encodeURIComponent(
-                    '#SERVICO:' + servicoSelecionado.id +
-                    '|#PRESTADOR:' + (servicoSelecionado.prestadores?.id || '') +
-                    '|#CAT:' + (servicoSelecionado.categorias?.nome || '') +
-                    '\n\nOlá! 👋 Vim pelo site do *Serviço Seguro* e tenho interesse em:\n\n🔧 ' + servicoSelecionado.titulo +
-                    '\n📂 Categoria: ' + (servicoSelecionado.categorias?.nome || '') +
-                    '\n\nPode me ajudar com um orçamento?'
-                  )}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex flex-col items-center gap-1.5 py-4 rounded-[12px] font-bold text-white text-center transition-opacity hover:opacity-90"
-                  style={{ background: '#030213' }}>
-                  <span className="text-xl">📱</span>
-                  <span className="text-sm">Via WhatsApp</span>
-                  <span className="text-xs" style={{ opacity: 0.7 }}>Atendimento imediato</span>
-                </a>
+            {/* Action buttons — sticky at bottom, always visible */}
+            <div className="flex-shrink-0 p-4 border-t grid grid-cols-2 gap-3"
+              style={{ borderColor: 'rgba(0,0,0,0.07)', borderRadius: '0 0 20px 20px', background: '#fff' }}>
+              <a
+                href={`https://wa.me/${WHATSAPP_NUMERO}?text=${encodeURIComponent(
+                  '#SERVICO:' + servicoSelecionado.id +
+                  '|#PRESTADOR:' + (servicoSelecionado.prestadores?.id || '') +
+                  '|#CAT:' + (servicoSelecionado.categorias?.nome || '') +
+                  '\n\nOlá! 👋 Vim pelo site do *Serviço Seguro* e tenho interesse em:\n\n🔧 ' + servicoSelecionado.titulo +
+                  '\n📂 Categoria: ' + (servicoSelecionado.categorias?.nome || '') +
+                  '\n\nPode me ajudar com um orçamento?'
+                )}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex flex-col items-center gap-1.5 py-4 rounded-[12px] font-bold text-white text-center transition-opacity hover:opacity-90"
+                style={{ background: '#030213' }}>
+                <span className="text-xl">📱</span>
+                <span className="text-sm">Via WhatsApp</span>
+                <span className="text-xs" style={{ opacity: 0.7 }}>Atendimento imediato</span>
+              </a>
 
-                <a
-                  href={`/orcamento?servico=${servicoSelecionado.id}&nome=${encodeURIComponent(servicoSelecionado.titulo)}&cat=${encodeURIComponent(servicoSelecionado.categorias?.nome || '')}`}
-                  className="flex flex-col items-center gap-1.5 py-4 rounded-[12px] font-bold text-center transition-colors"
-                  style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.1)', color: '#030213' }}
-                  onMouseEnter={e => (e.currentTarget.style.borderColor = '#030213')}
-                  onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(0,0,0,0.1)')}>
-                  <span className="text-xl">💬</span>
-                  <span className="text-sm">Via Chat</span>
-                  <span className="text-xs" style={{ color: '#94a3b8' }}>IA coleta os detalhes</span>
-                </a>
-              </div>
-
+              <a
+                href={`/orcamento?servico=${servicoSelecionado.id}&nome=${encodeURIComponent(servicoSelecionado.titulo)}&cat=${encodeURIComponent(servicoSelecionado.categorias?.nome || '')}&prestador=${servicoSelecionado.prestadores?.id || ''}`}
+                className="flex flex-col items-center gap-1.5 py-4 rounded-[12px] font-bold text-center transition-colors"
+                style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.1)', color: '#030213' }}
+                onMouseEnter={e => (e.currentTarget.style.borderColor = '#030213')}
+                onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(0,0,0,0.1)')}>
+                <span className="text-xl">💬</span>
+                <span className="text-sm">Via Chat</span>
+                <span className="text-xs" style={{ color: '#94a3b8' }}>IA coleta os detalhes</span>
+              </a>
             </div>
           </div>
         </div>

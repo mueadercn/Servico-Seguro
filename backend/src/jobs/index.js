@@ -15,6 +15,22 @@ const CONFIG_DEFAULTS = {
   followup_assinatura_horas: 24,            // tempo até lembrar de assinatura pendente
 };
 
+async function getConfigBool(chave, defaultValue = true) {
+  try {
+    const { data } = await supabase
+      .from('configuracoes')
+      .select('valor')
+      .eq('chave', chave)
+      .maybeSingle();
+    if (data?.valor !== undefined && data?.valor !== null) {
+      return data.valor !== 'false';
+    }
+  } catch (err) {
+    console.error(`[Config] Erro lendo ${chave}:`, err.message);
+  }
+  return defaultValue;
+}
+
 async function getConfig(chave) {
   try {
     const { data } = await supabase
@@ -56,6 +72,7 @@ function iniciarJobs() {
 
 // ── JOB 1: FOLLOW-UP PÓS-VISITA (sem alteração) ──────────────
 async function followUpPosVisita() {
+  if (!await getConfigBool('followup_pos_visita_ativo')) return;
   console.log('[Job] Rodando follow-up pós-visita...');
   try {
     const ontem = new Date();
@@ -95,6 +112,7 @@ async function followUpPosVisita() {
 //  b) Alguém mandou mensagem e a outra parte não respondeu
 // Máximo 1 lembrete por chat a cada `followup_chat_intervalo_lembrete_horas`.
 async function followUpChats() {
+  if (!await getConfigBool('followup_chat_sem_resposta_ativo')) return;
   console.log('[Job] Follow-up de chats...');
   try {
     const agora = new Date();
@@ -185,6 +203,7 @@ async function followUpChats() {
 //  a) Negociação finalizada no chat, mas contrato ainda não gerado → alerta o admin
 //  b) Contrato gerado, falta assinatura de cliente e/ou prestador → lembra quem falta
 async function followUpContratos() {
+  if (!await getConfigBool('followup_contrato_pendente_ativo')) return;
   console.log('[Job] Follow-up de contratos...');
   try {
     const agora = new Date();
@@ -263,6 +282,7 @@ async function followUpContratos() {
 // T+0 (na assinatura, via contratos.js), T+2 dias, T+3 dias, T+7 dias
 // Para quando status_comissao = 'pago' ou 'isento'
 async function followUpComissoes() {
+  if (!await getConfigBool('followup_comissao_ativo', false)) return;
   console.log('[Job] Follow-up de comissões...');
   try {
     const agora = new Date();

@@ -135,7 +135,7 @@ export function Busca() {
   const filtrosCount = [soVerificados, notaMin > 0, aceitaOnline, !!modalidade, !!catAtiva].filter(Boolean).length;
 
   // pill base classes
-  const pillBase = 'rounded-full px-3.5 py-1.5 text-[12.5px] font-semibold border whitespace-nowrap cursor-pointer transition-all flex-shrink-0';
+  const pillBase = 'rounded-full px-3.5 py-1.5 text-[12.5px] font-semibold border cursor-pointer transition-all';
   const pillInactive = `${pillBase} border-[rgba(0,0,0,0.12)] bg-white text-[#45454f]`;
   const pillActiveDark = `${pillBase} bg-[#030213] text-white border-[#030213]`;
   const pillActiveTeal = `${pillBase} bg-[oklch(0.95_0.03_184)] border-[#030213] text-[#030213]`;
@@ -220,7 +220,7 @@ export function Busca() {
 
         {/* ── HEADER ROW 3 — categorias (scroll horizontal só se necessário) ── */}
         {categorias.length > 0 && (
-          <div className="px-4 py-2 flex gap-2 overflow-x-auto border-t border-[rgba(0,0,0,0.04)] scrollbar-hide">
+          <div className="px-4 py-2 flex flex-wrap gap-2 border-t border-[rgba(0,0,0,0.04)]">
             {categorias.map((c: any) => (
               <button
                 key={c.id}
