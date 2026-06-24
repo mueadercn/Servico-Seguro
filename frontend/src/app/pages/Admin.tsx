@@ -231,13 +231,14 @@ export function Admin() {
 
   async function deletarOrc(orcId: string, e: React.MouseEvent) {
     e.stopPropagation();
-    if (!confirm('Remover este ORC? Esta ação não pode ser desfeita.')) return;
+    if (!confirm('Remover este ORC e todos os dados relacionados? Esta ação não pode ser desfeita.')) return;
     try {
-      await supabase.from('mensagens').delete().eq('orc_id', orcId);
-      await supabase.from('sessoes_whatsapp').delete().eq('id', orcId);
-      await supabase.from('orcs').delete().eq('id', orcId);
+      await fetch(`${import.meta.env.VITE_API_URL || 'https://servi-o-seguro-production.up.railway.app'}/api/admin/orcs/${orcId}`, {
+        method: 'DELETE',
+      });
       setOrcs(prev => prev.filter(o => o.id !== orcId));
     } catch (e) {
+      alert('Erro ao remover ORC');
       console.warn('Erro ao deletar ORC:', e);
     }
   }

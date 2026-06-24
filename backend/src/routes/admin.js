@@ -383,4 +383,67 @@ router.patch('/suporte/:id', async (req, res) => {
   }
 });
 
+// DELETE /api/admin/orcs/:id — remove ORC e todos os dados relacionados
+router.delete('/orcs/:id', async (req, res) => {
+  try {
+    const orcId = req.params.id;
+
+    // Buscar chat_negociacao para pegar o id
+    const { data: chats } = await supabase.from('chat_negociacao').select('id').eq('orc_id', orcId);
+    const chatIds = (chats || []).map(c => c.id);
+
+    // Deletar em cascata
+    if (chatIds.length) {
+      await supabase.from('chat_mensagens').delete().in('chat_id', chatIds);
+    }
+    await supabase.from('chat_negociacao').delete().eq('orc_id', orcId);
+    await supabase.from('contratos').delete().eq('orc_id', orcId);
+    await supabase.from('avaliacoes').delete().eq('orc_id', orcId);
+    await supabase.from('custodia_log').delete().eq('orc_id', orcId);
+    await supabase.from('mensagens').delete().eq('orc_id', orcId);
+    await supabase.from('sessoes_whatsapp').delete().eq('servico_id', orcId);
+    await supabase.from('orcs').delete().eq('id', orcId);
+
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// POST /api/admin/avaliacoes/publica — avaliação pós-contrato (cliente ou prestador)
+router.post('/avaliacoes/publica', async (req, res) => {
+  try {
+    const { orc_id, avaliado_id, avaliado_tipo, nota, comentario, avaliador_nome, avaliador_tipo } = req.body;
+    if (!orc_id || !avaliado_id || !avaliado_tipo || !nota) {
+      return res.status(400).json({ ok: false, error: 'Campos obrigatórios: orc_id, avaliado_id, avaliado_tipo, nota' });
+    }
+    // Checar se já existe avaliação desse tipo para esse ORC
+    const { data: existe } = await supabase.from('avaliacoes')
+      .select('id').eq('orc_id', orc_id).eq('avaliado_tipo', avaliado_tipo).maybeSingle();
+    if (existe) return res.status(409).json({ ok: false, error: 'Avaliação já registrada para este contrato' });
+
+    const { data, error } = await supabase.from('avaliacoes')
+      .insert({ orc_id, avaliado_id, avaliado_tipo, nota, comentario, avaliador: avaliador_nome || 'Usuário' })
+      .select().single();
+    if (error) throw error;
+
+    // Atualizar nota média do prestador se for avaliação de prestador
+    if (avaliado_tipo === 'prestador') {
+      const { data: avs } = await supabase.from('avaliacoes')
+        .select('nota').eq('avaliado_id', avaliado_id).eq('avaliado_tipo', 'prestador');
+      if (avs && avs.length) {
+        const media = avs.reduce((a, v) => a + v.nota, 0) / avs.length;
+        await supabase.from('prestadores').update({
+          nota_media: Number(media.toFixed(1)),
+          total_avaliacoes: avs.length
+        }).eq('id', avaliado_id);
+      }
+    }
+
+    res.json({ ok: true, avaliacao: data });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 module.exports = router;

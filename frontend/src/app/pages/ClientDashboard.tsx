@@ -62,6 +62,10 @@ export function ClientDashboard() {
   const [formPerfil, setFormPerfil] = useState({ nome: '', telefone: '', cpf: '', cidade: '', estado: '' });
   const [salvandoPerfil, setSalvandoPerfil] = useState(false);
   const [erroPerfil, setErroPerfil] = useState('');
+  const [avaliacoes, setAvaliacoes] = useState<any[]>([]);
+  const [modalAvaliacao, setModalAvaliacao] = useState<{ orc_id: string; prestador_id: string; prestador_nome: string } | null>(null);
+  const [formAval, setFormAval] = useState({ nota: 5, comentario: '' });
+  const [enviandoAval, setEnviandoAval] = useState(false);
 
   useEffect(() => {
     if (!contratante) { navigate('/auth'); return; }
@@ -83,6 +87,30 @@ export function ClientDashboard() {
       setEditandoPerfil(false);
     } catch (e: any) { setErroPerfil(e.message || 'Erro ao salvar.'); }
     setSalvandoPerfil(false);
+  }
+
+  async function avaliarPrestador() {
+    if (!modalAvaliacao) return;
+    setEnviandoAval(true);
+    try {
+      const c = getContratante();
+      await fetch(`${import.meta.env.VITE_API_URL || 'https://servi-o-seguro-production.up.railway.app'}/api/admin/avaliacoes/publica`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orc_id: modalAvaliacao.orc_id,
+          avaliado_id: modalAvaliacao.prestador_id,
+          avaliado_tipo: 'prestador',
+          nota: formAval.nota,
+          comentario: formAval.comentario,
+          avaliador_nome: c?.nome || 'Cliente',
+        }),
+      });
+      setAvaliacoes(prev => [...prev, { orc_id: modalAvaliacao.orc_id, avaliado_tipo: 'prestador' }]);
+      setModalAvaliacao(null);
+      setFormAval({ nota: 5, comentario: '' });
+    } catch {}
+    setEnviandoAval(false);
   }
 
   async function carregarTudo() {
@@ -111,11 +139,13 @@ export function ClientDashboard() {
     if (orcData.length) {
       const ids = orcData.map((o: any) => o.id);
       // Busca contratos e chats em paralelo
-      const [cRes, chatRes] = await Promise.all([
-        supabase.from('contratos').select('*, orcs(codigo)').in('orc_id', ids),
+      const [cRes, chatRes, avsRes] = await Promise.all([
+        supabase.from('contratos').select('*, orcs(codigo, prestador_id, prestadores(nome))').in('orc_id', ids),
         supabase.from('chat_negociacao').select('orc_id, link_token, status, finalizado_cliente, finalizado_prestador').in('orc_id', ids),
+        supabase.from('avaliacoes').select('orc_id, avaliado_tipo').in('orc_id', ids),
       ]);
       setContratos(cRes.data || []);
+      setAvaliacoes(avsRes.data || []);
       // Injeta link_token e chat_status no ORC para facilitar a UI
       const chatMap = new Map((chatRes.data || []).map((c: any) => [c.orc_id, c]));
       const orcComChat = orcData.map((o: any) => ({
@@ -429,6 +459,17 @@ export function ClientDashboard() {
                       >
                         📄 Baixar PDF
                       </a>
+                      {c.assinado_cliente && c.assinado_prestador && !avaliacoes.find((a: any) => a.orc_id === c.orc_id && a.avaliado_tipo === 'prestador') && c.orcs?.prestador_id && (
+                        <button
+                          onClick={() => setModalAvaliacao({ orc_id: c.orc_id, prestador_id: c.orcs.prestador_id, prestador_nome: c.orcs.prestadores?.nome || 'Prestador' })}
+                          className="inline-flex items-center gap-1.5 border border-amber-300 bg-amber-50 px-4 py-2 rounded-[10px] text-sm font-semibold text-amber-800 hover:bg-amber-100 transition-colors"
+                        >
+                          ⭐ Avaliar prestador
+                        </button>
+                      )}
+                      {c.assinado_cliente && c.assinado_prestador && avaliacoes.find((a: any) => a.orc_id === c.orc_id && a.avaliado_tipo === 'prestador') && (
+                        <span className="inline-flex items-center gap-1 text-xs text-[#94a3b8] px-2">✓ Avaliado</span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -553,6 +594,43 @@ export function ClientDashboard() {
 
         </div>
       </div>
+
+      {/* Modal de avaliação */}
+      {modalAvaliacao && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)' }}>
+          <div className="bg-white rounded-[20px] p-6 w-full max-w-sm shadow-xl">
+            <h3 className="font-bold text-[#030213] text-lg mb-1">Avaliar prestador</h3>
+            <p className="text-sm text-[#717182] mb-5">{modalAvaliacao.prestador_nome}</p>
+            {/* Estrelas */}
+            <div className="flex gap-2 mb-4 justify-center">
+              {[1,2,3,4,5].map(n => (
+                <button key={n} onClick={() => setFormAval(f => ({ ...f, nota: n }))}
+                  className="text-3xl transition-transform hover:scale-110">
+                  {n <= formAval.nota ? '⭐' : '☆'}
+                </button>
+              ))}
+            </div>
+            <textarea
+              value={formAval.comentario}
+              onChange={e => setFormAval(f => ({ ...f, comentario: e.target.value }))}
+              placeholder="Comentário (opcional)"
+              rows={3}
+              className="w-full border border-[#e2e8f0] rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#030213] resize-none mb-4"
+            />
+            <div className="flex gap-2">
+              <button onClick={() => setModalAvaliacao(null)}
+                className="flex-1 py-2.5 rounded-[12px] text-sm font-semibold border border-[#e2e8f0] hover:bg-slate-50">
+                Cancelar
+              </button>
+              <button onClick={avaliarPrestador} disabled={enviandoAval}
+                className="flex-1 py-2.5 rounded-[12px] text-sm font-bold text-white disabled:opacity-60"
+                style={{ background: '#030213' }}>
+                {enviandoAval ? 'Enviando...' : 'Enviar avaliação'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

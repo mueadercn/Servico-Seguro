@@ -210,6 +210,15 @@ router.get('/:id/pdf', async (req, res) => {
         ? new Date(contrato.assinado_prestador_em).toLocaleString('pt-BR') : null,
     };
 
+    // Buscar mensagens do WhatsApp (anamnese)
+    const { data: msgsWhatsapp } = await supabase
+      .from('mensagens')
+      .select('remetente, conteudo, criado_em')
+      .eq('orc_id', orc?.id)
+      .order('criado_em', { ascending: true });
+
+    dadosPDF.mensagensWhatsapp = msgsWhatsapp || [];
+
     const pdfBuffer = await gerarPDF(dadosPDF);
 
     res.setHeader('Content-Type', 'application/pdf');

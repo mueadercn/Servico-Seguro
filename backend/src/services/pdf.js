@@ -26,6 +26,7 @@ function gerarPDF(dadosContrato) {
       assinadoCliente, assinadoPrestador, ipCliente, ipPrestador,
       timestampCliente, timestampPrestador,
       uaCliente, uaPrestador, geoCliente, geoPrestador, telCliente, telPrestador,
+      mensagensWhatsapp,
     } = dadosContrato;
 
     const tipoLabel = 'CONTRATO DE PRESTAÇÃO DE SERVIÇOS';
@@ -189,6 +190,27 @@ function gerarPDF(dadosContrato) {
         }
         doc.moveDown(0.5);
       }
+    }
+
+    // ── HISTÓRICO DA ANAMNESE (WhatsApp) ─────────────────────────────────────
+    if (mensagensWhatsapp && mensagensWhatsapp.length > 0) {
+      if (doc.y > 500) doc.addPage();
+      secao(doc, 'HISTÓRICO DA ANAMNESE (via WhatsApp)', AZUL);
+      const FONT_SIZE = 7;
+      const LINE_GAP = 1;
+      for (const msg of mensagensWhatsapp) {
+        if (doc.y > doc.page.height - 80) doc.addPage();
+        const quem = msg.remetente === 'cliente' ? 'Cliente' : msg.remetente === 'ia' ? 'IA' : 'Sistema';
+        const hora = new Date(msg.criado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        // Skip image placeholders
+        if (msg.conteudo && msg.conteudo.startsWith('[IMG:')) continue;
+        const conteudo = (msg.conteudo || '').replace(/\[IMAGEM_ENVIADA\]/g, '[foto]').substring(0, 300);
+        doc.fillColor(msg.remetente === 'cliente' ? '#1B2F6E' : '#555')
+          .font(msg.remetente === 'cliente' ? 'Helvetica-Bold' : 'Helvetica')
+          .fontSize(FONT_SIZE)
+          .text(`[${hora}] ${quem}: ${conteudo}`, 50, doc.y, { width: doc.page.width - 100, lineGap: LINE_GAP });
+      }
+      doc.moveDown(0.5);
     }
 
     // ── HASH / RODAPÉ ─────────────────────────────────────────

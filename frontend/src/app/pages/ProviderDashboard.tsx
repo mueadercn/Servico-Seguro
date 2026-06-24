@@ -741,7 +741,7 @@ export function ProviderDashboard() {
                         {/* Action buttons */}
                         <div className="flex flex-wrap gap-2">
                           <a
-                            href={`/contrato?orc=${c.orc_id}`}
+                            href={`/contrato?orc=${c.orc_id}&papel=prestador`}
                             className="text-xs font-bold px-4 py-2 rounded-[10px] text-white transition-opacity hover:opacity-90 text-center"
                             style={{ background: PRIMARY }}
                           >
