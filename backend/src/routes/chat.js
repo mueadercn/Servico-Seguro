@@ -285,16 +285,27 @@ router.post('/:token/contrato', async (req, res) => {
     return res.json({ ok: true, contrato_id: contratoExistente.id, existente: true });
   }
 
-  // Buscar percentual de comissão da plataforma
-  const { data: comissaoRow } = await supabase
-    .from('comissoes')
-    .select('valor')
-    .order('criado_em', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  const percentualComissao = comissaoRow?.valor || 10;
+  // Calcular comissão pela tabela de faixas
   const valorNum = parseFloat(valor);
-  const comissaoValor = parseFloat((valorNum * percentualComissao / 100).toFixed(2));
+  const { data: comissoesFaixas } = await supabase
+    .from('comissoes').select('*').eq('ativo', true).order('ordem');
+  let comissaoValor = 0;
+  if (comissoesFaixas?.length) {
+    const faixa = comissoesFaixas.find(c =>
+      valorNum >= c.valor_min && (c.valor_max === null || valorNum <= c.valor_max)
+    );
+    if (faixa) {
+      comissaoValor = faixa.tipo === 'fixo'
+        ? faixa.valor
+        : parseFloat((valorNum * faixa.valor / 100).toFixed(2));
+    }
+  } else {
+    if (valorNum <= 100) comissaoValor = 10;
+    else if (valorNum <= 500) comissaoValor = parseFloat((valorNum * 0.06).toFixed(2));
+    else if (valorNum <= 1000) comissaoValor = parseFloat((valorNum * 0.05).toFixed(2));
+    else if (valorNum <= 5000) comissaoValor = parseFloat((valorNum * 0.04).toFixed(2));
+    else comissaoValor = parseFloat((valorNum * 0.03).toFixed(2));
+  }
 
   const hashDocumento = crypto.createHash('sha256')
     .update(JSON.stringify({ orc_id: orc.id, valor, tipo, timestamp: new Date().toISOString() }))
