@@ -14,6 +14,41 @@ import { supabase, apiCall } from '../../lib/supabase';
 const ADMIN_EMAIL = 'admin@admin.com';
 const ADMIN_SENHA = 'admin123';
 
+function ModoTesteToggle() {
+  const [ativo, setAtivo] = useState(false);
+  const [salvando, setSalvando] = useState(false);
+
+  useEffect(() => {
+    supabase.from('configuracoes').select('valor').eq('chave', 'modo_teste').maybeSingle()
+      .then(({ data }) => setAtivo(data?.valor === 'true'));
+  }, []);
+
+  const toggle = async () => {
+    setSalvando(true);
+    const novo = !ativo;
+    await supabase.from('configuracoes').upsert({ chave: 'modo_teste', valor: String(novo) }, { onConflict: 'chave' });
+    setAtivo(novo);
+    setSalvando(false);
+  };
+
+  return (
+    <div className="bg-white rounded-[14px] border border-[#e2e8f0] p-5 flex items-center justify-between">
+      <div>
+        <h3 className="font-bold text-[#030213] text-sm">Modo Teste</h3>
+        <p className="text-xs text-[#94a3b8] mt-0.5">
+          {ativo
+            ? '⚠️ Ativo — cadastros aceitam CPF e telefone duplicados'
+            : 'Inativo — validação normal de CPF e telefone duplicados'}
+        </p>
+      </div>
+      <button onClick={toggle} disabled={salvando}
+        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${ativo ? 'bg-amber-400' : 'bg-[#e2e8f0]'} disabled:opacity-50`}>
+        <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${ativo ? 'translate-x-6' : 'translate-x-1'}`} />
+      </button>
+    </div>
+  );
+}
+
 function ComissaoTemplateEditor({ onSave }: { onSave: () => void }) {
   const [template, setTemplate] = useState('');
   const [saved, setSaved] = useState(false);
@@ -1889,7 +1924,12 @@ export function Admin() {
             </div>
           )}
 
-          {aba === 'config' && <AdminPrompts />}
+          {aba === 'config' && (
+            <div className="space-y-5">
+              <ModoTesteToggle />
+              <AdminPrompts />
+            </div>
+          )}
 
         </div>
       </div>

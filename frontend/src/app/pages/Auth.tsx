@@ -95,14 +95,18 @@ export function Auth() {
 
     setLoading(true); setErro('');
     try {
+      // Verificar modo teste — se ativo, pula checagens de duplicata
+      const { data: cfgModoTeste } = await supabase.from('configuracoes').select('valor').eq('chave', 'modo_teste').maybeSingle();
+      const modoTeste = cfgModoTeste?.valor === 'true';
+
       if (tipo === 'contratante') {
         const { data: existEmail } = await supabase.from('contratante_auth').select('id').eq('email', form.email.toLowerCase()).limit(1);
         if (existEmail?.length) { setErro('Email já cadastrado.'); setLoading(false); return; }
-        if (form.telefone) {
+        if (!modoTeste && form.telefone) {
           const { data: existTel } = await supabase.from('usuarios').select('id').eq('telefone', form.telefone).limit(1);
           if (existTel?.length) { setErro('Telefone já cadastrado em outra conta.'); setLoading(false); return; }
         }
-        if (form.cpf) {
+        if (!modoTeste && form.cpf) {
           const cpfNum = form.cpf.replace(/\D/g, '');
           const { data: existCpf } = await supabase.from('usuarios').select('id').eq('cpf', cpfNum).limit(1);
           if (existCpf?.length) { setErro('CPF já cadastrado em outra conta.'); setLoading(false); return; }
@@ -122,16 +126,16 @@ export function Auth() {
       } else {
         const { data: existEmail } = await supabase.from('prestador_auth').select('id').eq('email', form.email.toLowerCase()).limit(1);
         if (existEmail?.length) { setErro('Email já cadastrado.'); setLoading(false); return; }
-        if (form.telefone) {
+        if (!modoTeste && form.telefone) {
           const { data: existTel } = await supabase.from('prestadores').select('id').eq('telefone', form.telefone).limit(1);
           if (existTel?.length) { setErro('Telefone já cadastrado em outra conta.'); setLoading(false); return; }
         }
-        if (tipoPessoa === 'pf' && form.cpf) {
+        if (!modoTeste && tipoPessoa === 'pf' && form.cpf) {
           const cpfNum = form.cpf.replace(/\D/g, '');
           const { data: existCpf } = await supabase.from('prestadores').select('id').eq('cpf', cpfNum).limit(1);
           if (existCpf?.length) { setErro('CPF já cadastrado em outra conta.'); setLoading(false); return; }
         }
-        if (tipoPessoa === 'pj' && form.cnpj) {
+        if (!modoTeste && tipoPessoa === 'pj' && form.cnpj) {
           const cnpjNum = form.cnpj.replace(/\D/g, '');
           const { data: existCnpj } = await supabase.from('prestadores').select('id').eq('cnpj', cnpjNum).limit(1);
           if (existCnpj?.length) { setErro('CNPJ já cadastrado em outra conta.'); setLoading(false); return; }
