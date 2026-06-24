@@ -63,6 +63,8 @@ export function ClientDashboard() {
   const [salvandoPerfil, setSalvandoPerfil] = useState(false);
   const [erroPerfil, setErroPerfil] = useState('');
   const [avaliacoes, setAvaliacoes] = useState<any[]>([]);
+  const [avaliacoesRecebidas, setAvaliacoesRecebidas] = useState<any[]>([]);
+  const [abaAvaliacoes, setAbaAvaliacoes] = useState<'feitas' | 'recebidas'>('feitas');
   const [modalAvaliacao, setModalAvaliacao] = useState<{ orc_id: string; prestador_id: string; prestador_nome: string } | null>(null);
   const [formAval, setFormAval] = useState({ nota: 5, comentario: '' });
   const [enviandoAval, setEnviandoAval] = useState(false);
@@ -106,7 +108,7 @@ export function ClientDashboard() {
           avaliador_nome: c?.nome || 'Cliente',
         }),
       });
-      setAvaliacoes(prev => [...prev, { orc_id: modalAvaliacao.orc_id, avaliado_tipo: 'prestador' }]);
+      setAvaliacoes(prev => [...prev, { orc_id: modalAvaliacao.orc_id, avaliado_tipo: 'prestador', nota: formAval.nota, comentario: formAval.comentario, avaliador: c?.nome || 'Cliente', criado_em: new Date().toISOString() }]);
       setModalAvaliacao(null);
       setFormAval({ nota: 5, comentario: '' });
     } catch {}
@@ -142,10 +144,17 @@ export function ClientDashboard() {
       const [cRes, chatRes, avsRes] = await Promise.all([
         supabase.from('contratos').select('*, orcs(codigo, prestador_id, prestadores(nome))').in('orc_id', ids),
         supabase.from('chat_negociacao').select('orc_id, link_token, status, finalizado_cliente, finalizado_prestador').in('orc_id', ids),
-        supabase.from('avaliacoes').select('orc_id, avaliado_tipo').in('orc_id', ids),
+        supabase.from('avaliacoes').select('*').in('orc_id', ids).eq('avaliado_tipo', 'prestador'),
       ]);
       setContratos(cRes.data || []);
       setAvaliacoes(avsRes.data || []);
+      // Avaliações recebidas (prestador avaliou o usuário)
+      if (contratante?.id) {
+        const { data: recData } = await supabase.from('avaliacoes')
+          .select('*').eq('avaliado_id', contratante.id).eq('avaliado_tipo', 'usuario')
+          .order('criado_em', { ascending: false });
+        setAvaliacoesRecebidas(recData || []);
+      }
       // Injeta link_token e chat_status no ORC para facilitar a UI
       const chatMap = new Map((chatRes.data || []).map((c: any) => [c.orc_id, c]));
       const orcComChat = orcData.map((o: any) => ({
@@ -254,6 +263,33 @@ export function ClientDashboard() {
           {/* ── DASHBOARD ── */}
           {aba === 'dashboard' && (
             <div>
+              {/* Pendência de avaliação */}
+              {(() => {
+                const pendentes = contratos.filter((c: any) =>
+                  c.assinado_cliente && c.assinado_prestador &&
+                  !avaliacoes.find((a: any) => a.orc_id === c.orc_id && a.avaliado_tipo === 'prestador') &&
+                  c.orcs?.prestador_id
+                );
+                if (!pendentes.length) return null;
+                return (
+                  <div
+                    className="rounded-[16px] p-4 flex items-center gap-4 mb-4 cursor-pointer"
+                    style={{ background: '#FEF3C7', border: '2px solid #FCD34D' }}
+                    onClick={() => setAba('contratos')}
+                  >
+                    <span className="text-3xl">⭐</span>
+                    <div className="flex-1">
+                      <div className="font-bold text-amber-900 text-sm">Avaliação pendente!</div>
+                      <div className="text-xs text-amber-700 mt-0.5">
+                        {pendentes.length === 1
+                          ? 'Você tem 1 contrato assinado aguardando sua avaliação do prestador.'
+                          : `Você tem ${pendentes.length} contratos aguardando avaliação.`}
+                      </div>
+                    </div>
+                    <span className="text-xs font-bold text-amber-800 underline whitespace-nowrap">Avaliar agora →</span>
+                  </div>
+                );
+              })()}
               {/* Hero banner */}
               <div className="bg-gradient-to-br from-[#030213] to-[#16161f] rounded-[20px] p-7 text-white relative overflow-hidden mb-6">
                 <span className="absolute right-[-10px] bottom-[-30px] text-[150px] opacity-[0.06] select-none pointer-events-none leading-none">🛡️</span>
@@ -479,10 +515,77 @@ export function ClientDashboard() {
 
           {/* ── AVALIAÇÕES ── */}
           {aba === 'avaliacoes' && (
-            <div className="bg-white border border-[#e2e8f0] rounded-[16px] py-16 text-center text-[#64748b]">
-              <Star className="h-10 w-10 mx-auto mb-3 opacity-25" />
-              <p className="text-sm font-semibold mb-1">Nenhuma avaliação ainda</p>
-              <p className="text-xs text-[#94a3b8]">As avaliações aparecerão aqui após o encerramento dos serviços.</p>
+            <div className="bg-white border border-[#e2e8f0] rounded-[16px] overflow-hidden">
+              <div className="px-6 py-4 border-b border-[#e2e8f0]">
+                <h2 className="font-bold text-sm text-[#030213]">Avaliações</h2>
+              </div>
+              {/* Sub-tabs */}
+              <div className="flex border-b border-[#e2e8f0]">
+                {(['feitas', 'recebidas'] as const).map(tab => (
+                  <button
+                    key={tab}
+                    onClick={() => setAbaAvaliacoes(tab)}
+                    className="flex-1 py-3 text-sm font-bold transition-colors"
+                    style={abaAvaliacoes === tab
+                      ? { color: 'oklch(0.45 0.1 184)', borderBottom: '2px solid oklch(0.6 0.118 184.704)' }
+                      : { color: '#94a3b8' }}
+                  >
+                    {tab === 'feitas'
+                      ? `Feitas (${avaliacoes.filter((a: any) => a.avaliado_tipo === 'prestador').length})`
+                      : `Recebidas (${avaliacoesRecebidas.length})`}
+                  </button>
+                ))}
+              </div>
+              {abaAvaliacoes === 'feitas' && (
+                avaliacoes.filter((a: any) => a.avaliado_tipo === 'prestador').length === 0 ? (
+                  <div className="py-16 text-center text-[#64748b]">
+                    <Star className="h-10 w-10 mx-auto mb-3 opacity-25" />
+                    <p className="text-sm">Nenhuma avaliação feita ainda.</p>
+                    <p className="text-xs mt-1 text-[#94a3b8]">Avalie os prestadores após assinar contratos.</p>
+                  </div>
+                ) : (
+                  <div className="p-5 space-y-3">
+                    {avaliacoes.filter((a: any) => a.avaliado_tipo === 'prestador').map((av: any) => (
+                      <div key={av.id || av.orc_id} className="border border-[#e2e8f0] rounded-[16px] p-4">
+                        <div className="flex items-start justify-between mb-2">
+                          <div>
+                            <div className="font-bold text-sm text-[#030213]">Prestador avaliado</div>
+                            <div className="text-xs text-[#64748b] mt-0.5">Sua avaliação</div>
+                          </div>
+                          <span className="text-amber-500 text-base flex-shrink-0">{'⭐'.repeat(av.nota || 0)}</span>
+                        </div>
+                        {av.comentario && <p className="text-sm text-[#64748b]">{av.comentario}</p>}
+                        {av.criado_em && <p className="text-xs text-[#94a3b8] mt-2">{new Date(av.criado_em).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}</p>}
+                      </div>
+                    ))}
+                  </div>
+                )
+              )}
+              {abaAvaliacoes === 'recebidas' && (
+                avaliacoesRecebidas.length === 0 ? (
+                  <div className="py-16 text-center text-[#64748b]">
+                    <Star className="h-10 w-10 mx-auto mb-3 opacity-25" />
+                    <p className="text-sm">Nenhuma avaliação recebida ainda.</p>
+                    <p className="text-xs mt-1 text-[#94a3b8]">Os prestadores poderão avaliar você após concluir os serviços.</p>
+                  </div>
+                ) : (
+                  <div className="p-5 space-y-3">
+                    {avaliacoesRecebidas.map((av: any) => (
+                      <div key={av.id} className="border border-[#e2e8f0] rounded-[16px] p-4">
+                        <div className="flex items-start justify-between mb-2">
+                          <div>
+                            <div className="font-bold text-sm text-[#030213]">{av.avaliador || 'Prestador'}</div>
+                            <div className="text-xs text-[#64748b] mt-0.5">Avaliou você como cliente</div>
+                          </div>
+                          <span className="text-amber-500 text-base flex-shrink-0">{'⭐'.repeat(av.nota || 0)}</span>
+                        </div>
+                        {av.comentario && <p className="text-sm text-[#64748b]">{av.comentario}</p>}
+                        {av.criado_em && <p className="text-xs text-[#94a3b8] mt-2">{new Date(av.criado_em).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}</p>}
+                      </div>
+                    ))}
+                  </div>
+                )
+              )}
             </div>
           )}
 

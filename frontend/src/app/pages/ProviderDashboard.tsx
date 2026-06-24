@@ -63,6 +63,11 @@ export function ProviderDashboard() {
   const [contratos, setContratos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [mobileMenu, setMobileMenu] = useState(false);
+  const [avaliacoesFeitas, setAvaliacoesFeitas] = useState<any[]>([]);
+  const [abaAvaliacoes, setAbaAvaliacoes] = useState<'recebidas' | 'feitas'>('recebidas');
+  const [modalAvalCliente, setModalAvalCliente] = useState<{ orc_id: string; nome_cliente: string } | null>(null);
+  const [formAvalCliente, setFormAvalCliente] = useState({ nota: 5, comentario: '' });
+  const [enviandoAvalCliente, setEnviandoAvalCliente] = useState(false);
 
   const [modalServico, setModalServico] = useState(false);
   const [formServico, setFormServico] = useState({
@@ -145,7 +150,7 @@ export function ProviderDashboard() {
     const [lRes, sRes, avRes, pRes, cRes] = await Promise.all([
       supabase.from('orcs').select('*').eq('prestador_id', prestador.id).order('criado_em', { ascending: false }),
       supabase.from('servicos').select('*, categorias(nome,icone)').eq('prestador_id', prestador.id).order('criado_em', { ascending: false }),
-      supabase.from('avaliacoes').select('*, servicos(titulo)').eq('avaliado_id', prestador.id).order('criado_em', { ascending: false }),
+      supabase.from('avaliacoes').select('*').eq('avaliado_id', prestador.id).eq('avaliado_tipo', 'prestador').order('criado_em', { ascending: false }),
       supabase.from('prestadores').select('*').eq('id', prestador.id).limit(1),
       supabase.from('categorias').select('id,nome,icone').eq('ativa', true).order('nome'),
     ]);
@@ -154,6 +159,15 @@ export function ProviderDashboard() {
     setAvaliacoes(avRes.data || []);
     if (pRes.data?.[0]) setPerfil(pRes.data[0]);
     if (cRes.data?.length) setCategorias(cRes.data);
+
+    // Carregar avaliações feitas pelo prestador (avaliou clientes)
+    const orcIds = (lRes.data || []).map((o: any) => o.id);
+    if (orcIds.length) {
+      const { data: feitasData } = await supabase.from('avaliacoes')
+        .select('*').in('orc_id', orcIds).eq('avaliado_tipo', 'usuario')
+        .order('criado_em', { ascending: false });
+      setAvaliacoesFeitas(feitasData || []);
+    }
     try {
       const chatsData = await apiCall(`/api/chat/prestador/${prestador.id}`);
       setChats(chatsData || []);
@@ -192,17 +206,48 @@ export function ProviderDashboard() {
     setSalvando(false);
   }
 
-  async function marcarConcluido(orcId: string) {
-    if (!confirm('Confirmar que o serviço foi concluído? Isso enviará um link de avaliação para você e para o cliente via WhatsApp.')) return;
+  async function marcarConcluido(orcId: string, nomeCliente?: string) {
+    if (!confirm('Confirmar que o serviço foi concluído?')) return;
     setConcluindoOrc(orcId);
     try {
-      await apiCall(`/api/avaliar/concluir/${orcId}`, { method: 'POST' });
-      alert('✅ Serviço marcado como concluído! Os links de avaliação foram enviados por WhatsApp.');
-      carregarTudo();
+      await supabase.from('orcs').update({ status: 'SERVIÇO CONCLUÍDO' }).eq('id', orcId);
+      await carregarTudo();
+      setModalAvalCliente({ orc_id: orcId, nome_cliente: nomeCliente || 'Cliente' });
     } catch (e: any) {
       alert('Erro: ' + (e.message || 'Não foi possível marcar como concluído.'));
     }
     setConcluindoOrc(null);
+  }
+
+  async function avaliarCliente() {
+    if (!modalAvalCliente || !prestador) return;
+    setEnviandoAvalCliente(true);
+    try {
+      // Buscar usuario_id do ORC
+      const { data: orc } = await supabase.from('orcs').select('usuario_id, nome_cliente').eq('id', modalAvalCliente.orc_id).single();
+      if (!orc?.usuario_id) {
+        setModalAvalCliente(null);
+        setEnviandoAvalCliente(false);
+        return;
+      }
+      const API_URL = import.meta.env.VITE_API_URL || 'https://servi-o-seguro-production.up.railway.app';
+      await fetch(`${API_URL}/api/admin/avaliacoes/publica`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orc_id: modalAvalCliente.orc_id,
+          avaliado_id: orc.usuario_id,
+          avaliado_tipo: 'usuario',
+          nota: formAvalCliente.nota,
+          comentario: formAvalCliente.comentario,
+          avaliador_nome: prestador.nome || 'Prestador',
+        }),
+      });
+      setAvaliacoesFeitas(prev => [...prev, { orc_id: modalAvalCliente.orc_id, avaliado_tipo: 'usuario', nota: formAvalCliente.nota, comentario: formAvalCliente.comentario, avaliador: prestador.nome }]);
+      setModalAvalCliente(null);
+      setFormAvalCliente({ nota: 5, comentario: '' });
+    } catch {}
+    setEnviandoAvalCliente(false);
   }
 
   async function salvarPerfil() {
@@ -444,6 +489,33 @@ export function ProviderDashboard() {
           {/* ── DASHBOARD ── */}
           {aba === 'dashboard' && (
             <div className="space-y-6">
+              {/* Pendências de avaliação */}
+              {(() => {
+                const pendentes = contratos.filter((c: any) =>
+                  c.assinado_cliente && c.assinado_prestador &&
+                  c.orcs?.status === 'SERVIÇO CONCLUÍDO' &&
+                  !avaliacoesFeitas.find((a: any) => a.orc_id === c.orc_id)
+                );
+                if (!pendentes.length) return null;
+                return (
+                  <div
+                    className="rounded-[16px] p-4 flex items-center gap-4 cursor-pointer"
+                    style={{ background: '#FEF3C7', border: '2px solid #FCD34D' }}
+                    onClick={() => setAba('avaliacoes')}
+                  >
+                    <span className="text-3xl">⭐</span>
+                    <div className="flex-1">
+                      <div className="font-bold text-amber-900 text-sm">Avaliação pendente!</div>
+                      <div className="text-xs text-amber-700 mt-0.5">
+                        {pendentes.length === 1
+                          ? 'Você tem 1 serviço concluído aguardando sua avaliação do cliente.'
+                          : `Você tem ${pendentes.length} serviços aguardando avaliação.`}
+                      </div>
+                    </div>
+                    <span className="text-xs font-bold text-amber-800 underline whitespace-nowrap">Avaliar agora →</span>
+                  </div>
+                );
+              })()}
               {/* KPI grid */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 {kpiCards.map(card => (
@@ -758,12 +830,20 @@ export function ProviderDashboard() {
                           </a>
                           {ambosAssinaram && c.orcs?.status === 'CONTRATO ASSINADO' && (
                             <button
-                              onClick={() => marcarConcluido(c.orc_id)}
+                              onClick={() => marcarConcluido(c.orc_id, c.orcs?.nome_cliente)}
                               disabled={concluindoOrc === c.orc_id}
                               className="text-xs font-bold px-4 py-2 rounded-[10px] text-white transition-opacity hover:opacity-90 disabled:opacity-50"
                               style={{ background: TEAL }}
                             >
                               {concluindoOrc === c.orc_id ? '⏳...' : 'Marcar concluído'}
+                            </button>
+                          )}
+                          {ambosAssinaram && c.orcs?.status === 'SERVIÇO CONCLUÍDO' && !avaliacoesFeitas.find((a: any) => a.orc_id === c.orc_id) && (
+                            <button
+                              onClick={() => setModalAvalCliente({ orc_id: c.orc_id, nome_cliente: c.orcs?.nome_cliente || 'Cliente' })}
+                              className="text-xs font-bold px-4 py-2 rounded-[10px] text-amber-800 bg-amber-50 border border-amber-300 transition-opacity hover:opacity-90"
+                            >
+                              ⭐ Avaliar cliente
                             </button>
                           )}
                         </div>
@@ -869,40 +949,80 @@ export function ProviderDashboard() {
           {aba === 'avaliacoes' && (
             <div className="bg-white border border-[#e2e8f0] rounded-[16px] overflow-hidden">
               <div className="px-6 py-4 border-b border-[#e2e8f0] flex items-center justify-between">
-                <h2 className="font-bold text-sm" style={{ color: PRIMARY }}>Avaliações por Serviço</h2>
+                <h2 className="font-bold text-sm" style={{ color: PRIMARY }}>Avaliações</h2>
                 {avaliacoes.length > 0 && (
                   <div className="text-sm" style={{ color: '#64748b' }}>
-                    Média:{' '}
-                    <strong style={{ color: PRIMARY }}>
-                      ⭐ {(avaliacoes.reduce((a, v) => a + v.nota, 0) / avaliacoes.length).toFixed(1)}
-                    </strong>
+                    Média: <strong style={{ color: PRIMARY }}>⭐ {(avaliacoes.reduce((a: number, v: any) => a + v.nota, 0) / avaliacoes.length).toFixed(1)}</strong>
                   </div>
                 )}
               </div>
-              {avaliacoes.length === 0 ? (
-                <div className="py-16 text-center text-[#64748b]">
-                  <Star className="h-10 w-10 mx-auto mb-3 opacity-25" />
-                  <p className="text-sm">Nenhuma avaliação ainda.</p>
-                  <p className="text-xs mt-1 text-[#94a3b8]">As avaliações são por serviço específico.</p>
-                </div>
-              ) : (
-                <div className="p-5 space-y-3">
-                  {avaliacoes.map((av: any) => (
-                    <div key={av.id} className="border border-[#e2e8f0] rounded-[16px] p-4">
-                      <div className="flex items-start justify-between mb-2">
-                        <div>
-                          <div className="font-bold text-sm" style={{ color: PRIMARY }}>{av.servicos?.titulo || 'Serviço'}</div>
-                          <div className="text-xs text-[#64748b] mt-0.5">Avaliação do serviço</div>
+              {/* Sub-tabs */}
+              <div className="flex border-b border-[#e2e8f0]">
+                {(['recebidas', 'feitas'] as const).map(tab => (
+                  <button
+                    key={tab}
+                    onClick={() => setAbaAvaliacoes(tab)}
+                    className="flex-1 py-3 text-sm font-bold transition-colors"
+                    style={abaAvaliacoes === tab
+                      ? { color: TEAL_DARK_TEXT, borderBottom: `2px solid ${TEAL}` }
+                      : { color: '#94a3b8' }}
+                  >
+                    {tab === 'recebidas' ? `Recebidas (${avaliacoes.length})` : `Feitas (${avaliacoesFeitas.length})`}
+                  </button>
+                ))}
+              </div>
+              {abaAvaliacoes === 'recebidas' && (
+                avaliacoes.length === 0 ? (
+                  <div className="py-16 text-center text-[#64748b]">
+                    <Star className="h-10 w-10 mx-auto mb-3 opacity-25" />
+                    <p className="text-sm">Nenhuma avaliação recebida ainda.</p>
+                  </div>
+                ) : (
+                  <div className="p-5 space-y-3">
+                    {avaliacoes.map((av: any) => (
+                      <div key={av.id} className="border border-[#e2e8f0] rounded-[16px] p-4">
+                        <div className="flex items-start justify-between mb-2">
+                          <div>
+                            <div className="font-bold text-sm" style={{ color: PRIMARY }}>{av.avaliador || 'Cliente'}</div>
+                            <div className="text-xs text-[#64748b] mt-0.5">Avaliou seu serviço</div>
+                          </div>
+                          <span className="text-amber-500 text-base flex-shrink-0">{'⭐'.repeat(av.nota)}</span>
                         </div>
-                        <span className="text-amber-500 text-base flex-shrink-0">{'⭐'.repeat(av.nota)}</span>
+                        {av.comentario && <p className="text-sm text-[#64748b]">{av.comentario}</p>}
+                        <p className="text-xs text-[#94a3b8] mt-2">
+                          {av.criado_em ? new Date(av.criado_em).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }) : ''}
+                        </p>
                       </div>
-                      {av.comentario && <p className="text-sm text-[#64748b]">{av.comentario}</p>}
-                      <p className="text-xs text-[#94a3b8] mt-2">
-                        {av.criado_em ? new Date(av.criado_em).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }) : ''}
-                      </p>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )
+              )}
+              {abaAvaliacoes === 'feitas' && (
+                avaliacoesFeitas.length === 0 ? (
+                  <div className="py-16 text-center text-[#64748b]">
+                    <Star className="h-10 w-10 mx-auto mb-3 opacity-25" />
+                    <p className="text-sm">Nenhuma avaliação feita ainda.</p>
+                    <p className="text-xs mt-1 text-[#94a3b8]">Avalie seus clientes após marcar o serviço como concluído.</p>
+                  </div>
+                ) : (
+                  <div className="p-5 space-y-3">
+                    {avaliacoesFeitas.map((av: any) => (
+                      <div key={av.id} className="border border-[#e2e8f0] rounded-[16px] p-4">
+                        <div className="flex items-start justify-between mb-2">
+                          <div>
+                            <div className="font-bold text-sm" style={{ color: PRIMARY }}>Cliente avaliado</div>
+                            <div className="text-xs text-[#64748b] mt-0.5">Sua avaliação</div>
+                          </div>
+                          <span className="text-amber-500 text-base flex-shrink-0">{'⭐'.repeat(av.nota)}</span>
+                        </div>
+                        {av.comentario && <p className="text-sm text-[#64748b]">{av.comentario}</p>}
+                        <p className="text-xs text-[#94a3b8] mt-2">
+                          {av.criado_em ? new Date(av.criado_em).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }) : ''}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )
               )}
             </div>
           )}
@@ -1157,6 +1277,53 @@ export function ProviderDashboard() {
 
         </div>
       </div>
+
+      {/* ── MODAL AVALIAR CLIENTE ── */}
+      {modalAvalCliente && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-[16px] w-full max-w-sm p-6" style={{ boxShadow: '0 14px 40px -18px rgba(3,2,19,0.35)' }}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-base" style={{ color: PRIMARY }}>Avaliar {modalAvalCliente.nome_cliente}</h3>
+              <button onClick={() => setModalAvalCliente(null)} className="text-[#94a3b8] hover:text-[#64748b]"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="mb-4">
+              <div className="text-sm font-semibold text-[#64748b] mb-2">Nota</div>
+              <div className="flex gap-2">
+                {[1,2,3,4,5].map(n => (
+                  <button
+                    key={n}
+                    onClick={() => setFormAvalCliente(f => ({ ...f, nota: n }))}
+                    className="text-2xl transition-transform hover:scale-110"
+                    style={{ opacity: n <= formAvalCliente.nota ? 1 : 0.3 }}
+                  >⭐</button>
+                ))}
+              </div>
+            </div>
+            <div className="mb-4">
+              <div className="text-sm font-semibold text-[#64748b] mb-2">Comentário (opcional)</div>
+              <textarea
+                rows={3}
+                value={formAvalCliente.comentario}
+                onChange={e => setFormAvalCliente(f => ({ ...f, comentario: e.target.value }))}
+                placeholder="Como foi trabalhar com este cliente?"
+                className="w-full border border-[#e2e8f0] rounded-[10px] px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[oklch(0.6_0.118_184.704)]"
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setModalAvalCliente(null)}
+                className="flex-1 py-2.5 rounded-[10px] text-sm font-bold border border-[#e2e8f0] text-[#64748b] hover:bg-[#f8fafc]"
+              >Pular</button>
+              <button
+                onClick={avaliarCliente}
+                disabled={enviandoAvalCliente}
+                className="flex-1 py-2.5 rounded-[10px] text-sm font-bold text-white disabled:opacity-50"
+                style={{ background: TEAL }}
+              >{enviandoAvalCliente ? 'Enviando...' : 'Enviar avaliação'}</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── MODAL NOVO SERVIÇO ── */}
       {modalServico && (
