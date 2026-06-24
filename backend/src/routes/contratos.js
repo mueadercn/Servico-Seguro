@@ -112,6 +112,10 @@ router.post('/:id/assinar', async (req, res) => {
         await supabase.from('orcs').update({
           status: 'CONTRATO ASSINADO'
         }).eq('id', data.orc_id);
+
+        await supabase.from('chat_negociacao').update({
+          status: 'contrato_assinado'
+        }).eq('orc_id', data.orc_id);
       }
 
       // Marcar assinado_em e status_comissao pendente
