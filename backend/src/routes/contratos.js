@@ -230,6 +230,59 @@ router.get('/:id/pdf', async (req, res) => {
   }
 });
 
+// ── BUSCAR CONTRATO POR ORC ───────────────────────────────────
+// GET /api/contratos/orc/:orcId
+router.get('/orc/:orcId', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('contratos')
+      .select('*, orcs(codigo, nome_cliente, resumo_anamnese, telefone_cliente)')
+      .eq('orc_id', req.params.orcId)
+      .order('criado_em', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return res.status(404).json({ ok: false, error: 'Contrato não encontrado para este ORC' });
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ── RETIFICAR CONTRATO ────────────────────────────────────────
+// PUT /api/contratos/:id/retificar
+router.put('/:id/retificar', async (req, res) => {
+  try {
+    const { valor, comissao, prazo, pagamento, garantia, servico_desc, retificado_por } = req.body;
+    const update = {
+      valor, comissao, prazo, pagamento, garantia,
+      // Limpar assinaturas anteriores — ambos precisam assinar novamente
+      assinado_cliente: false, assinado_cliente_em: null, ip_cliente: null,
+      assinado_prestador: false, assinado_prestador_em: null, ip_prestador: null,
+      assinado_em: null, status_comissao: null,
+    };
+    const { data, error } = await supabase.from('contratos').update(update).eq('id', req.params.id).select('*, orcs(codigo, nome_cliente, resumo_anamnese, telefone_cliente)').single();
+    if (error) throw error;
+
+    // Voltar status do ORC e chat para contrato_gerado
+    if (data.orc_id) {
+      await supabase.from('orcs').update({ status: 'CONTRATO GERADO' }).eq('id', data.orc_id);
+      await supabase.from('chat_negociacao').update({ status: 'contrato_gerado' }).eq('orc_id', data.orc_id);
+    }
+
+    await supabase.from('custodia_log').insert({
+      orc_id: data.orc_id,
+      acao: 'CONTRATO_RETIFICADO',
+      agente: retificado_por || 'usuario',
+      dados: { contrato_id: req.params.id, valor, prazo, pagamento, garantia }
+    });
+
+    res.json({ ok: true, contrato: data });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 // ── BUSCAR CONTRATO ───────────────────────────────────────────
 // GET /api/contratos/:id
 router.get('/:id', async (req, res) => {

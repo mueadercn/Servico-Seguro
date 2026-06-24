@@ -82,7 +82,7 @@ export function Chat() {
   const [erroFinalizar, setErroFinalizar] = useState('');
   const [gravando, setGravando] = useState(false);
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
-  const [mostrarResumo, setMostrarResumo] = useState(false);
+  const [_mostrarResumo] = useState(true);
   const [painelFinalizar, setPainelFinalizar] = useState(false);
   const [formulario, setFormulario] = useState({ valor: '', prazo: '', garantia: '', pagamento: '' });
   const chatRef = useRef<HTMLDivElement>(null);
@@ -413,17 +413,11 @@ export function Chat() {
                   <Lock className="w-2.5 h-2.5" /> Conversa registrada como evidência · você: <strong style={{ color: '#030213' }}>{meuNome}</strong>
                 </p>
               </div>
-              <button
-                onClick={() => setMostrarResumo(!mostrarResumo)}
-                className="flex-shrink-0 text-xs font-semibold underline mt-1"
-                style={{ color: TEAL_DARK }}
-              >
-                {mostrarResumo ? 'Fechar' : 'Ver resumo'}
-              </button>
             </div>
-            {mostrarResumo && (
+            {chat.orcs.resumo_anamnese && (
               <div className="mt-3 p-3 rounded-[12px] text-xs leading-relaxed" style={{ background: TEAL_LIGHT, color: '#030213' }}>
-                {chat.orcs.resumo_anamnese || 'Sem resumo disponível.'}
+                <span className="font-bold block mb-1" style={{ color: TEAL_DARK }}>📋 Resumo da anamnese</span>
+                {chat.orcs.resumo_anamnese}
               </div>
             )}
           </div>

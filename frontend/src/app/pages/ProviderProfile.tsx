@@ -15,15 +15,21 @@ export function ProviderProfile() {
   const [avaliacoes, setAvaliacoes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [servicoAtivo, setServicoAtivo] = useState<string | null>(null);
+  const [linkCopiado, setLinkCopiado] = useState(false);
 
   const compartilhar = async () => {
     const url = window.location.href;
     if (navigator.share) {
-      try { await navigator.share({ title: prestador?.nome, text: `Veja o perfil de ${prestador?.nome} no Serviço Seguro`, url }); } catch {}
-    } else {
-      await navigator.clipboard.writeText(url);
-      alert('Link copiado!');
+      try { await navigator.share({ title: prestador?.nome, text: `Veja o perfil de ${prestador?.nome} no Serviço Seguro`, url }); return; } catch {}
     }
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      const el = document.createElement('textarea');
+      el.value = url; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el);
+    }
+    setLinkCopiado(true);
+    setTimeout(() => setLinkCopiado(false), 2500);
   };
 
   useEffect(() => {
@@ -131,10 +137,18 @@ export function ProviderProfile() {
                 style={{ background: 'rgba(255,255,255,0.92)' }}>
                 <Bookmark className="h-4 w-4 text-[#030213]" />
               </button>
-              <button className="w-10 h-10 rounded-[12px] flex items-center justify-center backdrop-blur-md"
-                style={{ background: 'rgba(255,255,255,0.92)' }} onClick={compartilhar}>
-                <Share2 className="h-4 w-4 text-[#030213]" />
-              </button>
+              <div className="relative">
+                <button className="w-10 h-10 rounded-[12px] flex items-center justify-center backdrop-blur-md"
+                  style={{ background: 'rgba(255,255,255,0.92)' }} onClick={compartilhar}>
+                  <Share2 className="h-4 w-4 text-[#030213]" />
+                </button>
+                {linkCopiado && (
+                  <div className="absolute top-12 right-0 px-3 py-1.5 rounded-[10px] text-xs font-semibold whitespace-nowrap text-white shadow-lg"
+                    style={{ background: '#030213' }}>
+                    Link copiado!
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 

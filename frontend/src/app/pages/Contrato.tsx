@@ -35,6 +35,7 @@ export function Contrato() {
   const [evidencias, setEvidencias] = useState<any>(null);
   const [mensagensChat, setMensagensChat] = useState<any[]>([]);
   const [chatLink, setChatLink] = useState('');
+  const [telefoneOrc, setTelefoneOrc] = useState('');
 
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
 
@@ -91,6 +92,7 @@ export function Contrato() {
           set('prestCpf', o.prestadores?.cpf || '');
           set('servico', o.resumo_anamnese || '');
           if (o.valor_final) set('valor', String(o.valor_final));
+          if (o.telefone_cliente) setTelefoneOrc(o.telefone_cliente);
         }
 
         let existente: any = null;
@@ -249,8 +251,8 @@ export function Contrato() {
 
       const ua = navigator.userAgent;
       const telefone = papel === 'cliente'
-        ? (getContratante() as any)?.telefone || ''
-        : (getPrestador() as any)?.telefone || '';
+        ? (telefoneOrc || (getContratante() as any)?.telefone || '')
+        : ((getPrestador() as any)?.telefone || '');
 
       const result = await apiCall(`/api/contratos/${contratoId}/assinar`, {
         method: 'POST',
