@@ -1021,77 +1021,66 @@ export function ProviderDashboard() {
                   </div>
                 )
               )}
-              {abaAvaliacoes === 'feitas' && (
-                (() => {
-                  const pendentes = contratos.filter((c: any) =>
-                    c.assinado_cliente && c.assinado_prestador &&
-                    !avaliacoesFeitas.find((a: any) => a.orc_id === c.orc_id)
-                  );
-                  return pendentes.length > 0 ? (
-                    <div className="p-5 space-y-3">
-                      <p className="text-xs font-bold text-amber-700 uppercase tracking-wider mb-2">⭐ Pendentes de avaliação</p>
-                      {pendentes.map((c: any) => (
-                        <div key={c.id} className="border-2 border-amber-300 bg-amber-50 rounded-[16px] p-4 flex items-center justify-between gap-4">
-                          <div>
-                            <div className="font-bold text-sm text-[#030213]">{c.orcs?.nome_cliente || 'Cliente'}</div>
-                            <div className="text-xs text-[#64748b] mt-0.5">Contrato assinado em {c.assinado_em ? new Date(c.assinado_em).toLocaleDateString('pt-BR') : new Date(c.criado_em).toLocaleDateString('pt-BR')}</div>
-                          </div>
-                          <button
-                            onClick={() => setModalAvalCliente({ orc_id: c.orc_id, nome_cliente: c.orcs?.nome_cliente || 'Cliente' })}
-                            className="text-xs font-bold px-4 py-2 rounded-[10px] text-white whitespace-nowrap"
-                            style={{ background: TEAL }}
-                          >⭐ Avaliar</button>
-                        </div>
-                      ))}
-                      {avaliacoesFeitas.length > 0 && (
-                        <>
-                          <p className="text-xs font-bold text-[#94a3b8] uppercase tracking-wider mt-4 mb-2">Avaliações realizadas</p>
-                          {avaliacoesFeitas.map((av: any) => (
-                            <div key={av.id} className="border border-[#e2e8f0] rounded-[16px] p-4">
-                              <div className="flex items-start justify-between mb-2">
-                                <div>
-                                  <div className="font-bold text-sm" style={{ color: PRIMARY }}>Cliente avaliado</div>
-                                  <div className="text-xs text-[#64748b] mt-0.5">Sua avaliação</div>
-                                </div>
-                                <span className="text-amber-500 text-base flex-shrink-0">{'⭐'.repeat(av.nota)}</span>
-                              </div>
-                              {av.comentario && <p className="text-sm text-[#64748b]">{av.comentario}</p>}
-                              <p className="text-xs text-[#94a3b8] mt-2">
-                                {av.criado_em ? new Date(av.criado_em).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }) : ''}
-                              </p>
-                            </div>
-                          ))}
-                        </>
-                      )}
+              {abaAvaliacoes === 'feitas' && (() => {
+                const pendentes = contratos.filter((c: any) =>
+                  c.assinado_cliente && c.assinado_prestador &&
+                  !avaliacoesFeitas.find((a: any) => a.orc_id === c.orc_id)
+                );
+                const temConteudo = pendentes.length > 0 || avaliacoesFeitas.length > 0;
+                if (!temConteudo) {
+                  return (
+                    <div className="py-16 text-center text-[#64748b]">
+                      <Star className="h-10 w-10 mx-auto mb-3 opacity-25" />
+                      <p className="text-sm">Nenhuma avaliação feita ainda.</p>
+                      <p className="text-xs mt-1 text-[#94a3b8]">Avalie seus clientes nos contratos assinados.</p>
                     </div>
-                  ) : null;
-                })() ||
-                (avaliacoesFeitas.length === 0 ? (
-                  <div className="py-16 text-center text-[#64748b]">
-                    <Star className="h-10 w-10 mx-auto mb-3 opacity-25" />
-                    <p className="text-sm">Nenhuma avaliação feita ainda.</p>
-                    <p className="text-xs mt-1 text-[#94a3b8]">Avalie seus clientes nos contratos assinados.</p>
-                  </div>
-                ) : (
+                  );
+                }
+                return (
                   <div className="p-5 space-y-3">
-                    {avaliacoesFeitas.map((av: any) => (
-                      <div key={av.id} className="border border-[#e2e8f0] rounded-[16px] p-4">
-                        <div className="flex items-start justify-between mb-2">
-                          <div>
-                            <div className="font-bold text-sm" style={{ color: PRIMARY }}>Cliente avaliado</div>
-                            <div className="text-xs text-[#64748b] mt-0.5">Sua avaliação</div>
+                    {pendentes.length > 0 && (
+                      <>
+                        <p className="text-xs font-bold text-amber-700 uppercase tracking-wider mb-2">⭐ Pendentes de avaliação</p>
+                        {pendentes.map((c: any) => (
+                          <div key={c.id} className="border-2 border-amber-300 bg-amber-50 rounded-[16px] p-4 flex items-center justify-between gap-4">
+                            <div>
+                              <div className="font-bold text-sm text-[#030213]">{c.orcs?.nome_cliente || 'Cliente'}</div>
+                              <div className="text-xs text-[#64748b] mt-0.5">
+                                Contrato assinado em {c.assinado_em ? new Date(c.assinado_em).toLocaleDateString('pt-BR') : new Date(c.criado_em).toLocaleDateString('pt-BR')}
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => setModalAvalCliente({ orc_id: c.orc_id, nome_cliente: c.orcs?.nome_cliente || 'Cliente' })}
+                              className="text-xs font-bold px-4 py-2 rounded-[10px] text-white whitespace-nowrap"
+                              style={{ background: TEAL }}
+                            >⭐ Avaliar</button>
                           </div>
-                          <span className="text-amber-500 text-base flex-shrink-0">{'⭐'.repeat(av.nota)}</span>
-                        </div>
-                        {av.comentario && <p className="text-sm text-[#64748b]">{av.comentario}</p>}
-                        <p className="text-xs text-[#94a3b8] mt-2">
-                          {av.criado_em ? new Date(av.criado_em).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }) : ''}
-                        </p>
-                      </div>
-                    ))}
+                        ))}
+                      </>
+                    )}
+                    {avaliacoesFeitas.length > 0 && (
+                      <>
+                        {pendentes.length > 0 && <p className="text-xs font-bold text-[#94a3b8] uppercase tracking-wider mt-4 mb-2">Avaliações realizadas</p>}
+                        {avaliacoesFeitas.map((av: any) => (
+                          <div key={av.id} className="border border-[#e2e8f0] rounded-[16px] p-4">
+                            <div className="flex items-start justify-between mb-2">
+                              <div>
+                                <div className="font-bold text-sm" style={{ color: PRIMARY }}>Cliente avaliado</div>
+                                <div className="text-xs text-[#64748b] mt-0.5">Sua avaliação</div>
+                              </div>
+                              <span className="text-amber-500 text-base flex-shrink-0">{'⭐'.repeat(av.nota)}</span>
+                            </div>
+                            {av.comentario && <p className="text-sm text-[#64748b]">{av.comentario}</p>}
+                            <p className="text-xs text-[#94a3b8] mt-2">
+                              {av.criado_em ? new Date(av.criado_em).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }) : ''}
+                            </p>
+                          </div>
+                        ))}
+                      </>
+                    )}
                   </div>
-                )
-              )}
+                );
+              })()}
             </div>
           )}
 
