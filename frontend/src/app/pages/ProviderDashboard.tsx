@@ -226,12 +226,13 @@ export function ProviderDashboard() {
       // Buscar usuario_id do ORC
       const { data: orc } = await supabase.from('orcs').select('usuario_id, nome_cliente').eq('id', modalAvalCliente.orc_id).single();
       if (!orc?.usuario_id) {
+        alert('Este cliente ainda não tem cadastro na plataforma e não pode ser avaliado.');
         setModalAvalCliente(null);
         setEnviandoAvalCliente(false);
         return;
       }
       const API_URL = import.meta.env.VITE_API_URL || 'https://servi-o-seguro-production.up.railway.app';
-      await fetch(`${API_URL}/api/admin/avaliacoes/publica`, {
+      const res = await fetch(`${API_URL}/api/admin/avaliacoes/publica`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -243,10 +244,19 @@ export function ProviderDashboard() {
           avaliador_nome: prestador.nome || 'Prestador',
         }),
       });
-      setAvaliacoesFeitas(prev => [...prev, { orc_id: modalAvalCliente.orc_id, avaliado_tipo: 'usuario', nota: formAvalCliente.nota, comentario: formAvalCliente.comentario, avaliador: prestador.nome }]);
+      const json = await res.json();
+      if (!res.ok) {
+        alert('Erro ao enviar avaliação: ' + (json?.error || res.status));
+        setEnviandoAvalCliente(false);
+        return;
+      }
+      // Só atualiza estado local se salvou no banco
+      setAvaliacoesFeitas(prev => [...prev, { orc_id: modalAvalCliente!.orc_id, avaliado_tipo: 'usuario', nota: formAvalCliente.nota, comentario: formAvalCliente.comentario, avaliador: prestador.nome, criado_em: new Date().toISOString() }]);
       setModalAvalCliente(null);
       setFormAvalCliente({ nota: 5, comentario: '' });
-    } catch {}
+    } catch (e: any) {
+      alert('Erro de conexão: ' + (e?.message || 'tente novamente'));
+    }
     setEnviandoAvalCliente(false);
   }
 
@@ -493,7 +503,6 @@ export function ProviderDashboard() {
               {(() => {
                 const pendentes = contratos.filter((c: any) =>
                   c.assinado_cliente && c.assinado_prestador &&
-                  c.orcs?.status === 'SERVIÇO CONCLUÍDO' &&
                   !avaliacoesFeitas.find((a: any) => a.orc_id === c.orc_id)
                 );
                 if (!pendentes.length) return null;
@@ -838,13 +847,16 @@ export function ProviderDashboard() {
                               {concluindoOrc === c.orc_id ? '⏳...' : 'Marcar concluído'}
                             </button>
                           )}
-                          {ambosAssinaram && c.orcs?.status === 'SERVIÇO CONCLUÍDO' && !avaliacoesFeitas.find((a: any) => a.orc_id === c.orc_id) && (
+                          {ambosAssinaram && !avaliacoesFeitas.find((a: any) => a.orc_id === c.orc_id) && (
                             <button
                               onClick={() => setModalAvalCliente({ orc_id: c.orc_id, nome_cliente: c.orcs?.nome_cliente || 'Cliente' })}
                               className="text-xs font-bold px-4 py-2 rounded-[10px] text-amber-800 bg-amber-50 border border-amber-300 transition-opacity hover:opacity-90"
                             >
                               ⭐ Avaliar cliente
                             </button>
+                          )}
+                          {ambosAssinaram && avaliacoesFeitas.find((a: any) => a.orc_id === c.orc_id) && (
+                            <span className="inline-flex items-center gap-1 text-xs text-[#94a3b8] px-2">✓ Cliente avaliado</span>
                           )}
                         </div>
                       </div>

@@ -96,22 +96,45 @@ export function ClientDashboard() {
     setEnviandoAval(true);
     try {
       const c = getContratante();
-      await fetch(`${import.meta.env.VITE_API_URL || 'https://servi-o-seguro-production.up.railway.app'}/api/admin/avaliacoes/publica`, {
+      const API_URL = import.meta.env.VITE_API_URL || 'https://servi-o-seguro-production.up.railway.app';
+
+      // Garantir que temos o prestador_id — busca direto do ORC se necessário
+      let prestadorId = modalAvaliacao.prestador_id;
+      if (!prestadorId) {
+        const { data: orc } = await supabase.from('orcs').select('prestador_id').eq('id', modalAvaliacao.orc_id).single();
+        prestadorId = orc?.prestador_id;
+      }
+      if (!prestadorId) {
+        alert('Erro: não foi possível identificar o prestador. Tente novamente.');
+        setEnviandoAval(false);
+        return;
+      }
+
+      const res = await fetch(`${API_URL}/api/admin/avaliacoes/publica`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           orc_id: modalAvaliacao.orc_id,
-          avaliado_id: modalAvaliacao.prestador_id,
+          avaliado_id: prestadorId,
           avaliado_tipo: 'prestador',
           nota: formAval.nota,
           comentario: formAval.comentario,
           avaliador_nome: c?.nome || 'Cliente',
         }),
       });
-      setAvaliacoes(prev => [...prev, { orc_id: modalAvaliacao.orc_id, avaliado_tipo: 'prestador', nota: formAval.nota, comentario: formAval.comentario, avaliador: c?.nome || 'Cliente', criado_em: new Date().toISOString() }]);
+      const json = await res.json();
+      if (!res.ok) {
+        alert('Erro ao enviar avaliação: ' + (json?.error || res.status));
+        setEnviandoAval(false);
+        return;
+      }
+      // Só atualiza estado local se salvou no banco
+      setAvaliacoes(prev => [...prev, { orc_id: modalAvaliacao!.orc_id, avaliado_tipo: 'prestador', nota: formAval.nota, comentario: formAval.comentario, avaliador: c?.nome || 'Cliente', criado_em: new Date().toISOString() }]);
       setModalAvaliacao(null);
       setFormAval({ nota: 5, comentario: '' });
-    } catch {}
+    } catch (e: any) {
+      alert('Erro de conexão: ' + (e?.message || 'tente novamente'));
+    }
     setEnviandoAval(false);
   }
 
