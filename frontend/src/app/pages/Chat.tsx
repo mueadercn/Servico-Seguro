@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router';
-import { Send, CheckCircle2, FileText, Image, X, Mic, MicOff, Lock, Shield } from 'lucide-react';
+import { Send, CheckCircle2, FileText, Image, X, Mic, MicOff, Lock, Shield, ArrowLeft } from 'lucide-react';
 import { supabase, getPrestador, getContratante } from '../../lib/supabase';
 import { apiCall } from '../../lib/supabase';
 
@@ -396,6 +396,13 @@ export function Chat() {
         {/* Header */}
         <div style={{ background: '#fff', borderBottom: '1px solid rgba(0,0,0,0.07)' }} className="sticky top-0 z-10">
           <div className="px-5 py-4">
+            <a
+              href={papel === 'prestador' ? '/prestador?aba=conversas' : '/contratante'}
+              className="flex items-center gap-1 text-xs mb-3"
+              style={{ color: '#94a3b8' }}
+            >
+              <ArrowLeft size={14} /> Voltar
+            </a>
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="flex items-center gap-2 mb-1">

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { LayoutDashboard, ClipboardList, FileText, Star, User, LogOut, Plus, Clock, CheckCircle2 } from 'lucide-react';
+import { LayoutDashboard, ClipboardList, FileText, Star, User, LogOut, Plus, Clock, CheckCircle2, Menu } from 'lucide-react';
 import { supabase, getContratante, logout } from '../../lib/supabase';
 
 const navItems = [
@@ -270,7 +270,7 @@ export function ClientDashboard() {
               className="lg:hidden p-2 rounded-lg hover:bg-[#f1f5f9] transition-colors"
               onClick={() => setMobileMenu(!mobileMenu)}
             >
-              <LayoutDashboard className="h-5 w-5 text-[#64748b]" />
+              <Menu className="h-5 w-5 text-[#64748b]" />
             </button>
             <div>
               <div className="font-extrabold text-[#030213] text-[15px] leading-tight">{page.title}</div>

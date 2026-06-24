@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link, useNavigate, useLocation } from 'react-router';
 import {
   LayoutDashboard, ClipboardList, FileText, Star, User, LogOut,
   Plus, TrendingUp, CheckCircle2, Settings,
-  Shield, X, ChevronDown, MessageSquare, DollarSign
+  Shield, X, ChevronDown, MessageSquare, DollarSign, Menu, ArrowLeft
 } from 'lucide-react';
 import { Logo } from '../components/Logo';
 import { supabase, getPrestador, logout, apiCall } from '../../lib/supabase';
@@ -52,8 +52,13 @@ function StatusBadge({ status }: { status: string }) {
 
 export function ProviderDashboard() {
   const navigate = useNavigate();
+  const location = useLocation();
   const prestador = getPrestador();
-  const [aba, setAba] = useState('dashboard');
+  const [aba, setAba] = useState(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get('aba') || 'dashboard';
+  });
+  const [abaConversas, setAbaConversas] = useState<'ativos' | 'encerrados'>('ativos');
   const [leads, setLeads] = useState<any[]>([]);
   const [servicos, setServicos] = useState<any[]>([]);
   const [avaliacoes, setAvaliacoes] = useState<any[]>([]);
@@ -469,10 +474,10 @@ export function ProviderDashboard() {
               onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(3,2,19,0.04)'; }}
               onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = ''; }}
             >
-              <LayoutDashboard className="h-5 w-5" />
+              <Menu className="h-5 w-5" />
             </button>
             <div>
-              <h1 className="font-extrabold text-base leading-tight" style={{ color: PRIMARY }}>{currentNavLabel}</h1>
+              <h1 className="font-extrabold text-base leading-tight truncate max-w-[160px] sm:max-w-none" style={{ color: PRIMARY }}>{currentNavLabel}</h1>
               <p className="text-xs text-[#64748b] leading-tight">Portal do Prestador</p>
             </div>
           </div>
@@ -665,43 +670,60 @@ export function ProviderDashboard() {
           )}
 
           {/* ── CONVERSAS ── */}
-          {aba === 'conversas' && (
-            <div className="space-y-3">
-              {!chats.length ? (
-                <div className="bg-white border border-[#e2e8f0] rounded-[16px] py-16 text-center text-[#64748b]">
-                  <MessageSquare className="h-10 w-10 mx-auto mb-3 opacity-25" />
-                  <p className="text-sm">Nenhuma conversa ainda.</p>
+          {aba === 'conversas' && (() => {
+            const ativos = chats.filter((c: any) => !['finalizado', 'contrato_assinado'].includes(c.status));
+            const encerrados = chats.filter((c: any) => ['finalizado', 'contrato_assinado'].includes(c.status));
+            const lista = abaConversas === 'ativos' ? ativos : encerrados;
+            return (
+              <div className="space-y-3">
+                {/* Sub-tabs */}
+                <div className="flex gap-2">
+                  {(['ativos', 'encerrados'] as const).map(tab => (
+                    <button
+                      key={tab}
+                      onClick={() => setAbaConversas(tab)}
+                      className="px-4 py-2 rounded-[10px] text-sm font-bold transition-colors"
+                      style={abaConversas === tab
+                        ? { background: PRIMARY, color: '#fff' }
+                        : { background: '#f1f5f9', color: '#64748b' }}
+                    >
+                      {tab === 'ativos' ? `💬 Ativos (${ativos.length})` : `✓ Encerrados (${encerrados.length})`}
+                    </button>
+                  ))}
                 </div>
-              ) : chats.map((c: any) => {
-                const ativo = !c.finalizado_cliente || !c.finalizado_prestador;
-                return (
-                  <div key={c.id} className="bg-white border border-[#e2e8f0] rounded-[16px] p-5 flex items-center gap-4 hover:shadow-sm transition-shadow">
+                {lista.length === 0 ? (
+                  <div className="bg-white border border-[#e2e8f0] rounded-[16px] py-16 text-center text-[#64748b]">
+                    <MessageSquare className="h-10 w-10 mx-auto mb-3 opacity-25" />
+                    <p className="text-sm">{abaConversas === 'ativos' ? 'Nenhuma conversa ativa.' : 'Nenhuma conversa encerrada.'}</p>
+                  </div>
+                ) : lista.map((c: any) => (
+                  <div key={c.id} className="bg-white border border-[#e2e8f0] rounded-[16px] p-4 flex items-center gap-4 hover:shadow-sm transition-shadow">
                     <div className="w-10 h-10 rounded-[12px] flex items-center justify-center flex-shrink-0 text-base"
-                      style={{ background: ativo ? 'oklch(0.95 0.03 184)' : '#f1f5f9' }}>
-                      {ativo ? '💬' : '✓'}
+                      style={{ background: abaConversas === 'ativos' ? TEAL_LIGHT_BG : '#f1f5f9' }}>
+                      {abaConversas === 'ativos' ? '💬' : '✓'}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5">
+                      <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                         <span className="font-mono font-bold text-sm text-[#030213]">{c.orcs?.codigo || '—'}</span>
                         <span className="rounded-full text-[10.5px] font-bold px-2 py-0.5"
-                          style={ativo
-                            ? { background: 'oklch(0.95 0.03 184)', color: 'oklch(0.45 0.1 184)' }
+                          style={abaConversas === 'ativos'
+                            ? { background: TEAL_LIGHT_BG, color: TEAL_DARK_TEXT }
                             : { background: '#f1f5f9', color: '#64748b' }}>
-                          {ativo ? 'Ativo' : 'Encerrado'}
+                          {c.status === 'contrato_assinado' ? 'Contrato assinado' : c.status === 'finalizado' ? 'Finalizado' : c.status?.replace(/_/g, ' ')}
                         </span>
                       </div>
                       <p className="text-sm text-[#64748b] truncate">{c.orcs?.nome_cliente || 'Cliente'}</p>
-                      <p className="text-xs text-[#94a3b8] mt-0.5">{c.criado_em ? new Date(c.criado_em).toLocaleDateString('pt-BR') : ''}</p>
+                      <p className="text-xs text-[#94a3b8] mt-0.5">{c.orcs?.servicos?.titulo || c.orcs?.servico_nome || ''} · {c.criado_em ? new Date(c.criado_em).toLocaleDateString('pt-BR') : ''}</p>
                     </div>
                     <Link to={`/chat/${c.link_token}?papel=prestador`}
-                      className="text-xs font-bold px-3 py-1.5 rounded-[8px] border border-[#e2e8f0] text-[#030213] hover:bg-[#f8fafc] transition-colors flex-shrink-0">
-                      Abrir chat
+                      className="text-xs font-bold px-3 py-2 rounded-[10px] border border-[#e2e8f0] text-[#030213] hover:bg-[#f8fafc] transition-colors flex-shrink-0">
+                      Abrir
                     </Link>
                   </div>
-                );
-              })}
-            </div>
-          )}
+                ))}
+              </div>
+            );
+          })()}
 
           {/* ── CHATS → CONTRATOS ── */}
           {aba === 'chats' && (

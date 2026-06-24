@@ -327,10 +327,10 @@ export function Admin() {
           chats_ativos: chatsAtivos,
         });
       } else if (pagina === 'prestadores') {
-        const { data } = await supabase.from('prestadores').select('*').order('criado_em', { ascending: false });
+        const { data } = await supabase.from('prestadores').select('*, servicos(id)').order('criado_em', { ascending: false });
         setDados({ prestadores: data || [] });
       } else if (pagina === 'usuarios') {
-        const { data } = await supabase.from('usuarios').select('*').order('criado_em', { ascending: false });
+        const { data } = await supabase.from('usuarios').select('*, orcs(id, status)').order('criado_em', { ascending: false });
         setDados({ usuarios: data || [] });
       } else if (pagina === 'servicos') {
         const { data } = await supabase.from('servicos').select('*, prestadores(nome, cidade), categorias(nome,icone)').order('criado_em', { ascending: false });
@@ -342,7 +342,7 @@ export function Admin() {
         const { data } = await supabase.from('contratos').select('*, orcs(codigo, nome_cliente)').order('criado_em', { ascending: false });
         setDados({ contratos: data || [] });
       } else if (pagina === 'avaliacoes') {
-        const { data } = await supabase.from('avaliacoes').select('*').order('criado_em', { ascending: false });
+        const { data } = await supabase.from('avaliacoes').select('*, orcs(codigo, nome_cliente, prestadores(nome))').order('criado_em', { ascending: false });
         setDados({ avaliacoes: data || [] });
       } else if (pagina === 'comissoes') {
         const { data } = await supabase.from('comissoes').select('*').order('ordem');
@@ -1390,7 +1390,7 @@ export function Admin() {
                   <div className="bg-white rounded-[14px] border border-[#e2e8f0] overflow-hidden">
                     <div className="overflow-x-auto">
                       <table className={tbl}>
-                        <thead><tr>{['Nome', 'Telefone', 'Cidade', 'Status', 'Perfil Verificado', 'Ação'].map(h => <th key={h} className={th}>{h}</th>)}</tr></thead>
+                        <thead><tr>{['Nome', 'Telefone', 'Cidade', 'Cadastro', 'Serviços', 'Status', 'Perfil Verificado', 'Ação'].map(h => <th key={h} className={th}>{h}</th>)}</tr></thead>
                         <tbody>
                           {(dados.prestadores || []).map((p: any) => (
                             <tr key={p.id} className="hover:bg-[#f8fafc]">
@@ -1400,6 +1400,12 @@ export function Admin() {
                               </td>
                               <td className={td}>{p.telefone}</td>
                               <td className={td}>{p.cidade}</td>
+                              <td className={`${td} text-xs text-[#94a3b8]`}>{p.criado_em ? new Date(p.criado_em).toLocaleDateString('pt-BR') : '—'}</td>
+                              <td className={td}>
+                                <span className="rounded-full text-[10.5px] font-bold px-2.5 py-0.5" style={{ background: 'oklch(0.95 0.03 184)', color: 'oklch(0.45 0.1 184)' }}>
+                                  {p.servicos?.length || 0}
+                                </span>
+                              </td>
                               <td className={td}>
                                 <span className="rounded-full text-[10.5px] font-bold px-2.5 py-0.5"
                                   style={p.ativo ? { background: '#EAF3DE', color: '#173404' } : { background: '#FCEBEB', color: '#501313' }}>
@@ -1445,7 +1451,7 @@ export function Admin() {
                 <div className="bg-white rounded-[14px] border border-[#e2e8f0] overflow-hidden">
                   <div className="overflow-x-auto">
                     <table className={tbl}>
-                      <thead><tr>{['Nome', 'Email', 'Telefone', 'Cidade', 'Cadastro'].map(h => <th key={h} className={th}>{h}</th>)}</tr></thead>
+                      <thead><tr>{['Nome', 'Email', 'Telefone', 'Cidade', 'Cadastro', 'ORCs Ativos', 'Contratos'].map(h => <th key={h} className={th}>{h}</th>)}</tr></thead>
                       <tbody>
                         {(dados.usuarios || []).map((u: any) => (
                           <tr key={u.id} className="hover:bg-[#f8fafc]">
@@ -1454,6 +1460,16 @@ export function Admin() {
                             <td className={td}>{u.telefone}</td>
                             <td className={td}>{u.cidade}</td>
                             <td className={`${td} text-xs text-[#94a3b8]`}>{u.criado_em ? new Date(u.criado_em).toLocaleDateString('pt-BR') : '—'}</td>
+                            <td className={td}>
+                              <span className="rounded-full text-[10.5px] font-bold px-2.5 py-0.5" style={{ background: '#FEF3C7', color: '#92400e' }}>
+                                {(u.orcs || []).filter((o: any) => !['ENCERRADO','CANCELADO','CONTRATO ASSINADO','SERVIÇO CONCLUÍDO'].includes(o.status)).length}
+                              </span>
+                            </td>
+                            <td className={td}>
+                              <span className="rounded-full text-[10.5px] font-bold px-2.5 py-0.5" style={{ background: '#EAF3DE', color: '#173404' }}>
+                                {(u.orcs || []).filter((o: any) => ['CONTRATO ASSINADO','SERVIÇO CONCLUÍDO','ENCERRADO'].includes(o.status)).length}
+                              </span>
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -1669,12 +1685,13 @@ export function Admin() {
             <div className="bg-white rounded-[14px] border border-[#e2e8f0] overflow-hidden">
               <div className="overflow-x-auto">
                 <table className={tbl}>
-                  <thead><tr>{['Avaliado', 'Tipo', 'Nota', 'Comentário', 'Data'].map(h => <th key={h} className={th}>{h}</th>)}</tr></thead>
+                  <thead><tr>{['ORC', 'Avaliador', 'Avaliado', 'Nota', 'Comentário', 'Data'].map(h => <th key={h} className={th}>{h}</th>)}</tr></thead>
                   <tbody>
                     {(dados.avaliacoes || []).map((a: any) => (
                       <tr key={a.id} className="hover:bg-[#f8fafc]">
-                        <td className={td}>{a.avaliado_id?.substring(0, 8)}...</td>
-                        <td className={td}>{a.avaliado_tipo}</td>
+                        <td className={td}><span className="font-mono text-xs">{a.orcs?.codigo || '—'}</span></td>
+                        <td className={td}>{a.avaliador === 'cliente' ? (a.orcs?.nome_cliente || 'Cliente') : (a.orcs?.prestadores?.nome || 'Prestador')}</td>
+                        <td className={td}>{a.avaliado_tipo === 'prestador' ? (a.orcs?.prestadores?.nome || '—') : (a.orcs?.nome_cliente || '—')}</td>
                         <td className={td}>{'⭐'.repeat(a.nota)}</td>
                         <td className={`${td} text-xs text-[#94a3b8] max-w-xs truncate`}>{a.comentario || '—'}</td>
                         <td className={`${td} text-xs text-[#94a3b8]`}>{a.criado_em ? new Date(a.criado_em).toLocaleDateString('pt-BR') : '—'}</td>
