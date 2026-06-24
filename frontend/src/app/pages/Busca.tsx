@@ -148,9 +148,7 @@ export function Busca() {
         <div className="px-4 py-3 flex items-center gap-3">
           {/* Logo mark */}
           <Link to="/" className="flex items-center gap-2 flex-shrink-0">
-            <div className="w-8 h-8 bg-[#030213] rounded-[10px] flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
-              SS
-            </div>
+            <img src="/logo-escudo.png" alt="Serviço Seguro" style={{ height: 34, width: 'auto', display: 'block', flexShrink: 0 }} />
             <span className="font-extrabold text-sm text-[#030213] hidden sm:block">Serviço Seguro</span>
           </Link>
 

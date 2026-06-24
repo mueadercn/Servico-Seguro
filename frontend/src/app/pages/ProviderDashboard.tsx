@@ -340,12 +340,7 @@ export function ProviderDashboard() {
       {/* Logo */}
       <div className="px-5 py-5 border-b border-[#e2e8f0]">
         <Link to="/" className="flex items-center gap-2.5" onClick={() => setMobileMenu(false)}>
-          <div
-            className="w-8 h-8 rounded-[10px] flex items-center justify-center flex-shrink-0"
-            style={{ background: TEAL }}
-          >
-            <Shield className="w-4 h-4 text-white" />
-          </div>
+          <img src="/logo-escudo.png" alt="Serviço Seguro" style={{ height: 34, width: 'auto', display: 'block', flexShrink: 0 }} />
           <span className="font-extrabold text-sm" style={{ color: PRIMARY }}>Serviço Seguro</span>
         </Link>
       </div>

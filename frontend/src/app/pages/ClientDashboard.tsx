@@ -210,7 +210,9 @@ export function ClientDashboard() {
         {/* Logo */}
         <div className="px-5 pt-6 pb-5">
           <Link to="/" className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-[9px] flex items-center justify-center font-extrabold text-sm text-[#030213]" style={{ background: 'oklch(0.6 0.118 184.704)' }}>SS</div>
+            <div style={{ background: '#fff', borderRadius: 11, padding: 4, width: 38, height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <img src="/logo-escudo.png" alt="Serviço Seguro" style={{ height: '100%', width: 'auto', display: 'block' }} />
+            </div>
             <span className="font-extrabold text-[15px] text-white tracking-tight">Serviço Seguro</span>
           </Link>
         </div>

@@ -121,8 +121,7 @@ export function Home() {
           style={{ height: 62 }}>
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2.5 no-underline">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm font-black select-none"
-              style={{ background: '#030213' }}>S</div>
+            <img src="/logo-escudo.png" alt="Serviço Seguro" style={{ height: 36, width: 'auto', display: 'block' }} />
             <span className="text-[15px] font-[800] tracking-tight" style={{ color: '#030213' }}>
               Serviço Seguro
             </span>

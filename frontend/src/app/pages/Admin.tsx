@@ -592,7 +592,9 @@ export function Admin() {
         {/* Header */}
         <div className="px-5 py-5 border-b border-white/10">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-white/10 rounded-[9px] flex items-center justify-center text-sm font-bold">SS</div>
+            <div style={{ background: '#fff', borderRadius: 11, padding: 4, width: 38, height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <img src="/logo-escudo.png" alt="Serviço Seguro" style={{ height: '100%', width: 'auto', display: 'block' }} />
+            </div>
             <div>
               <div className="font-extrabold text-sm leading-tight">Serviço Seguro</div>
               <div className="text-[10px] text-white/45 uppercase tracking-widest mt-0.5">Painel Admin</div>

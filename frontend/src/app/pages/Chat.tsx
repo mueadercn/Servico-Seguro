@@ -356,8 +356,8 @@ export function Chat() {
     return (
       <div className="min-h-screen flex items-center justify-center p-4" style={{ background: '#ecebe7' }}>
         <div className="bg-white rounded-[20px] shadow-[0_24px_60px_-24px_rgba(3,2,19,0.45)] p-8 max-w-sm w-full text-center">
-          <div className="w-14 h-14 rounded-[16px] bg-[#030213] flex items-center justify-center mx-auto mb-5">
-            <Shield className="w-7 h-7 text-white" />
+          <div style={{ background: '#fff', borderRadius: 11, padding: 6, width: 56, height: 56, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+            <img src="/logo-escudo.png" alt="Serviço Seguro" style={{ height: '100%', width: 'auto', display: 'block' }} />
           </div>
           <h2 className="text-xl font-extrabold text-[#030213] mb-1">Quem é você?</h2>
           <p className="text-sm mb-1" style={{ color: '#717182' }}>{chat.orcs.codigo} — {servico}</p>
@@ -406,8 +406,8 @@ export function Chat() {
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="flex items-center gap-2 mb-1">
-                  <div className="w-7 h-7 rounded-[8px] flex items-center justify-center" style={{ background: '#030213' }}>
-                    <Shield className="w-3.5 h-3.5 text-white" />
+                  <div style={{ background: '#fff', borderRadius: 8, padding: 3, width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #e2e8f0', flexShrink: 0 }}>
+                    <img src="/logo-escudo.png" alt="Serviço Seguro" style={{ height: '100%', width: 'auto', display: 'block' }} />
                   </div>
                   <span className="font-extrabold text-sm" style={{ color: '#030213' }}>
                     {clienteNome} ↔ {prestadorNome}
