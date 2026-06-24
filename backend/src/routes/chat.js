@@ -344,7 +344,7 @@ router.post('/:token/contrato', async (req, res) => {
 // ── ASSINAR CONTRATO VIA CHAT ─────────────────────────────────
 router.post('/:token/contrato/assinar', async (req, res) => {
   const { token } = req.params;
-  const { papel, ip } = req.body; // papel: 'cliente' | 'prestador'
+  const { papel, ip, usuario_id } = req.body; // papel: 'cliente' | 'prestador'
 
   if (!['cliente', 'prestador'].includes(papel)) {
     return res.status(400).json({ error: 'papel deve ser cliente ou prestador' });
@@ -387,6 +387,14 @@ router.post('/:token/contrato/assinar', async (req, res) => {
     ip: ip || 'desconhecido',
     dados: { timestamp, hash: contrato.hash_documento }
   });
+
+  // Vincular usuario_id ao ORC quando cliente assina (para avaliação 360)
+  if (papel === 'cliente' && usuario_id) {
+    await supabase.from('orcs')
+      .update({ usuario_id })
+      .eq('id', chat.orc_id)
+      .is('usuario_id', null);
+  }
 
   if (contratoAtualizado.assinado_cliente && contratoAtualizado.assinado_prestador) {
     await supabase.from('orcs').update({ status: 'CONTRATO ASSINADO' }).eq('id', chat.orc_id);

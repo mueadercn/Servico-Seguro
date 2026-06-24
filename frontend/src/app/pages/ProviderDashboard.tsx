@@ -230,11 +230,26 @@ export function ProviderDashboard() {
       // Fallback: buscar usuário pelo telefone do ORC (ORCs antigos sem usuario_id)
       if (!usuarioId && orc?.telefone_cliente) {
         const tel = orc.telefone_cliente.replace(/\D/g, '');
-        const { data: usuarios } = await supabase.from('usuarios')
+        // Usa os últimos 8 dígitos — parte mais única do número, independente do formato
+        const sufixo = tel.slice(-8);
+        if (sufixo.length === 8) {
+          const { data: usuariosPorTel } = await supabase
+            .from('usuarios')
+            .select('id')
+            .ilike('telefone', `%${sufixo}`)
+            .limit(1);
+          usuarioId = usuariosPorTel?.[0]?.id || null;
+        }
+      }
+
+      // Fallback 2: buscar pelo nome do cliente (último recurso)
+      if (!usuarioId && orc?.nome_cliente) {
+        const { data: usuariosPorNome } = await supabase
+          .from('usuarios')
           .select('id')
-          .or(`telefone.eq.${tel},telefone.eq.+55${tel},telefone.eq.55${tel}`)
+          .ilike('nome', `%${orc.nome_cliente.trim()}%`)
           .limit(1);
-        usuarioId = usuarios?.[0]?.id || null;
+        usuarioId = usuariosPorNome?.[0]?.id || null;
       }
 
       if (!usuarioId) {
