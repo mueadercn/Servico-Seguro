@@ -422,8 +422,10 @@ router.post('/avaliacoes/publica', async (req, res) => {
       .select('id').eq('orc_id', orc_id).eq('avaliado_tipo', avaliado_tipo).maybeSingle();
     if (existe) return res.status(409).json({ ok: false, error: 'Avaliação já registrada para este contrato' });
 
+    // avaliador deve ser 'cliente' ou 'prestador' (constraint no banco)
+    const avaliador = avaliador_tipo || (avaliado_tipo === 'prestador' ? 'cliente' : 'prestador');
     const { data, error } = await supabase.from('avaliacoes')
-      .insert({ orc_id, avaliado_id, avaliado_tipo, nota, comentario, avaliador: avaliador_nome || 'Usuário' })
+      .insert({ orc_id, avaliado_id, avaliado_tipo, nota, comentario, avaliador })
       .select().single();
     if (error) throw error;
 

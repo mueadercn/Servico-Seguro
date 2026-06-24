@@ -510,18 +510,18 @@ export function ProviderDashboard() {
                   <div
                     className="rounded-[16px] p-4 flex items-center gap-4 cursor-pointer"
                     style={{ background: '#FEF3C7', border: '2px solid #FCD34D' }}
-                    onClick={() => setAba('avaliacoes')}
+                    onClick={() => setAba('chats')}
                   >
                     <span className="text-3xl">⭐</span>
                     <div className="flex-1">
                       <div className="font-bold text-amber-900 text-sm">Avaliação pendente!</div>
                       <div className="text-xs text-amber-700 mt-0.5">
                         {pendentes.length === 1
-                          ? 'Você tem 1 serviço concluído aguardando sua avaliação do cliente.'
-                          : `Você tem ${pendentes.length} serviços aguardando avaliação.`}
+                          ? 'Você tem 1 contrato assinado aguardando sua avaliação do cliente.'
+                          : `Você tem ${pendentes.length} contratos aguardando avaliação.`}
                       </div>
                     </div>
-                    <span className="text-xs font-bold text-amber-800 underline whitespace-nowrap">Avaliar agora →</span>
+                    <span className="text-xs font-bold text-amber-800 underline whitespace-nowrap">Ir para Contratos →</span>
                   </div>
                 );
               })()}
@@ -1010,11 +1010,55 @@ export function ProviderDashboard() {
                 )
               )}
               {abaAvaliacoes === 'feitas' && (
-                avaliacoesFeitas.length === 0 ? (
+                (() => {
+                  const pendentes = contratos.filter((c: any) =>
+                    c.assinado_cliente && c.assinado_prestador &&
+                    !avaliacoesFeitas.find((a: any) => a.orc_id === c.orc_id)
+                  );
+                  return pendentes.length > 0 ? (
+                    <div className="p-5 space-y-3">
+                      <p className="text-xs font-bold text-amber-700 uppercase tracking-wider mb-2">⭐ Pendentes de avaliação</p>
+                      {pendentes.map((c: any) => (
+                        <div key={c.id} className="border-2 border-amber-300 bg-amber-50 rounded-[16px] p-4 flex items-center justify-between gap-4">
+                          <div>
+                            <div className="font-bold text-sm text-[#030213]">{c.orcs?.nome_cliente || 'Cliente'}</div>
+                            <div className="text-xs text-[#64748b] mt-0.5">Contrato assinado em {c.assinado_em ? new Date(c.assinado_em).toLocaleDateString('pt-BR') : new Date(c.criado_em).toLocaleDateString('pt-BR')}</div>
+                          </div>
+                          <button
+                            onClick={() => setModalAvalCliente({ orc_id: c.orc_id, nome_cliente: c.orcs?.nome_cliente || 'Cliente' })}
+                            className="text-xs font-bold px-4 py-2 rounded-[10px] text-white whitespace-nowrap"
+                            style={{ background: TEAL }}
+                          >⭐ Avaliar</button>
+                        </div>
+                      ))}
+                      {avaliacoesFeitas.length > 0 && (
+                        <>
+                          <p className="text-xs font-bold text-[#94a3b8] uppercase tracking-wider mt-4 mb-2">Avaliações realizadas</p>
+                          {avaliacoesFeitas.map((av: any) => (
+                            <div key={av.id} className="border border-[#e2e8f0] rounded-[16px] p-4">
+                              <div className="flex items-start justify-between mb-2">
+                                <div>
+                                  <div className="font-bold text-sm" style={{ color: PRIMARY }}>Cliente avaliado</div>
+                                  <div className="text-xs text-[#64748b] mt-0.5">Sua avaliação</div>
+                                </div>
+                                <span className="text-amber-500 text-base flex-shrink-0">{'⭐'.repeat(av.nota)}</span>
+                              </div>
+                              {av.comentario && <p className="text-sm text-[#64748b]">{av.comentario}</p>}
+                              <p className="text-xs text-[#94a3b8] mt-2">
+                                {av.criado_em ? new Date(av.criado_em).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }) : ''}
+                              </p>
+                            </div>
+                          ))}
+                        </>
+                      )}
+                    </div>
+                  ) : null;
+                })() ||
+                (avaliacoesFeitas.length === 0 ? (
                   <div className="py-16 text-center text-[#64748b]">
                     <Star className="h-10 w-10 mx-auto mb-3 opacity-25" />
                     <p className="text-sm">Nenhuma avaliação feita ainda.</p>
-                    <p className="text-xs mt-1 text-[#94a3b8]">Avalie seus clientes após marcar o serviço como concluído.</p>
+                    <p className="text-xs mt-1 text-[#94a3b8]">Avalie seus clientes nos contratos assinados.</p>
                   </div>
                 ) : (
                   <div className="p-5 space-y-3">
