@@ -96,7 +96,7 @@ export function ProviderDashboard() {
       const { error: upErr } = await supabase.storage.from('chat-arquivos').upload(storagePath, file, { upsert: true, contentType: file.type });
       if (upErr) { mostrarMsg('erro', `Erro ao enviar foto: ${upErr.message}`); setUploadingFoto(false); e.target.value = ''; return; }
       const { data: urlData } = supabase.storage.from('chat-arquivos').getPublicUrl(storagePath);
-      const url = urlData.publicUrl;
+      const url = urlData.publicUrl + '?t=' + Date.now();
       const { error: dbErr } = await supabase.from('prestadores').update({ foto_url: url }).eq('id', prestador.id);
       if (dbErr) { mostrarMsg('erro', `Erro ao salvar URL: ${dbErr.message}`); setUploadingFoto(false); e.target.value = ''; return; }
       setPerfil((p: any) => ({ ...p, foto_url: url }));

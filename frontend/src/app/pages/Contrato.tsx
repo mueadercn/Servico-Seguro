@@ -34,6 +34,7 @@ export function Contrato() {
   const [retificando, setRetificando] = useState(false);
   const [evidencias, setEvidencias] = useState<any>(null);
   const [mensagensChat, setMensagensChat] = useState<any[]>([]);
+  const [chatLink, setChatLink] = useState('');
 
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
 
@@ -48,17 +49,35 @@ export function Contrato() {
       if (comissoes) setComissaoTabela(comissoes);
 
       // Pré-preencher com dados do usuário logado
+      let contNomeInicial = '';
+      let contCpfInicial = '';
       if (papel === 'cliente') {
         const c = getContratante();
-        if (c?.nome) set('contNome', c.nome);
-        if ((c as any)?.cpf) set('contCpf', (c as any).cpf);
+        if (c?.nome) { set('contNome', c.nome); contNomeInicial = c.nome; }
+        if ((c as any)?.cpf) { set('contCpf', (c as any).cpf); contCpfInicial = (c as any).cpf; }
+        // Buscar perfil completo do banco para pegar nome real e CPF
+        if (c?.id) {
+          const { data: perfil } = await supabase.from('usuarios').select('nome, cpf').eq('id', c.id).maybeSingle();
+          if (perfil?.nome) { set('contNome', perfil.nome); contNomeInicial = perfil.nome; }
+          if (perfil?.cpf) { set('contCpf', perfil.cpf); contCpfInicial = perfil.cpf; }
+        }
       } else {
         const p = getPrestador();
         if (p?.nome) set('prestNome', p.nome);
         if ((p as any)?.cpf) set('prestCpf', (p as any).cpf);
+        // Buscar perfil completo do banco
+        if (p?.id) {
+          const { data: perfil } = await supabase.from('prestadores').select('nome, cpf').eq('id', p.id).maybeSingle();
+          if (perfil?.nome) set('prestNome', perfil.nome);
+          if (perfil?.cpf) set('prestCpf', perfil.cpf);
+        }
       }
 
       if (orcId) {
+        // Buscar link do chat para botão de voltar
+        const { data: chatData } = await supabase.from('chat_negociacao').select('link_token').eq('orc_id', orcId).maybeSingle();
+        if (chatData?.link_token) setChatLink(`/chat/${chatData.link_token}?papel=${papel}`);
+
         const { data: orcRows } = await supabase
           .from('orcs')
           .select('*, prestadores(*), usuarios(*)')
@@ -66,8 +85,8 @@ export function Contrato() {
           .limit(1);
         const o = orcRows?.[0];
         if (o) {
-          if (!form.contNome) set('contNome', o.nome_cliente || '');
-          set('contCpf', o.usuarios?.cpf || form.contCpf || '');
+          if (!contNomeInicial) set('contNome', o.nome_cliente || '');
+          set('contCpf', o.usuarios?.cpf || contCpfInicial || '');
           set('prestNome', o.prestadores?.nome || '');
           set('prestCpf', o.prestadores?.cpf || '');
           set('servico', o.resumo_anamnese || '');
@@ -373,7 +392,7 @@ export function Contrato() {
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="bg-[#030213] px-4 py-4 flex items-center gap-3">
-        <Link to="/" className="text-white/70 hover:text-white"><ArrowLeft className="h-5 w-5" /></Link>
+        <Link to={chatLink || '/'} className="text-white/70 hover:text-white"><ArrowLeft className="h-5 w-5" /></Link>
         <Logo className="h-8" />
         <div className="flex-1">
           <div className="font-bold text-white text-sm">Contrato Digital</div>

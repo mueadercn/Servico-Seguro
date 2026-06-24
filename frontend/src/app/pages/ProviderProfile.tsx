@@ -16,6 +16,16 @@ export function ProviderProfile() {
   const [loading, setLoading] = useState(true);
   const [servicoAtivo, setServicoAtivo] = useState<string | null>(null);
 
+  const compartilhar = async () => {
+    const url = window.location.href;
+    if (navigator.share) {
+      try { await navigator.share({ title: prestador?.nome, text: `Veja o perfil de ${prestador?.nome} no Serviço Seguro`, url }); } catch {}
+    } else {
+      await navigator.clipboard.writeText(url);
+      alert('Link copiado!');
+    }
+  };
+
   useEffect(() => {
     if (!id) return;
     carregarPerfil();
@@ -122,7 +132,7 @@ export function ProviderProfile() {
                 <Bookmark className="h-4 w-4 text-[#030213]" />
               </button>
               <button className="w-10 h-10 rounded-[12px] flex items-center justify-center backdrop-blur-md"
-                style={{ background: 'rgba(255,255,255,0.92)' }}>
+                style={{ background: 'rgba(255,255,255,0.92)' }} onClick={compartilhar}>
                 <Share2 className="h-4 w-4 text-[#030213]" />
               </button>
             </div>

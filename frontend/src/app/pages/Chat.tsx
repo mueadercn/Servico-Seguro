@@ -9,7 +9,7 @@ const TEAL_LIGHT = 'oklch(0.95 0.03 184)';
 const TEAL_DARK = 'oklch(0.45 0.1 184)';
 
 type Papel = 'cliente' | 'prestador' | null;
-type StatusChat = 'conversando' | 'aguardando_orcamento' | 'orcamento_enviado' | 'finalizado';
+type StatusChat = 'conversando' | 'aguardando_orcamento' | 'orcamento_enviado' | 'finalizado' | 'elaborando_contrato' | 'contrato_gerado' | 'contrato_assinado';
 
 interface Mensagem {
   id: string;
@@ -151,6 +151,23 @@ export function Chat() {
       const msgs = await apiCall(`/api/chat/${token}/mensagens`);
       setMensagens(msgs || []);
       if (msgs?.length) ultimaMsgRef.current = msgs[msgs.length - 1].id;
+
+      // Linkar usuario_id ao ORC se cliente logou após a anamnese
+      const papelUrl = getPapelFromUrl();
+      if (papelUrl === 'cliente' && data?.orc_id) {
+        const contratante = getContratante();
+        if (contratante?.id) {
+          const { data: orc } = await supabase.from('orcs').select('usuario_id, nome_cliente').eq('id', data.orc_id).single();
+          if (orc && !orc.usuario_id) {
+            // Buscar perfil completo do contratante para pegar nome real
+            const { data: perfil } = await supabase.from('usuarios').select('nome, cpf').eq('id', contratante.id).maybeSingle();
+            await supabase.from('orcs').update({
+              usuario_id: contratante.id,
+              nome_cliente: perfil?.nome || contratante.nome || orc.nome_cliente,
+            }).eq('id', data.orc_id);
+          }
+        }
+      }
     } catch {
       setErro('Chat não encontrado ou link inválido.');
     }
@@ -469,46 +486,47 @@ export function Chat() {
         </div>
 
         {/* Rodapé */}
-        {chat.status === 'contrato_gerado' ? (
+        {chat.status === 'contrato_assinado' ? (
+          <div style={{ background: '#fff', borderTop: '1px solid rgba(0,0,0,0.08)' }} className="px-5 py-6 text-center">
+            <CheckCircle2 className="mx-auto mb-2" size={32} style={{ color: TEAL }} />
+            <p className="font-bold text-[#030213]">Contrato assinado por ambas as partes!</p>
+            <p className="text-sm mt-1 mb-4" style={{ color: '#717182' }}>O serviço está formalizado. Bom trabalho!</p>
+            <a href={`/contrato?orc=${chat.orc_id}&papel=${papel}`}
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-[12px] font-bold text-sm text-white"
+              style={{ background: '#030213' }}>
+              <FileText size={16} /> Ver contrato
+            </a>
+          </div>
+        ) : chat.status === 'contrato_gerado' ? (
           <div style={{ background: '#fff', borderTop: '1px solid rgba(0,0,0,0.08)' }} className="px-5 py-6 text-center">
             <CheckCircle2 className="mx-auto mb-2" size={32} style={{ color: TEAL }} />
             <p className="font-bold text-[#030213]">Contrato gerado!</p>
-            <p className="text-sm mt-1 mb-4" style={{ color: '#717182' }}>Ambas as partes precisam assinar para formalizar.</p>
-            <a
-              href={`/contrato?orc=${chat.orc_id}&papel=${papel}`}
+            <p className="text-sm mt-1 mb-4" style={{ color: '#717182' }}>Clique para assinar e formalizar o serviço.</p>
+            <a href={`/contrato?orc=${chat.orc_id}&papel=${papel}`}
               className="inline-flex items-center gap-2 px-6 py-3 rounded-[12px] font-bold text-sm text-white"
-              style={{ background: '#030213' }}
-            >
+              style={{ background: '#030213' }}>
               <FileText size={16} /> Assinar contrato
             </a>
           </div>
-        ) : chat.status === 'elaborando_contrato' && !painelFinalizar ? (
+        ) : chat.status === 'elaborando_contrato' ? (
           <div style={{ background: '#fff', borderTop: '1px solid rgba(0,0,0,0.08)' }} className="px-5 py-6 text-center">
             <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin mx-auto mb-3" style={{ borderColor: TEAL, borderTopColor: 'transparent' }} />
             <p className="font-bold text-[#030213]">Aguardando {outroNome}...</p>
-            <p className="text-sm mt-1 mb-4" style={{ color: '#717182' }}>{outroNome} está redigindo e assinando o contrato.</p>
-            <div className="flex gap-2 justify-center flex-wrap">
-              <a href={`/contrato?orc=${chat.orc_id}&papel=${papel}`}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-[10px] font-semibold text-sm text-white"
-                style={{ background: '#030213' }}>
-                <FileText size={14} /> Ir para o contrato
-              </a>
-              <button onClick={abrirFormContrato}
-                className="px-4 py-2 rounded-[10px] font-semibold text-sm border border-[#e2e8f0] text-[#64748b] hover:bg-[#f8fafc]">
-                Preencher valores
-              </button>
-            </div>
+            <p className="text-sm mt-1 mb-4" style={{ color: '#717182' }}>{outroNome} está redigindo o contrato.</p>
+            <a href={`/contrato?orc=${chat.orc_id}&papel=${papel}`}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-[10px] font-semibold text-sm text-white"
+              style={{ background: '#030213' }}>
+              <FileText size={14} /> Ir para o contrato
+            </a>
           </div>
-        ) : chat.status === 'finalizado' || chat.status === 'elaborando_contrato' ? (
+        ) : chat.status === 'finalizado' ? (
           <div style={{ background: '#fff', borderTop: '1px solid rgba(0,0,0,0.08)' }} className="px-5 py-6 text-center">
             <CheckCircle2 className="mx-auto mb-2" size={32} style={{ color: TEAL }} />
             <p className="font-bold text-[#030213]">Negociação finalizada!</p>
             <p className="text-sm mt-1 mb-4" style={{ color: '#717182' }}>Clique para redigir e assinar o contrato.</p>
-            <button
-              onClick={abrirFormContrato}
+            <button onClick={abrirFormContrato}
               className="px-6 py-3 rounded-[12px] font-bold text-sm text-white transition-opacity hover:opacity-90"
-              style={{ background: '#030213' }}
-            >
+              style={{ background: '#030213' }}>
               <FileText className="inline mr-2" size={16} />Redigir e Assinar Contrato
             </button>
           </div>
