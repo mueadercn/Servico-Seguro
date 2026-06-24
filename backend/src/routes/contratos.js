@@ -321,7 +321,7 @@ router.get('/prestador/:prestadorId', async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('contratos')
-      .select('id, valor, comissao, status_comissao, comissao_paga_em, assinado_cliente, assinado_prestador, assinado_em, criado_em, tipo, orcs(codigo, nome_cliente, prestador_id)')
+      .select('id, orc_id, valor, comissao, status_comissao, comissao_paga_em, assinado_cliente, assinado_prestador, assinado_em, criado_em, tipo, orcs(codigo, nome_cliente, prestador_id, status)')
       .eq('orcs.prestador_id', req.params.prestadorId)
       .order('criado_em', { ascending: false });
     if (error) throw error;
