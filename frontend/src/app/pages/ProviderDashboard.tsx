@@ -224,8 +224,20 @@ export function ProviderDashboard() {
     setEnviandoAvalCliente(true);
     try {
       // Buscar usuario_id do ORC
-      const { data: orc } = await supabase.from('orcs').select('usuario_id, nome_cliente').eq('id', modalAvalCliente.orc_id).single();
-      if (!orc?.usuario_id) {
+      const { data: orc } = await supabase.from('orcs').select('usuario_id, nome_cliente, telefone_cliente').eq('id', modalAvalCliente.orc_id).single();
+      let usuarioId = orc?.usuario_id;
+
+      // Fallback: buscar usuário pelo telefone do ORC (ORCs antigos sem usuario_id)
+      if (!usuarioId && orc?.telefone_cliente) {
+        const tel = orc.telefone_cliente.replace(/\D/g, '');
+        const { data: usuarios } = await supabase.from('usuarios')
+          .select('id')
+          .or(`telefone.eq.${tel},telefone.eq.+55${tel},telefone.eq.55${tel}`)
+          .limit(1);
+        usuarioId = usuarios?.[0]?.id || null;
+      }
+
+      if (!usuarioId) {
         alert('Este cliente ainda não tem cadastro na plataforma e não pode ser avaliado.');
         setModalAvalCliente(null);
         setEnviandoAvalCliente(false);
@@ -237,7 +249,7 @@ export function ProviderDashboard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           orc_id: modalAvalCliente.orc_id,
-          avaliado_id: orc.usuario_id,
+          avaliado_id: usuarioId,
           avaliado_tipo: 'usuario',
           nota: formAvalCliente.nota,
           comentario: formAvalCliente.comentario,

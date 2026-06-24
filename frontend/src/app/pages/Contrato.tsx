@@ -292,6 +292,17 @@ export function Contrato() {
       setContratoData((prev: any) => prev ? { ...prev, ...result.contrato } : result.contrato);
       setJaSigned(true);
       setConcluido(true);
+
+      // Vincular usuario_id ao ORC quando cliente assina (para avaliação 360 funcionar)
+      if (papel === 'cliente' && orcId) {
+        const contratante = getContratante();
+        if (contratante?.id) {
+          await supabase.from('orcs')
+            .update({ usuario_id: contratante.id, nome_cliente: contratante.nome || undefined })
+            .eq('id', orcId)
+            .is('usuario_id', null);
+        }
+      }
     } catch (e: any) { setErro(e.message); }
     setLoading(false);
   }
