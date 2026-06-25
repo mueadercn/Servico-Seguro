@@ -161,31 +161,46 @@ router.post('/:id/iniciar-chat', async (req, res) => {
       status: 'ativo',
     });
 
-    // 3. Busca ORC + prestador para notificar
+    // 3. Busca ORC
     const { data: orc } = await supabase
       .from('orcs')
-      .select('*, prestadores(id, nome, telefone)')
+      .select('*')
       .eq('id', orcId)
       .single();
+
+    // Busca prestador separado para evitar dependência de FK join
+    let prestador = null;
+    if (orc?.prestador_id) {
+      const { data: pData } = await supabase
+        .from('prestadores')
+        .select('id, nome, telefone')
+        .eq('id', orc.prestador_id)
+        .single();
+      prestador = pData;
+    }
+
+    console.log(`[iniciar-chat] ORC ${orcId} | prestador_id=${orc?.prestador_id} | prestador=${prestador?.nome} | tel=${prestador?.telefone}`);
 
     // 4. Guard: checar se envio de novo lead está ativo
     const { data: cfgLead } = await supabase
       .from('configuracoes').select('valor').eq('chave', 'followup_novo_lead_ativo').maybeSingle();
     const leadAtivo = cfgLead?.valor !== 'false';
 
-    if (leadAtivo && orc?.prestadores?.telefone) {
+    if (leadAtivo && prestador?.telefone) {
       const linkPrestador = `${process.env.FRONTEND_URL}/chat/${link_token}?papel=prestador`;
       const msg = templates.novoLead(
-        orc.prestadores.nome,
+        prestador.nome,
         orc.codigo,
         resumo,
         null
       ) + `\n\n🔗 Acesse o chat: ${linkPrestador}`;
-      await enviarMensagem(orc.prestadores.telefone, msg);
+      await enviarMensagem(prestador.telefone, msg);
 
       await supabase.from('orcs')
         .update({ status: 'PRESTADOR NOTIFICADO', atualizado_em: new Date().toISOString() })
         .eq('id', orcId);
+    } else {
+      console.warn(`[iniciar-chat] Mensagem NÃO enviada — leadAtivo=${leadAtivo} | telefone=${prestador?.telefone}`);
     }
 
     res.json({ ok: true, link_token });
