@@ -1,21 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router';
-import { Shield, Star, Share2, MessageCircle, Phone, ChevronRight } from 'lucide-react';
+import { Shield, Star, Share2, Calendar, Briefcase, CheckCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
-const WHATSAPP_NUMERO = '555591598658';
 const TEAL = 'oklch(0.6 0.118 184.704)';
 const TEAL_BG = 'oklch(0.94 0.04 184)';
 const TEAL_TEXT = 'oklch(0.38 0.1 184)';
 
-// Paleta de fundos para os ícones dos serviços
 const ICON_COLORS = [
-  { bg: '#FFF3E0', fg: '#E65100' },
-  { bg: '#E8F5E9', fg: '#2E7D32' },
-  { bg: '#E3F2FD', fg: '#1565C0' },
-  { bg: '#F3E5F5', fg: '#6A1B9A' },
-  { bg: '#FFF8E1', fg: '#F57F17' },
-  { bg: '#E0F2F1', fg: '#00695C' },
+  { bg: '#FFF3E0' }, { bg: '#E8F5E9' }, { bg: '#E3F2FD' },
+  { bg: '#F3E5F5' }, { bg: '#FFF8E1' }, { bg: '#E0F2F1' },
 ];
 
 function StarRow({ nota, size = 14 }: { nota: number; size?: number }) {
@@ -36,9 +30,9 @@ export function ProviderProfile() {
   const [prestador, setPrestador] = useState<any>(null);
   const [servicos, setServicos] = useState<any[]>([]);
   const [avaliacoes, setAvaliacoes] = useState<any[]>([]);
+  const [servicosFeitos, setServicosFeitos] = useState(0);
   const [loading, setLoading] = useState(true);
   const [linkCopiado, setLinkCopiado] = useState(false);
-  const [servicoExpandido, setServicoExpandido] = useState<string | null>(null);
 
   const compartilhar = async () => {
     const url = window.location.href;
@@ -59,7 +53,6 @@ export function ProviderProfile() {
   async function carregarPerfil() {
     setLoading(true);
     try {
-      // Suporta UUID ou slug personalizado
       const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id!);
       const query = supabase.from('prestadores').select('*');
       const { data: p } = isUuid ? await query.eq('id', id).single() : await query.eq('slug', id).single();
@@ -67,10 +60,11 @@ export function ProviderProfile() {
       if (!p) { setLoading(false); return; }
       setPrestador(p);
 
-      const [pcsRes, svsRes, avsRes] = await Promise.all([
+      const [pcsRes, svsRes, avsRes, orcsRes] = await Promise.all([
         supabase.from('prestador_categorias').select('categorias(id, nome, icone)').eq('prestador_id', p.id),
         supabase.from('servicos').select('*, categorias(nome, icone)').eq('prestador_id', p.id).eq('ativo', true).order('criado_em', { ascending: false }),
         supabase.from('avaliacoes').select('nota, comentario, criado_em, avaliador, servico_nome').eq('avaliado_id', p.id).eq('avaliado_tipo', 'prestador').order('criado_em', { ascending: false }).limit(10),
+        supabase.from('orcs').select('id', { count: 'exact', head: true }).eq('prestador_id', p.id).eq('status', 'SERVIÇO CONCLUÍDO'),
       ]);
 
       setPrestador((prev: any) => ({
@@ -79,6 +73,7 @@ export function ProviderProfile() {
       }));
       setServicos(svsRes.data || []);
       setAvaliacoes(avsRes.data || []);
+      setServicosFeitos(orcsRes.count || 0);
     } catch {}
     setLoading(false);
   }
@@ -111,7 +106,57 @@ export function ProviderProfile() {
   const iniciais = (prestador.nome || '?').split(' ').map((p: string) => p[0]).slice(0, 2).join('').toUpperCase();
   const tagline = prestador.bio_curta || (prestador.bio ? prestador.bio.slice(0, 90) + (prestador.bio.length > 90 ? '…' : '') : null);
   const profissao = categorias.map((c: any) => c.nome).join(' · ') || null;
-  const wppBase = `https://wa.me/${WHATSAPP_NUMERO}?text=${encodeURIComponent('#PRESTADOR:' + prestador.id + '\n\nOlá! Vim pelo Serviço Seguro e gostaria de um orçamento com ' + prestador.nome + '.')}`;
+  const dataCadastro = prestador.criado_em
+    ? new Date(prestador.criado_em).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+    : null;
+
+  // Bloco de estatísticas reutilizável
+  const StatsBlock = ({ horizontal = false }: { horizontal?: boolean }) => (
+    <div className={horizontal ? 'flex items-center gap-5 flex-wrap' : 'space-y-3'}>
+      {dataCadastro && (
+        <div className={horizontal ? 'flex items-center gap-1.5' : 'flex items-center gap-2.5'}>
+          <Calendar className="h-3.5 w-3.5 flex-shrink-0" style={{ color: '#94a3b8' }} />
+          <span className={horizontal ? 'text-[12.5px] text-[#717182]' : 'text-[13px] text-[#45454f]'}>
+            {horizontal ? `Membro desde ${dataCadastro}` : <><span className="text-[#94a3b8] text-[11px] uppercase font-bold tracking-wide block mb-0.5">Membro desde</span>{dataCadastro}</>}
+          </span>
+        </div>
+      )}
+      {!horizontal && dataCadastro && <div className="border-t border-[rgba(0,0,0,0.06)]" />}
+      <div className={horizontal ? 'flex items-center gap-1.5' : 'flex items-center gap-2.5'}>
+        <CheckCircle className="h-3.5 w-3.5 flex-shrink-0" style={{ color: '#94a3b8' }} />
+        <span className={horizontal ? 'text-[12.5px] text-[#717182]' : 'text-[13px] text-[#45454f]'}>
+          {horizontal
+            ? `${servicosFeitos} serviço${servicosFeitos !== 1 ? 's' : ''} concluído${servicosFeitos !== 1 ? 's' : ''}`
+            : <><span className="text-[#94a3b8] text-[11px] uppercase font-bold tracking-wide block mb-0.5">Serviços concluídos</span>{servicosFeitos}</>
+          }
+        </span>
+      </div>
+      {!horizontal && <div className="border-t border-[rgba(0,0,0,0.06)]" />}
+      <div className={horizontal ? 'flex items-center gap-1.5' : 'flex items-center gap-2.5'}>
+        <Briefcase className="h-3.5 w-3.5 flex-shrink-0" style={{ color: '#94a3b8' }} />
+        <span className={horizontal ? 'text-[12.5px] text-[#717182]' : 'text-[13px] text-[#45454f]'}>
+          {horizontal
+            ? `${servicos.length} serviço${servicos.length !== 1 ? 's' : ''} oferecido${servicos.length !== 1 ? 's' : ''}`
+            : <><span className="text-[#94a3b8] text-[11px] uppercase font-bold tracking-wide block mb-0.5">Serviços oferecidos</span>{servicos.length}</>
+          }
+        </span>
+      </div>
+      {notaStr && (
+        <>
+          {!horizontal && <div className="border-t border-[rgba(0,0,0,0.06)]" />}
+          <div className={horizontal ? 'flex items-center gap-1.5' : 'flex items-center gap-2.5'}>
+            <Star className="h-3.5 w-3.5 flex-shrink-0 fill-amber-400 text-amber-400" />
+            <span className={horizontal ? 'text-[12.5px] text-[#717182]' : 'text-[13px] text-[#45454f]'}>
+              {horizontal
+                ? `${notaStr} (${totalAv} avaliações)`
+                : <><span className="text-[#94a3b8] text-[11px] uppercase font-bold tracking-wide block mb-0.5">Avaliação média</span>{notaStr} <span className="text-[#94a3b8] text-[11px]">({totalAv} avaliações)</span></>
+              }
+            </span>
+          </div>
+        </>
+      )}
+    </div>
+  );
 
   // ── MOBILE ────────────────────────────────────────────────────
   const MobileView = () => (
@@ -131,11 +176,16 @@ export function ProviderProfile() {
             </svg>
           )}
         </div>
-        <a href={wppBase} target="_blank" rel="noopener noreferrer"
-          className="flex-shrink-0 px-4 py-2 rounded-full font-bold text-[13px] text-white"
-          style={{ background: '#030213' }}>
-          Pedir orçamento
-        </a>
+        <div className="relative">
+          <button onClick={compartilhar} className="w-9 h-9 rounded-full flex items-center justify-center"
+            style={{ background: 'rgba(3,2,19,0.06)' }}>
+            <Share2 className="h-4 w-4 text-[#030213]" />
+          </button>
+          {linkCopiado && (
+            <div className="absolute top-11 right-0 px-3 py-1.5 rounded-[10px] text-xs font-semibold text-white shadow-lg whitespace-nowrap"
+              style={{ background: '#030213' }}>Link copiado!</div>
+          )}
+        </div>
       </div>
 
       {/* Banner */}
@@ -145,15 +195,7 @@ export function ProviderProfile() {
           : <div className="w-full h-full" style={{ background: 'linear-gradient(160deg, #d4d0c8 0%, #e8e5de 60%, #c8c4bc 100%)' }} />
         }
         {tagline && (
-          <div className="absolute bottom-3 left-4 right-14 text-[13px] font-semibold text-[#030213]/70 leading-snug">{tagline}</div>
-        )}
-        <button onClick={compartilhar} className="absolute top-3 right-3 w-9 h-9 rounded-full flex items-center justify-center"
-          style={{ background: 'rgba(255,255,255,0.9)' }}>
-          <Share2 className="h-4 w-4 text-[#030213]" />
-        </button>
-        {linkCopiado && (
-          <div className="absolute top-14 right-3 px-3 py-1.5 rounded-[10px] text-xs font-semibold text-white shadow-lg"
-            style={{ background: '#030213' }}>Link copiado!</div>
+          <div className="absolute bottom-3 left-4 right-4 text-[13px] font-semibold text-[#030213]/70 leading-snug">{tagline}</div>
         )}
       </div>
 
@@ -192,39 +234,9 @@ export function ProviderProfile() {
           </div>
         )}
 
-        {/* Stats row */}
-        {(notaStr || totalAv > 0 || servicos.length > 0) && (
-          <div className="flex items-center gap-3 text-[13px] text-[#717182] flex-wrap justify-center">
-            {notaStr && (
-              <span className="flex items-center gap-1 font-bold text-[#030213]">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="#f59e0b"><path d="M12 2l2.9 6.3 6.9.6-5.2 4.6 1.6 6.8L12 17.3 5.8 20.9l1.6-6.8L2.2 8.9l6.9-.6z" /></svg>
-                {notaStr}
-                {totalAv > 0 && <span className="font-normal text-[#717182]">({totalAv})</span>}
-              </span>
-            )}
-            {notaStr && servicos.length > 0 && <span className="text-[#cbd5e1]">•</span>}
-            {servicos.length > 0 && <span>{servicos.length}+ serviços</span>}
-          </div>
-        )}
-      </div>
-
-      {/* CTAs */}
-      <div className="px-4 pb-4 space-y-2">
-        <a href={wppBase} target="_blank" rel="noopener noreferrer"
-          className="flex items-center justify-center gap-2 w-full py-3.5 rounded-[14px] font-bold text-[15px] text-white"
-          style={{ background: '#030213' }}>
-          <Phone className="h-4 w-4" /> Pedir orçamento pelo WhatsApp
-        </a>
-        <Link to={`/orcamento?prestador=${prestador.id}`}
-          className="flex items-center justify-center gap-2 w-full py-3.5 rounded-[14px] font-bold text-[15px]"
-          style={{ border: '1.5px solid rgba(3,2,19,0.18)', color: '#030213', background: '#fff' }}>
-          <MessageCircle className="h-4 w-4" /> Orçar pelo chat
-        </Link>
-        <div className="flex items-start gap-2 pt-1">
-          <Shield className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" style={{ color: TEAL }} />
-          <p className="text-[11.5px] text-[#717182] leading-relaxed">
-            Orçamento pela IA e contrato digital — pagamento combinado entre as partes.
-          </p>
+        {/* Stats resumidos inline */}
+        <div className="flex items-center gap-2 text-[12.5px] text-[#717182] flex-wrap justify-center">
+          <StatsBlock horizontal />
         </div>
       </div>
 
@@ -236,13 +248,19 @@ export function ProviderProfile() {
         </div>
       )}
 
+      {/* Info card — detalhado */}
+      <div className="mx-4 mb-3 p-4 rounded-[18px] bg-white">
+        <p className="text-[10.5px] font-bold uppercase tracking-widest text-[#94a3b8] mb-3">INFORMAÇÕES</p>
+        <StatsBlock horizontal={false} />
+      </div>
+
       {/* Serviços */}
       {servicos.length > 0 && (
         <div className="mx-4 mb-3 p-4 rounded-[18px] bg-white">
           <div className="flex items-center justify-between mb-3">
             <p className="text-[10.5px] font-bold uppercase tracking-widest text-[#94a3b8]">SERVIÇOS OFERECIDOS</p>
             <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full"
-              style={{ background: 'rgba(3,2,19,0.06)', color: '#717182' }}>{servicos.length} serviços</span>
+              style={{ background: 'rgba(3,2,19,0.06)', color: '#717182' }}>{servicos.length}</span>
           </div>
           <div className="space-y-1">
             {servicos.map((s, idx) => {
@@ -251,45 +269,24 @@ export function ProviderProfile() {
                 ? `R$ ${Number(s.valor_fixo).toLocaleString('pt-BR', { minimumFractionDigits: 0 })}`
                 : 'Sob orçamento';
               return (
-                <div key={s.id}>
-                  <button
-                    onClick={() => setServicoExpandido(servicoExpandido === s.id ? null : s.id)}
-                    className="w-full flex items-center gap-3 py-3 px-1 rounded-[12px] text-left transition-colors hover:bg-[#f8fafc]">
-                    <div className="w-10 h-10 rounded-[12px] flex items-center justify-center text-lg flex-shrink-0"
-                      style={{ background: col.bg }}>
-                      {s.categorias?.icone || '🔧'}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-semibold text-[14px] text-[#030213] truncate">{s.titulo}</span>
-                        {s.aceita_orcamento_online && (
-                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0"
-                            style={{ background: TEAL_BG, color: TEAL_TEXT }}>online</span>
-                        )}
-                      </div>
-                      {Array.isArray(s.tags) && s.tags.length > 0 && (
-                        <p className="text-[11.5px] text-[#94a3b8] truncate">{s.tags.join(' · ')}</p>
+                <div key={s.id} className="flex items-center gap-3 py-3 px-1">
+                  <div className="w-10 h-10 rounded-[12px] flex items-center justify-center text-lg flex-shrink-0"
+                    style={{ background: col.bg }}>
+                    {s.categorias?.icone || '🔧'}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-semibold text-[14px] text-[#030213] truncate">{s.titulo}</span>
+                      {s.aceita_orcamento_online && (
+                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0"
+                          style={{ background: TEAL_BG, color: TEAL_TEXT }}>online</span>
                       )}
                     </div>
-                    <span className="text-[13px] font-bold text-[#030213] flex-shrink-0 flex items-center gap-1">
-                      {preco} <ChevronRight className="h-3.5 w-3.5 text-[#94a3b8]" />
-                    </span>
-                  </button>
-                  {servicoExpandido === s.id && (
-                    <div className="grid grid-cols-2 gap-2 pb-2 px-1">
-                      <a href={`https://wa.me/${WHATSAPP_NUMERO}?text=${encodeURIComponent('#SERVICO:' + s.id + '|#PRESTADOR:' + prestador.id + '|#CAT:' + (s.categorias?.nome || '') + '\n\nOlá! 👋 Vim pelo Serviço Seguro e tenho interesse em:\n\n🔧 *' + s.titulo + '*\n\nPode me ajudar?')}`}
-                        target="_blank" rel="noopener noreferrer"
-                        className="flex items-center justify-center gap-1.5 py-3 rounded-[10px] font-bold text-sm text-white"
-                        style={{ background: '#25D366' }}>
-                        <Phone className="h-3.5 w-3.5" /> WhatsApp
-                      </a>
-                      <Link to={`/orcamento?servico=${s.id}&nome=${encodeURIComponent(s.titulo)}&cat=${encodeURIComponent(s.categorias?.nome || '')}&prestador=${prestador.id}`}
-                        className="flex items-center justify-center gap-1.5 py-3 rounded-[10px] font-bold text-sm text-white"
-                        style={{ background: '#030213' }}>
-                        <MessageCircle className="h-3.5 w-3.5" /> Chat
-                      </Link>
-                    </div>
-                  )}
+                    {Array.isArray(s.tags) && s.tags.length > 0 && (
+                      <p className="text-[11.5px] text-[#94a3b8] truncate">{s.tags.join(' · ')}</p>
+                    )}
+                  </div>
+                  <span className="text-[13px] font-bold text-[#030213] flex-shrink-0">{preco}</span>
                 </div>
               );
             })}
@@ -319,7 +316,7 @@ export function ProviderProfile() {
             {notaStr && (
               <span className="flex items-center gap-1 font-bold text-sm text-[#030213]">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="#f59e0b"><path d="M12 2l2.9 6.3 6.9.6-5.2 4.6 1.6 6.8L12 17.3 5.8 20.9l1.6-6.8L2.2 8.9l6.9-.6z" /></svg>
-                {notaStr} {totalAv}
+                {notaStr} ({totalAv})
               </span>
             )}
           </div>
@@ -369,22 +366,15 @@ export function ProviderProfile() {
           <img src="/logo-escudo.png" alt="Serviço Seguro" style={{ height: 28 }} />
           <span className="font-bold text-[15px] text-[#030213]">Serviço Seguro</span>
         </Link>
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <button onClick={compartilhar} className="w-10 h-10 rounded-full flex items-center justify-center transition-colors hover:bg-[#f1f5f9]"
-              style={{ border: '1.5px solid rgba(0,0,0,0.12)' }}>
-              <Share2 className="h-4 w-4 text-[#030213]" />
-            </button>
-            {linkCopiado && (
-              <div className="absolute top-12 right-0 px-3 py-1.5 rounded-[10px] text-xs font-semibold text-white shadow-lg whitespace-nowrap"
-                style={{ background: '#030213' }}>Link copiado!</div>
-            )}
-          </div>
-          <a href={wppBase} target="_blank" rel="noopener noreferrer"
-            className="px-5 py-2.5 rounded-full font-bold text-[14px] text-white transition-opacity hover:opacity-90"
-            style={{ background: '#030213' }}>
-            Pedir orçamento
-          </a>
+        <div className="relative">
+          <button onClick={compartilhar} className="w-10 h-10 rounded-full flex items-center justify-center transition-colors hover:bg-[#f1f5f9]"
+            style={{ border: '1.5px solid rgba(0,0,0,0.12)' }}>
+            <Share2 className="h-4 w-4 text-[#030213]" />
+          </button>
+          {linkCopiado && (
+            <div className="absolute top-12 right-0 px-3 py-1.5 rounded-[10px] text-xs font-semibold text-white shadow-lg whitespace-nowrap"
+              style={{ background: '#030213' }}>Link copiado!</div>
+          )}
         </div>
       </nav>
 
@@ -436,39 +426,16 @@ export function ProviderProfile() {
                   </span>
                 )}
               </div>
-              <p className="text-[13.5px] text-[#717182] mb-2">
+              <p className="text-[13.5px] text-[#717182] mb-3">
                 {[profissao, prestador.cidade && `${prestador.cidade}${prestador.estado ? ', ' + prestador.estado : ''}`].filter(Boolean).join(' · ')}
               </p>
-              <div className="flex items-center gap-4 text-[13px] text-[#717182]">
-                {notaStr && (
-                  <span className="flex items-center gap-1 font-bold text-[#030213]">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="#f59e0b"><path d="M12 2l2.9 6.3 6.9.6-5.2 4.6 1.6 6.8L12 17.3 5.8 20.9l1.6-6.8L2.2 8.9l6.9-.6z" /></svg>
-                    {notaStr}
-                    {totalAv > 0 && <span className="font-normal text-[#717182]">({totalAv} avaliações)</span>}
-                  </span>
-                )}
-                {servicos.length > 0 && <span>{servicos.length}+ serviços feitos</span>}
-              </div>
-            </div>
-
-            {/* Action buttons */}
-            <div className="flex flex-col gap-2 flex-shrink-0">
-              <a href={wppBase} target="_blank" rel="noopener noreferrer"
-                className="px-6 py-3 rounded-[12px] font-bold text-[14px] text-white text-center transition-opacity hover:opacity-90"
-                style={{ background: '#030213', minWidth: 180 }}>
-                Pedir orçamento
-              </a>
-              <Link to={`/orcamento?prestador=${prestador.id}`}
-                className="px-6 py-3 rounded-[12px] font-bold text-[14px] text-center transition-colors hover:bg-[#f8fafc] flex items-center justify-center gap-2"
-                style={{ border: '1.5px solid rgba(3,2,19,0.15)', color: '#030213' }}>
-                <MessageCircle className="h-4 w-4" /> Mensagem
-              </Link>
+              <StatsBlock horizontal />
             </div>
           </div>
         </div>
 
         {/* Body 2-col */}
-        <div className="grid grid-cols-[1fr_320px] gap-5 pb-10">
+        <div className="grid grid-cols-[1fr_300px] gap-5 pb-10">
 
           {/* Left */}
           <div className="space-y-4">
@@ -497,9 +464,8 @@ export function ProviderProfile() {
                       : 'Sob orçamento';
                     return (
                       <div key={s.id}
-                        className="flex items-center gap-3 p-3 rounded-[14px] cursor-pointer transition-colors hover:bg-[#f8fafc]"
-                        style={{ border: '1px solid rgba(0,0,0,0.07)' }}
-                        onClick={() => setServicoExpandido(servicoExpandido === s.id ? null : s.id)}>
+                        className="flex items-center gap-3 p-3 rounded-[14px]"
+                        style={{ border: '1px solid rgba(0,0,0,0.07)' }}>
                         <div className="w-10 h-10 rounded-[12px] flex items-center justify-center text-xl flex-shrink-0"
                           style={{ background: col.bg }}>
                           {s.categorias?.icone || '🔧'}
@@ -513,30 +479,14 @@ export function ProviderProfile() {
                                 style={{ background: TEAL_BG, color: TEAL_TEXT }}>online</span>
                             )}
                           </div>
+                          {Array.isArray(s.tags) && s.tags.length > 0 && (
+                            <p className="text-[11px] text-[#94a3b8] truncate mt-0.5">{s.tags.join(' · ')}</p>
+                          )}
                         </div>
                       </div>
                     );
                   })}
                 </div>
-                {servicoExpandido && (() => {
-                  const s = servicos.find(sv => sv.id === servicoExpandido);
-                  if (!s) return null;
-                  return (
-                    <div className="mt-4 pt-4 border-t border-[rgba(0,0,0,0.07)] grid grid-cols-2 gap-3">
-                      <a href={`https://wa.me/${WHATSAPP_NUMERO}?text=${encodeURIComponent('#SERVICO:' + s.id + '|#PRESTADOR:' + prestador.id + '|#CAT:' + (s.categorias?.nome || '') + '\n\nOlá! 👋 Vim pelo Serviço Seguro e tenho interesse em:\n\n🔧 *' + s.titulo + '*\n\nPode me ajudar?')}`}
-                        target="_blank" rel="noopener noreferrer"
-                        className="flex items-center justify-center gap-2 py-3 rounded-[12px] font-bold text-sm text-white"
-                        style={{ background: '#25D366' }}>
-                        <Phone className="h-4 w-4" /> WhatsApp
-                      </a>
-                      <Link to={`/orcamento?servico=${s.id}&nome=${encodeURIComponent(s.titulo)}&cat=${encodeURIComponent(s.categorias?.nome || '')}&prestador=${prestador.id}`}
-                        className="flex items-center justify-center gap-2 py-3 rounded-[12px] font-bold text-sm text-white"
-                        style={{ background: '#030213' }}>
-                        <MessageCircle className="h-4 w-4" /> Chat
-                      </Link>
-                    </div>
-                  );
-                })()}
               </div>
             )}
 
@@ -558,28 +508,10 @@ export function ProviderProfile() {
           {/* Right */}
           <div className="space-y-4">
 
-            {/* Solicitar orçamento box */}
+            {/* Informações card */}
             <div className="bg-white rounded-[20px] p-5 sticky top-[80px]" style={{ border: '1px solid rgba(0,0,0,0.07)' }}>
-              <p className="font-bold text-[15px] text-[#030213] mb-1">Solicitar orçamento</p>
-              <p className="text-[13px] text-[#717182] leading-relaxed mb-4">
-                A IA faz a anamnese do seu pedido, {prestador.nome.split(' ')[0]} recebe os detalhes e envia o orçamento. Vocês combinam tudo pelo chat.
-              </p>
-              <a href={wppBase} target="_blank" rel="noopener noreferrer"
-                className="flex items-center justify-center w-full py-3.5 rounded-[12px] font-bold text-[15px] text-white transition-opacity hover:opacity-90 mb-2"
-                style={{ background: '#030213' }}>
-                Pedir orçamento
-              </a>
-              <Link to={`/orcamento?prestador=${prestador.id}`}
-                className="flex items-center justify-center gap-2 w-full py-3.5 rounded-[12px] font-bold text-[14px] transition-colors hover:bg-[#f8fafc] mb-3"
-                style={{ border: '1.5px solid rgba(3,2,19,0.15)', color: '#030213' }}>
-                <MessageCircle className="h-4 w-4" /> Enviar mensagem
-              </Link>
-              <div className="flex items-start gap-2">
-                <Shield className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" style={{ color: TEAL }} />
-                <p className="text-[11.5px] text-[#717182] leading-relaxed">
-                  Ao fechar, geramos um <strong>contrato digital</strong> assinado pelas duas partes. Pagamento combinado entre vocês.
-                </p>
-              </div>
+              <p className="text-[10.5px] font-bold uppercase tracking-widest text-[#94a3b8] mb-4">INFORMAÇÕES</p>
+              <StatsBlock horizontal={false} />
             </div>
 
             {/* Avaliações */}
