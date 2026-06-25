@@ -234,3 +234,17 @@ INSERT INTO tags_sugeridas (categoria_id, nome) SELECT cat.id, t FROM cat, unnes
   'serviço personalizado','sob consulta'
 ]) AS t(t)
 ON CONFLICT DO NOTHING;
+
+
+-- =====================================================
+-- MIGRAÇÃO 2: Banner + Slug Personalizado — Prestadores
+-- Rodar no Supabase SQL Editor
+-- =====================================================
+
+ALTER TABLE prestadores ADD COLUMN IF NOT EXISTS banner_url text;
+ALTER TABLE prestadores ADD COLUMN IF NOT EXISTS slug text;
+ALTER TABLE prestadores ADD COLUMN IF NOT EXISTS bio_curta text;
+
+-- Slug único (case-insensitive, só permite a-z0-9-)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_prestadores_slug ON prestadores (slug)
+  WHERE slug IS NOT NULL;

@@ -95,6 +95,10 @@ export function ProviderDashboard() {
   const [uploadMsg, setUploadMsg] = useState<{ tipo: 'ok' | 'erro'; texto: string } | null>(null);
   const [galeria, setGaleria] = useState<string[]>([]);
   const [uploadingGaleria, setUploadingGaleria] = useState(false);
+  const [uploadingBanner, setUploadingBanner] = useState(false);
+  const [slugInput, setSlugInput] = useState('');
+  const [slugStatus, setSlugStatus] = useState<'idle' | 'checking' | 'available' | 'taken' | 'saved'>('idle');
+  const [salvandoSlug, setSalvandoSlug] = useState(false);
 
   function mostrarMsg(tipo: 'ok' | 'erro', texto: string) {
     setUploadMsg({ tipo, texto });
@@ -193,6 +197,44 @@ export function ProviderDashboard() {
     } catch (err: any) { mostrarMsg('erro', err.message || 'Erro desconhecido'); }
     setUploadingGaleria(false);
     e.target.value = '';
+  }
+
+  async function uploadBanner(e: React.ChangeEvent<HTMLInputElement>) {
+    const rawFile = e.target.files?.[0];
+    if (!rawFile || !prestador) return;
+    setUploadingBanner(true);
+    try {
+      const file = await compressImage(rawFile, 1500, 0.85);
+      const storagePath = `fotos/${prestador.id}/banner.jpg`;
+      const { error: upErr } = await supabase.storage.from('chat-arquivos').upload(storagePath, file, { upsert: true, contentType: 'image/jpeg' });
+      if (upErr) { mostrarMsg('erro', `Erro ao enviar banner: ${upErr.message}`); setUploadingBanner(false); e.target.value = ''; return; }
+      const { data: urlData } = supabase.storage.from('chat-arquivos').getPublicUrl(storagePath);
+      const url = urlData.publicUrl + '?t=' + Date.now();
+      const { error: dbErr } = await supabase.from('prestadores').update({ banner_url: url }).eq('id', prestador.id);
+      if (dbErr) { mostrarMsg('erro', `Erro ao salvar banner: ${dbErr.message}`); setUploadingBanner(false); e.target.value = ''; return; }
+      setPerfil((p: any) => ({ ...p, banner_url: url }));
+      mostrarMsg('ok', 'Banner atualizado!');
+    } catch (err: any) { mostrarMsg('erro', err.message || 'Erro desconhecido'); }
+    setUploadingBanner(false);
+    e.target.value = '';
+  }
+
+  async function verificarSlug(valor: string) {
+    const slug = valor.toLowerCase().replace(/[^a-z0-9-]/g, '');
+    setSlugInput(slug);
+    if (slug.length < 3) { setSlugStatus('idle'); return; }
+    setSlugStatus('checking');
+    const { data } = await supabase.from('prestadores').select('id').eq('slug', slug).neq('id', prestador!.id).limit(1);
+    setSlugStatus(data && data.length > 0 ? 'taken' : 'available');
+  }
+
+  async function salvarSlug() {
+    if (slugStatus !== 'available' || !slugInput || !prestador) return;
+    setSalvandoSlug(true);
+    const { error } = await supabase.from('prestadores').update({ slug: slugInput }).eq('id', prestador.id);
+    if (error) { mostrarMsg('erro', 'Erro ao salvar URL: ' + error.message); }
+    else { setPerfil((p: any) => ({ ...p, slug: slugInput })); setSlugStatus('saved'); mostrarMsg('ok', 'URL personalizada salva!'); }
+    setSalvandoSlug(false);
   }
 
   async function removerFotoGaleria(idx: number) {
@@ -1306,6 +1348,84 @@ export function ProviderDashboard() {
                         )}
                       </div>
                     )}
+                  </div>
+
+                  {/* ── BANNER ── */}
+                  <div className="border-t border-[#e2e8f0] pt-5">
+                    <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                      <div>
+                        <div className="font-bold text-sm" style={{ color: PRIMARY }}>🖼️ Banner do perfil</div>
+                        <div className="text-xs mt-0.5" style={{ color: '#94a3b8' }}>
+                          Aparece no topo do seu perfil público — ideal: <strong>1500 × 375 px</strong> (proporção 4:1)
+                        </div>
+                      </div>
+                      <label className="cursor-pointer inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-[10px] border border-[#e2e8f0] transition-colors hover:bg-[#f8fafc]"
+                        style={{ color: '#64748b' }}>
+                        {uploadingBanner ? '⏳ Enviando...' : perfil.banner_url ? '↺ Trocar banner' : '+ Adicionar banner'}
+                        <input type="file" accept="image/*" className="hidden" onChange={uploadBanner} disabled={uploadingBanner} />
+                      </label>
+                    </div>
+                    {perfil.banner_url ? (
+                      <div className="relative rounded-[14px] overflow-hidden" style={{ aspectRatio: '4/1' }}>
+                        <img src={perfil.banner_url} alt="Banner" className="w-full h-full object-cover" />
+                      </div>
+                    ) : (
+                      <label className="cursor-pointer block border-2 border-dashed border-[#e2e8f0] rounded-[14px] py-10 text-center hover:border-[#030213] transition-colors" style={{ aspectRatio: '4/1', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                        <div className="text-3xl mb-2">🖼️</div>
+                        <div className="text-sm font-semibold text-[#64748b] mb-0.5">Sem banner ainda</div>
+                        <div className="text-xs text-[#94a3b8]">Clique para enviar (1500 × 375 px recomendado)</div>
+                        <input type="file" accept="image/*" className="hidden" onChange={uploadBanner} disabled={uploadingBanner} />
+                      </label>
+                    )}
+                  </div>
+
+                  {/* ── URL PERSONALIZADA ── */}
+                  <div className="border-t border-[#e2e8f0] pt-5">
+                    <div className="font-bold text-sm mb-1" style={{ color: PRIMARY }}>🔗 URL personalizada do perfil</div>
+                    <div className="text-xs mb-3" style={{ color: '#94a3b8' }}>
+                      Troque o código por um nome fácil de compartilhar. Ex: <strong>SerralheiroAfonso</strong>
+                    </div>
+                    {perfil.slug && (
+                      <div className="text-xs font-semibold mb-3 px-3 py-2 rounded-[10px]" style={{ background: 'oklch(0.95 0.03 184)', color: TEAL_DARK_TEXT }}>
+                        ✓ URL atual: <span className="font-mono">/perfil/{perfil.slug}</span>
+                      </div>
+                    )}
+                    <div className="flex gap-2">
+                      <div className="flex-1 flex items-center gap-1 px-3 py-2 text-sm rounded-[10px] border border-[#e2e8f0] bg-[#f8fafc]">
+                        <span className="text-[#94a3b8] text-xs whitespace-nowrap">servi.co/perfil/</span>
+                        <input
+                          type="text"
+                          value={slugInput}
+                          onChange={e => verificarSlug(e.target.value)}
+                          placeholder={perfil.slug || 'meu-nome-aqui'}
+                          className="flex-1 min-w-0 outline-none bg-transparent text-sm font-mono"
+                          style={{ color: PRIMARY }}
+                          onFocus={e => (e.currentTarget.parentElement!.style.borderColor = PRIMARY)}
+                          onBlur={e => (e.currentTarget.parentElement!.style.borderColor = '#e2e8f0')}
+                        />
+                        {slugStatus === 'checking' && <span className="text-[10px] text-[#94a3b8] flex-shrink-0">⏳</span>}
+                        {slugStatus === 'available' && <span className="text-[10px] text-green-600 font-bold flex-shrink-0">✓</span>}
+                        {slugStatus === 'taken' && <span className="text-[10px] text-red-500 font-bold flex-shrink-0">✗</span>}
+                        {slugStatus === 'saved' && <span className="text-[10px] flex-shrink-0" style={{ color: TEAL_DARK_TEXT }}>✓ salvo</span>}
+                      </div>
+                      <button
+                        onClick={salvarSlug}
+                        disabled={slugStatus !== 'available' || salvandoSlug}
+                        className="px-4 py-2 rounded-[10px] text-xs font-bold text-white disabled:opacity-40 transition-opacity"
+                        style={{ background: PRIMARY }}
+                      >
+                        {salvandoSlug ? '⏳' : 'Salvar'}
+                      </button>
+                    </div>
+                    {slugStatus === 'taken' && (
+                      <p className="text-xs text-red-500 mt-1.5">Esta URL já está em uso — escolha outra.</p>
+                    )}
+                    {slugStatus === 'available' && (
+                      <p className="text-xs text-green-600 mt-1.5">✓ Disponível! Clique em Salvar para confirmar.</p>
+                    )}
+                    <p className="text-xs mt-2" style={{ color: '#94a3b8' }}>
+                      Só letras, números e hifens. Mínimo 3 caracteres.
+                    </p>
                   </div>
 
                   {/* Formulário de edição */}
