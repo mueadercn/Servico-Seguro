@@ -110,50 +110,76 @@ export function ProviderProfile() {
     ? new Date(prestador.criado_em).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
     : null;
 
-  // Bloco de estatísticas reutilizável
-  const StatsBlock = ({ horizontal = false }: { horizontal?: boolean }) => (
-    <div className={horizontal ? 'flex items-center gap-5 flex-wrap' : 'space-y-3'}>
-      {dataCadastro && (
-        <div className={horizontal ? 'flex items-center gap-1.5' : 'flex items-center gap-2.5'}>
-          <Calendar className="h-3.5 w-3.5 flex-shrink-0" style={{ color: '#94a3b8' }} />
-          <span className={horizontal ? 'text-[12.5px] text-[#717182]' : 'text-[13px] text-[#45454f]'}>
-            {horizontal ? `Membro desde ${dataCadastro}` : <><span className="text-[#94a3b8] text-[11px] uppercase font-bold tracking-wide block mb-0.5">Membro desde</span>{dataCadastro}</>}
-          </span>
+  // Stats em linha para o hero card (desktop e mobile abaixo do nome)
+  const StatsInline = () => (
+    <div className="flex items-center gap-3 flex-wrap">
+      {notaStr && (
+        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full"
+          style={{ background: '#fffbeb', border: '1px solid #fde68a' }}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="#f59e0b"><path d="M12 2l2.9 6.3 6.9.6-5.2 4.6 1.6 6.8L12 17.3 5.8 20.9l1.6-6.8L2.2 8.9l6.9-.6z" /></svg>
+          <span className="text-[13px] font-extrabold text-[#92400e]">{notaStr}</span>
+          {totalAv > 0 && <span className="text-[11.5px] text-[#b45309]">({totalAv})</span>}
         </div>
       )}
-      {!horizontal && dataCadastro && <div className="border-t border-[rgba(0,0,0,0.06)]" />}
-      <div className={horizontal ? 'flex items-center gap-1.5' : 'flex items-center gap-2.5'}>
-        <CheckCircle className="h-3.5 w-3.5 flex-shrink-0" style={{ color: '#94a3b8' }} />
-        <span className={horizontal ? 'text-[12.5px] text-[#717182]' : 'text-[13px] text-[#45454f]'}>
-          {horizontal
-            ? `${servicosFeitos} serviço${servicosFeitos !== 1 ? 's' : ''} concluído${servicosFeitos !== 1 ? 's' : ''}`
-            : <><span className="text-[#94a3b8] text-[11px] uppercase font-bold tracking-wide block mb-0.5">Serviços concluídos</span>{servicosFeitos}</>
-          }
-        </span>
+      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full"
+        style={{ background: 'oklch(0.95 0.03 184)', border: '1px solid oklch(0.85 0.06 184)' }}>
+        <CheckCircle className="h-3.5 w-3.5 flex-shrink-0" style={{ color: TEAL_TEXT }} />
+        <span className="text-[13px] font-extrabold" style={{ color: TEAL_TEXT }}>{servicosFeitos}</span>
+        <span className="text-[11.5px]" style={{ color: TEAL_TEXT }}>concluídos</span>
       </div>
-      {!horizontal && <div className="border-t border-[rgba(0,0,0,0.06)]" />}
-      <div className={horizontal ? 'flex items-center gap-1.5' : 'flex items-center gap-2.5'}>
-        <Briefcase className="h-3.5 w-3.5 flex-shrink-0" style={{ color: '#94a3b8' }} />
-        <span className={horizontal ? 'text-[12.5px] text-[#717182]' : 'text-[13px] text-[#45454f]'}>
-          {horizontal
-            ? `${servicos.length} serviço${servicos.length !== 1 ? 's' : ''} oferecido${servicos.length !== 1 ? 's' : ''}`
-            : <><span className="text-[#94a3b8] text-[11px] uppercase font-bold tracking-wide block mb-0.5">Serviços oferecidos</span>{servicos.length}</>
-          }
-        </span>
+      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full"
+        style={{ background: '#f0f0ff', border: '1px solid #c7c7f9' }}>
+        <Briefcase className="h-3.5 w-3.5 flex-shrink-0" style={{ color: '#4338ca' }} />
+        <span className="text-[13px] font-extrabold" style={{ color: '#3730a3' }}>{servicos.length}</span>
+        <span className="text-[11.5px]" style={{ color: '#4338ca' }}>oferecidos</span>
       </div>
+      {dataCadastro && (
+        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full"
+          style={{ background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+          <Calendar className="h-3.5 w-3.5 flex-shrink-0 text-[#94a3b8]" />
+          <span className="text-[11.5px] text-[#64748b]">Desde {dataCadastro}</span>
+        </div>
+      )}
+    </div>
+  );
+
+  // Bloco de KPI cards para sidebar/card de informações
+  const StatsGrid = () => (
+    <div className="grid grid-cols-2 gap-2">
       {notaStr && (
-        <>
-          {!horizontal && <div className="border-t border-[rgba(0,0,0,0.06)]" />}
-          <div className={horizontal ? 'flex items-center gap-1.5' : 'flex items-center gap-2.5'}>
-            <Star className="h-3.5 w-3.5 flex-shrink-0 fill-amber-400 text-amber-400" />
-            <span className={horizontal ? 'text-[12.5px] text-[#717182]' : 'text-[13px] text-[#45454f]'}>
-              {horizontal
-                ? `${notaStr} (${totalAv} avaliações)`
-                : <><span className="text-[#94a3b8] text-[11px] uppercase font-bold tracking-wide block mb-0.5">Avaliação média</span>{notaStr} <span className="text-[#94a3b8] text-[11px]">({totalAv} avaliações)</span></>
-              }
-            </span>
+        <div className="rounded-[14px] p-3" style={{ background: '#fffbeb', border: '1px solid #fde68a' }}>
+          <div className="flex items-center gap-1 mb-1">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="#f59e0b"><path d="M12 2l2.9 6.3 6.9.6-5.2 4.6 1.6 6.8L12 17.3 5.8 20.9l1.6-6.8L2.2 8.9l6.9-.6z" /></svg>
+            <span className="text-[10px] font-bold uppercase tracking-wide text-[#b45309]">Avaliação</span>
           </div>
-        </>
+          <div className="text-[22px] font-extrabold text-[#92400e] leading-none">{notaStr}</div>
+          <div className="text-[10.5px] text-[#b45309] mt-0.5">{totalAv} avaliações</div>
+        </div>
+      )}
+      <div className="rounded-[14px] p-3" style={{ background: 'oklch(0.95 0.03 184)', border: '1px solid oklch(0.85 0.06 184)' }}>
+        <div className="flex items-center gap-1 mb-1">
+          <CheckCircle className="h-3 w-3" style={{ color: TEAL_TEXT }} />
+          <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: TEAL_TEXT }}>Concluídos</span>
+        </div>
+        <div className="text-[22px] font-extrabold leading-none" style={{ color: TEAL_TEXT }}>{servicosFeitos}</div>
+        <div className="text-[10.5px] mt-0.5" style={{ color: TEAL_TEXT }}>serviços feitos</div>
+      </div>
+      <div className="rounded-[14px] p-3" style={{ background: '#f0f0ff', border: '1px solid #c7c7f9' }}>
+        <div className="flex items-center gap-1 mb-1">
+          <Briefcase className="h-3 w-3" style={{ color: '#4338ca' }} />
+          <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: '#4338ca' }}>Oferecidos</span>
+        </div>
+        <div className="text-[22px] font-extrabold text-[#3730a3] leading-none">{servicos.length}</div>
+        <div className="text-[10.5px] text-[#4338ca] mt-0.5">serviços disponíveis</div>
+      </div>
+      {dataCadastro && (
+        <div className="rounded-[14px] p-3" style={{ background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+          <div className="flex items-center gap-1 mb-1">
+            <Calendar className="h-3 w-3 text-[#94a3b8]" />
+            <span className="text-[10px] font-bold uppercase tracking-wide text-[#64748b]">Membro</span>
+          </div>
+          <div className="text-[13px] font-extrabold text-[#334155] leading-tight mt-1">{dataCadastro}</div>
+        </div>
       )}
     </div>
   );
@@ -236,7 +262,7 @@ export function ProviderProfile() {
 
         {/* Stats resumidos inline */}
         <div className="flex items-center gap-2 text-[12.5px] text-[#717182] flex-wrap justify-center">
-          <StatsBlock horizontal />
+          <StatsInline />
         </div>
       </div>
 
@@ -251,7 +277,7 @@ export function ProviderProfile() {
       {/* Info card — detalhado */}
       <div className="mx-4 mb-3 p-4 rounded-[18px] bg-white">
         <p className="text-[10.5px] font-bold uppercase tracking-widest text-[#94a3b8] mb-3">INFORMAÇÕES</p>
-        <StatsBlock horizontal={false} />
+        <StatsGrid />
       </div>
 
       {/* Serviços */}
@@ -429,7 +455,7 @@ export function ProviderProfile() {
               <p className="text-[13.5px] text-[#717182] mb-3">
                 {[profissao, prestador.cidade && `${prestador.cidade}${prestador.estado ? ', ' + prestador.estado : ''}`].filter(Boolean).join(' · ')}
               </p>
-              <StatsBlock horizontal />
+              <StatsInline />
             </div>
           </div>
         </div>
@@ -511,7 +537,7 @@ export function ProviderProfile() {
             {/* Informações card */}
             <div className="bg-white rounded-[20px] p-5 sticky top-[80px]" style={{ border: '1px solid rgba(0,0,0,0.07)' }}>
               <p className="text-[10.5px] font-bold uppercase tracking-widest text-[#94a3b8] mb-4">INFORMAÇÕES</p>
-              <StatsBlock horizontal={false} />
+              <StatsGrid />
             </div>
 
             {/* Avaliações */}
