@@ -568,7 +568,7 @@ export function Auth() {
 
     {/* ── MODAL BOAS-VINDAS PRESTADOR ── */}
     {boasVindasData && (
-      <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+      <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" style={{ fontFamily: "Plus Jakarta Sans, sans-serif" }}>
         <div className="bg-white rounded-[20px] w-full max-w-md relative overflow-hidden"
           style={{ boxShadow: '0 24px 64px -24px rgba(3,2,19,0.45)' }}>
 
