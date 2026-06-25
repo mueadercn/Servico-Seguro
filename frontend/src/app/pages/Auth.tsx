@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
-import { ArrowLeft, Mail, Lock, User, Phone, Eye, EyeOff, Building2 } from 'lucide-react';
+import { ArrowLeft, Mail, Lock, User, Phone, Eye, EyeOff, Building2, X } from 'lucide-react';
 import { supabase, getPrestador, getContratante } from '../../lib/supabase';
 import { validarCPF, validarCNPJ, mascaraCPF, mascaraCNPJ } from '../utils/validacoes';
 
@@ -21,6 +21,7 @@ export function Auth() {
   const [categorias, setCategorias] = useState<any[]>([]);
   const [tipoPessoa, setTipoPessoa] = useState<'pf' | 'pj'>('pf');
   const [cpfErro, setCpfErro] = useState('');
+  const [boasVindasData, setBoasVindasData] = useState<{ id: string; nome: string; email: string; telefone: string } | null>(null);
 
   const [form, setForm] = useState({
     nome: '', email: '', telefone: '', cpf: '', cnpj: '', razao_social: '',
@@ -162,7 +163,10 @@ export function Auth() {
           );
         }
         await supabase.from('prestador_auth').insert({ prestador_id: p[0].id, email: form.email.toLowerCase(), senha_hash: btoa(form.senha), ativo: true });
-        afterSuccess('ss_prestador', { id: p[0].id, nome: form.nome, email: form.email, telefone: form.telefone });
+        localStorage.setItem('ss_prestador', JSON.stringify({ id: p[0].id, nome: form.nome, email: form.email, telefone: form.telefone }));
+        setBoasVindasData({ id: p[0].id, nome: form.nome, email: form.email, telefone: form.telefone });
+        setLoading(false);
+        return;
       }
     } catch (e: any) { setErro(e.message || 'Erro ao criar conta. Tente novamente.'); }
     setLoading(false);
@@ -561,5 +565,76 @@ export function Auth() {
         </div>
       </div>
     </div>
+
+    {/* ── MODAL BOAS-VINDAS PRESTADOR ── */}
+    {boasVindasData && (
+      <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+        <div className="bg-white rounded-[20px] w-full max-w-md relative overflow-hidden"
+          style={{ boxShadow: '0 24px 64px -24px rgba(3,2,19,0.45)' }}>
+
+          {/* X para fechar */}
+          <button
+            onClick={() => navigate('/prestador?aba=perfil')}
+            className="absolute top-4 right-4 z-10 p-2 rounded-full transition-colors hover:bg-white/20"
+          >
+            <X className="h-5 w-5 text-white" />
+          </button>
+
+          {/* Header escuro */}
+          <div className="px-8 pt-8 pb-6" style={{ background: 'linear-gradient(135deg, #030213 0%, #16161f 100%)' }}>
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-9 h-9 bg-white/10 rounded-[10px] flex items-center justify-center">
+                <img src="/logo-escudo.png" alt="" style={{ height: 22 }} />
+              </div>
+              <span className="text-white/80 font-semibold text-sm">Serviço Seguro</span>
+            </div>
+            <h2 className="text-white text-[26px] font-extrabold leading-tight mb-1">
+              Olá, {boasVindasData.nome.split(' ')[0]}! 🎉
+            </h2>
+            <p className="text-white/60 text-sm">Cadastro confirmado com sucesso!</p>
+          </div>
+
+          {/* Body */}
+          <div className="p-6 space-y-3">
+            {/* Confirmação de dados */}
+            <div className="rounded-[14px] p-4" style={{ background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+              <p className="text-[13px] font-bold text-[#030213] mb-2.5">Confirme seus dados:</p>
+              <div className="flex items-start gap-2 text-[13px] text-[#45454f]">
+                <span className="mt-0.5">📱</span>
+                <span><strong>Celular:</strong> {boasVindasData.telefone} — está correto?</span>
+              </div>
+              <div className="flex items-start gap-2 text-[13px] text-[#45454f] mt-2">
+                <span className="mt-0.5">📧</span>
+                <span><strong>E-mail:</strong> {boasVindasData.email}</span>
+              </div>
+              <p className="text-xs text-[#94a3b8] mt-2.5">Se precisar corrigir, acesse <strong>Perfil</strong> no seu painel.</p>
+            </div>
+
+            {/* Dica de conversão */}
+            <div className="rounded-[14px] p-4" style={{ background: 'oklch(0.95 0.03 184)', border: '1px solid oklch(0.86 0.07 184)' }}>
+              <p className="text-[13px] font-bold mb-2" style={{ color: 'oklch(0.32 0.1 184)' }}>💡 Dica importante</p>
+              <p className="text-[13px]" style={{ color: 'oklch(0.38 0.09 184)' }}>
+                Prestadores com <strong>foto de perfil</strong> e <strong>fotos do trabalho</strong> recebem até <strong>3× mais pedidos</strong>.
+              </p>
+              <div className="mt-2.5 space-y-1.5">
+                <p className="text-xs font-medium" style={{ color: 'oklch(0.4 0.08 184)' }}>📸 <strong>Foto de perfil</strong> — sua melhor apresentação</p>
+                <p className="text-xs font-medium" style={{ color: 'oklch(0.4 0.08 184)' }}>🖼️ <strong>Portfólio</strong> — fotos dos seus trabalhos (até 6)</p>
+              </div>
+            </div>
+          </div>
+
+          {/* CTA */}
+          <div className="px-6 pb-6">
+            <button
+              onClick={() => navigate('/prestador?aba=perfil')}
+              className="w-full py-3.5 rounded-[12px] font-bold text-white text-sm transition-opacity hover:opacity-90"
+              style={{ background: '#030213' }}
+            >
+              Acessar meu painel →
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
   );
 }

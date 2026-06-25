@@ -164,6 +164,17 @@ router.post('/prestador/cadastro', async (req, res) => {
       ativo: true
     });
 
+    // Mensagem de boas-vindas via WhatsApp
+    try {
+      const { enviarMensagem } = require('../services/whatsapp');
+      const linkPainel = (process.env.FRONTEND_URL || 'https://classy-cucurucho-4e3455.netlify.app') + '/prestador?aba=perfil';
+      const primeiroNome = nome.split(' ')[0];
+      const msg = `Olá, *${primeiroNome}*! 🎉\n\nSeu cadastro no *Serviço Seguro* foi confirmado! Você já pode receber pedidos de orçamento aqui pelo WhatsApp e também pelo nosso site.\n\nAntes de começar, confirme rapidinho:\n\n📱 *Celular:* Este número que estou usando está correto?\n📧 *E-mail:* ${email.toLowerCase()} — está certo?\n\nSe algum dado precisar de ajuste, é só me responder aqui.\n\n---\n\n💡 *Dica importante:*\n\nPrestadores com *foto de perfil* e *fotos do trabalho* recebem até *3× mais pedidos* — os clientes confiam muito mais quando veem quem está por trás do serviço.\n\nNo seu painel você consegue adicionar:\n📸 *Foto de perfil* — sua melhor apresentação\n🖼️ *Portfólio* — fotos dos seus trabalhos (até 6 fotos)\n\nAcesse: ${linkPainel}\n\nBora começar? Qualquer dúvida, é só chamar! 💪`;
+      await enviarMensagem(telefone, msg);
+    } catch (wppErr) {
+      console.log('[WhatsApp] Boas-vindas não enviado:', wppErr.message);
+    }
+
     res.json({
       ok: true,
       usuario: { id: prestadorId, nome, email: email.toLowerCase(), tipo: 'prestador' }

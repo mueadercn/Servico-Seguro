@@ -291,6 +291,16 @@ export function ProviderProfile() {
                                   )}
                                 </div>
                                 <span className="font-[600] text-[14.5px] text-[#030213]">{s.titulo}</span>
+                                {Array.isArray(s.tags) && s.tags.length > 0 && (
+                                  <div className="flex flex-wrap gap-1 mt-1">
+                                    {s.tags.map((t: string) => (
+                                      <span key={t} className="text-[10px] font-medium px-2 py-0.5 rounded-full"
+                                        style={{ background: 'rgba(3,2,19,0.06)', color: '#45454f' }}>
+                                        {t}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
                                 {s.descricao && (
                                   <p className="text-xs text-[#717182] mt-1 leading-relaxed line-clamp-2">{s.descricao}</p>
                                 )}

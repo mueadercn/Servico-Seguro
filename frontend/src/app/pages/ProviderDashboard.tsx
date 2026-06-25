@@ -77,8 +77,11 @@ export function ProviderDashboard() {
   const [modalServico, setModalServico] = useState(false);
   const [formServico, setFormServico] = useState({
     titulo: '', descricao: '', categoria_id: '',
-    tipo: 'orcamento', valor_fixo: '', aceita_orcamento_online: false
+    tipo: 'orcamento', valor_fixo: '', aceita_orcamento_online: false,
+    tags: [] as string[],
   });
+  const [tagsSugeridas, setTagsSugeridas] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState('');
   const [salvando, setSalvando] = useState(false);
   const [erroForm, setErroForm] = useState('');
   const [uploadingFoto, setUploadingFoto] = useState(false);
@@ -206,6 +209,14 @@ export function ProviderDashboard() {
     carregarTudo();
   }, []);
 
+  useEffect(() => {
+    if (!formServico.categoria_id) { setTagsSugeridas([]); return; }
+    fetch(`${API_URL}/api/categorias/${formServico.categoria_id}/tags`)
+      .then(r => r.json())
+      .then(d => setTagsSugeridas(Array.isArray(d) ? d : []))
+      .catch(() => setTagsSugeridas([]));
+  }, [formServico.categoria_id]);
+
   async function carregarTudo() {
     if (!prestador) return;
     const [lRes, sRes, avRes, pRes, cRes] = await Promise.all([
@@ -260,11 +271,14 @@ export function ProviderDashboard() {
         valor_fixo: formServico.valor_fixo ? parseFloat(formServico.valor_fixo) : null,
         aceita_orcamento_online: formServico.aceita_orcamento_online,
         cidade: perfil?.cidade || 'Santa Maria',
+        tags: formServico.tags.slice(0, 3),
         ativo: true
       });
       if (error) throw error;
       setModalServico(false);
-      setFormServico({ titulo: '', descricao: '', categoria_id: '', tipo: 'orcamento', valor_fixo: '', aceita_orcamento_online: false });
+      setFormServico({ titulo: '', descricao: '', categoria_id: '', tipo: 'orcamento', valor_fixo: '', aceita_orcamento_online: false, tags: [] });
+      setTagInput('');
+      setTagsSugeridas([]);
       carregarTudo();
     } catch (e: any) { setErroForm(e.message); }
     setSalvando(false);
@@ -1561,6 +1575,74 @@ export function ProviderDashboard() {
                   onBlur={e => (e.target.style.borderColor = '#e2e8f0')}
                 />
               </div>
+
+              {/* ── TAGS ── */}
+              <div>
+                <label className="text-[10.5px] font-bold uppercase tracking-wider text-[#64748b] mb-1.5 block">
+                  Tags do serviço
+                  <span className="ml-1 normal-case font-normal text-[#94a3b8]">({formServico.tags.length}/3)</span>
+                </label>
+
+                {/* Chips selecionados */}
+                {formServico.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {formServico.tags.map(t => (
+                      <span key={t} className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full"
+                        style={{ background: 'oklch(0.92 0.05 184)', color: 'oklch(0.32 0.1 184)' }}>
+                        {t}
+                        <button
+                          type="button"
+                          onClick={() => setForm('tags', formServico.tags.filter(x => x !== t))}
+                          className="ml-0.5 hover:opacity-70 font-bold"
+                        >×</button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {formServico.tags.length < 3 && (
+                  <>
+                    <input
+                      type="text"
+                      value={tagInput}
+                      onChange={e => setTagInput(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' && tagInput.trim()) {
+                          e.preventDefault();
+                          const t = tagInput.trim().toLowerCase();
+                          if (!formServico.tags.includes(t)) setForm('tags', [...formServico.tags, t]);
+                          setTagInput('');
+                        }
+                      }}
+                      placeholder={formServico.categoria_id ? 'Digite ou escolha abaixo e pressione Enter' : 'Selecione uma categoria primeiro'}
+                      disabled={!formServico.categoria_id}
+                      className="w-full border border-[#e2e8f0] rounded-[10px] px-4 py-3 text-sm outline-none disabled:bg-[#f8fafc] disabled:cursor-not-allowed"
+                      style={{ color: PRIMARY }}
+                      onFocus={e => (e.target.style.borderColor = TEAL)}
+                      onBlur={e => (e.target.style.borderColor = '#e2e8f0')}
+                    />
+                    {tagsSugeridas.filter(t => !formServico.tags.includes(t)).length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {tagsSugeridas
+                          .filter(t => !formServico.tags.includes(t) && (tagInput === '' || t.includes(tagInput.toLowerCase())))
+                          .slice(0, 10)
+                          .map(t => (
+                            <button
+                              key={t}
+                              type="button"
+                              onClick={() => { setForm('tags', [...formServico.tags, t]); setTagInput(''); }}
+                              className="text-xs px-2.5 py-1 rounded-full border border-[#e2e8f0] transition-colors hover:border-[#030213] hover:bg-[#f8fafc]"
+                              style={{ color: '#45454f' }}
+                            >
+                              + {t}
+                            </button>
+                          ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-[10.5px] font-bold uppercase tracking-wider text-[#64748b] mb-1.5 block">Modalidade</label>
@@ -1606,7 +1688,7 @@ export function ProviderDashboard() {
             </div>
             <div className="px-6 pb-6 flex gap-3">
               <button
-                onClick={() => { setModalServico(false); setErroForm(''); }}
+                onClick={() => { setModalServico(false); setErroForm(''); setTagInput(''); setForm('tags', []); }}
                 className="flex-1 py-3 border border-[#e2e8f0] rounded-[10px] font-semibold text-sm transition-colors hover:bg-[#f8fafc]"
                 style={{ color: '#64748b' }}
               >

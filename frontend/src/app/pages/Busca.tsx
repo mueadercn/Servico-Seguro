@@ -113,7 +113,7 @@ function ServiceCard({ s, onClick }: { s: any; onClick: () => void }) {
             {s.categorias?.icone && <span className="mr-1">{s.categorias.icone}</span>}{catNome}
           </div>
           <h3 className="text-[15px] font-bold m-0 mb-1 leading-snug" style={{ color: '#030213' }}>{s.titulo}</h3>
-          <div className="flex items-center gap-1.5 mb-3">
+          <div className="flex items-center gap-1.5 mb-1.5">
             <span className="text-[13px] text-[#717182]">{s.prestadores?.nome}</span>
             {s.prestadores?.verificado && (
               <svg width="14" height="14" viewBox="0 0 24 24" fill="oklch(0.6 0.118 184.704)">
@@ -122,6 +122,16 @@ function ServiceCard({ s, onClick }: { s: any; onClick: () => void }) {
               </svg>
             )}
           </div>
+          {Array.isArray(s.tags) && s.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1 mb-2">
+              {s.tags.map((t: string) => (
+                <span key={t} className="text-[10.5px] font-medium px-2 py-0.5 rounded-full"
+                  style={{ background: 'rgba(3,2,19,0.06)', color: '#45454f' }}>
+                  {t}
+                </span>
+              ))}
+            </div>
+          )}
           <div className="flex items-center justify-between pt-3 border-t border-[rgba(0,0,0,0.07)]">
             {price > 0 ? (
               <span className="text-[15px] font-extrabold" style={{ color: 'oklch(0.45 0.1 184)' }}>
@@ -170,7 +180,7 @@ export function Busca() {
       const { data, error } = await supabase
         .from('servicos')
         .select(`
-          id, titulo, descricao, tipo, valor_fixo, aceita_orcamento_online, criado_em,
+          id, titulo, descricao, tipo, valor_fixo, aceita_orcamento_online, criado_em, tags,
           categorias(id, nome, icone),
           prestadores(id, nome, foto_url, bio, verificado, cidade, nota_media, aceita_orcamento_online, fotos_urls)
         `)

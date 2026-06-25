@@ -55,12 +55,13 @@ router.get('/:id', async (req, res) => {
 // POST /api/servicos — criar
 router.post('/', async (req, res) => {
   try {
-    const { titulo, descricao, prestador_id, categoria_id, tipo, valor_fixo, cidade, aceita_orcamento_online } = req.body;
+    const { titulo, descricao, prestador_id, categoria_id, tipo, valor_fixo, cidade, aceita_orcamento_online, tags } = req.body;
     if (!titulo || !prestador_id) return res.status(400).json({ ok: false, error: 'Título e prestador obrigatórios' });
 
+    const tagsLimpo = Array.isArray(tags) ? tags.slice(0, 3) : [];
     const { data, error } = await supabase
       .from('servicos')
-      .insert({ titulo, descricao, prestador_id, categoria_id, tipo: tipo || 'orcamento', valor_fixo, cidade, aceita_orcamento_online: aceita_orcamento_online || false, ativo: true })
+      .insert({ titulo, descricao, prestador_id, categoria_id, tipo: tipo || 'orcamento', valor_fixo, cidade, aceita_orcamento_online: aceita_orcamento_online || false, ativo: true, tags: tagsLimpo })
       .select()
       .single();
     if (error) throw error;
@@ -73,10 +74,11 @@ router.post('/', async (req, res) => {
 // PUT /api/servicos/:id — atualizar
 router.put('/:id', async (req, res) => {
   try {
-    const { titulo, descricao, categoria_id, tipo, valor_fixo, cidade, aceita_orcamento_online, ativo } = req.body;
+    const { titulo, descricao, categoria_id, tipo, valor_fixo, cidade, aceita_orcamento_online, ativo, tags } = req.body;
+    const tagsLimpo = Array.isArray(tags) ? tags.slice(0, 3) : undefined;
     const { data, error } = await supabase
       .from('servicos')
-      .update({ titulo, descricao, categoria_id, tipo, valor_fixo, cidade, aceita_orcamento_online, ativo })
+      .update({ titulo, descricao, categoria_id, tipo, valor_fixo, cidade, aceita_orcamento_online, ativo, ...(tagsLimpo !== undefined ? { tags: tagsLimpo } : {}) })
       .eq('id', req.params.id)
       .select()
       .single();
