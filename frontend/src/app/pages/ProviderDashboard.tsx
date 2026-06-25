@@ -211,7 +211,8 @@ export function ProviderDashboard() {
 
   useEffect(() => {
     if (!formServico.categoria_id) { setTagsSugeridas([]); return; }
-    fetch(`${API_URL}/api/categorias/${formServico.categoria_id}/tags`)
+    const baseUrl = import.meta.env.VITE_API_URL || 'https://servi-o-seguro-production.up.railway.app';
+    fetch(`${baseUrl}/api/categorias/${formServico.categoria_id}/tags`)
       .then(r => r.json())
       .then(d => setTagsSugeridas(Array.isArray(d) ? d : []))
       .catch(() => setTagsSugeridas([]));
