@@ -1493,14 +1493,12 @@ export function Admin() {
                                 )}
                               </td>
                               <td className={td}>
-                                <div className="flex gap-2">
-                                  {(p.selfie_url || p.doc_identidade_url) && (
-                                    <button onClick={() => abrirDetalhe(p)}
-                                      className="text-xs px-3 py-1 rounded-[8px] font-semibold"
-                                      style={{ background: '#E6F1FB', color: '#0C447C' }}>
-                                      Ver docs
-                                    </button>
-                                  )}
+                                <div className="flex gap-2 flex-wrap">
+                                  <button onClick={() => abrirDetalhe(p)}
+                                    className="text-xs px-3 py-1 rounded-[8px] font-semibold"
+                                    style={{ background: '#E6F1FB', color: '#0C447C' }}>
+                                    Ver perfil
+                                  </button>
                                   <button onClick={() => toggleVerificado(p.id, p.verificado)}
                                     className="text-xs px-3 py-1 rounded-[8px] font-semibold transition-colors"
                                     style={p.verificado ? { background: '#FCEBEB', color: '#501313' } : { background: '#EAF3DE', color: '#173404' }}>
@@ -2221,7 +2219,7 @@ export function Admin() {
             <div className="px-6 py-4 border-b border-[#e2e8f0] flex items-center justify-between">
               <div>
                 <h3 className="font-extrabold text-[#030213]">{prestadorDetalhe.nome}</h3>
-                <p className="text-xs text-[#64748b] mt-0.5">Verificação de documentos</p>
+                <p className="text-xs text-[#64748b] mt-0.5">Perfil completo</p>
               </div>
               <button onClick={() => { setPrestadorDetalhe(null); setDocsAssinados(null); }}
                 className="p-2 hover:bg-[#f8fafc] rounded-[10px] transition-colors text-[#64748b]">
@@ -2229,7 +2227,22 @@ export function Admin() {
               </button>
             </div>
             <div className="p-6 space-y-5">
-              <div className="flex gap-3 flex-wrap">
+              {/* Info básica */}
+              <div className="flex items-center gap-3">
+                {prestadorDetalhe.foto_url
+                  ? <img src={prestadorDetalhe.foto_url} alt="" className="w-14 h-14 rounded-full object-cover flex-shrink-0" />
+                  : <div className="w-14 h-14 rounded-full bg-[#030213] text-white flex items-center justify-center font-bold text-xl flex-shrink-0">
+                      {(prestadorDetalhe.nome || '?').charAt(0)}
+                    </div>
+                }
+                <div>
+                  <div className="font-bold text-[#030213]">{prestadorDetalhe.nome}</div>
+                  <div className="text-xs text-[#94a3b8]">{prestadorDetalhe.email} · {prestadorDetalhe.telefone}</div>
+                  {prestadorDetalhe.cidade && <div className="text-xs text-[#94a3b8]">{prestadorDetalhe.cidade}{prestadorDetalhe.estado ? `, ${prestadorDetalhe.estado}` : ''}</div>}
+                </div>
+              </div>
+
+              <div className="flex gap-2 flex-wrap">
                 {prestadorDetalhe.verificado ? (
                   <span className="rounded-full text-xs font-bold px-3 py-1" style={{ background: '#EAF3DE', color: '#173404' }}>✓ Perfil Verificado</span>
                 ) : prestadorDetalhe.verificacao_solicitada ? (
@@ -2238,6 +2251,20 @@ export function Admin() {
                   <span className="rounded-full text-xs font-bold px-3 py-1" style={{ background: '#f1f5f9', color: '#64748b' }}>Sem solicitação</span>
                 )}
               </div>
+
+              {/* Fotos do trabalho */}
+              {Array.isArray(prestadorDetalhe.fotos_urls) && prestadorDetalhe.fotos_urls.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-[#64748b] mb-2">Fotos do trabalho ({prestadorDetalhe.fotos_urls.length})</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {prestadorDetalhe.fotos_urls.map((url: string, i: number) => (
+                      <a key={i} href={url} target="_blank" rel="noopener noreferrer">
+                        <img src={url} alt={`Foto ${i+1}`} className="w-full aspect-square object-cover rounded-[10px] border border-[#e2e8f0] hover:opacity-90 transition-opacity" />
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div>

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router';
-import { Search, X, MapPin } from 'lucide-react';
+import { Search, X, MapPin, ChevronLeft, ChevronRight } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 const NOTAS = [3, 3.5, 4, 4.5, 5];
@@ -28,6 +28,108 @@ function getInitials(nome: string): string {
 }
 
 const CIDADES = ['Santa Maria', 'Passo Fundo', 'Porto Alegre', 'Pelotas', 'Caxias do Sul'];
+
+function ServiceCard({ s, onClick }: { s: any; onClick: () => void }) {
+  const [idx, setIdx] = useState(0);
+  const fotos: string[] = Array.isArray(s.prestadores?.fotos_urls) ? s.prestadores.fotos_urls : [];
+  const catNome: string = s.categorias?.nome || '';
+  const nota = Number(s.prestadores?.nota_media || 0);
+  const aceitaOnline = s.aceita_orcamento_online || s.prestadores?.aceita_orcamento_online;
+  const price = s.tipo === 'fixo' && s.valor_fixo ? Number(s.valor_fixo) : 0;
+
+  function prev(e: React.MouseEvent) { e.stopPropagation(); setIdx(i => (i - 1 + fotos.length) % fotos.length); }
+  function next(e: React.MouseEvent) { e.stopPropagation(); setIdx(i => (i + 1) % fotos.length); }
+
+  const gradBg = categoryGradient(catNome);
+
+  return (
+    <div
+      onClick={onClick}
+      className="border border-[rgba(0,0,0,0.08)] rounded-[18px] overflow-hidden hover:shadow-[0_16px_40px_-20px_rgba(3,2,19,0.3)] hover:-translate-y-0.5 transition-all cursor-pointer bg-white"
+    >
+      {/* ── GALERIA QUADRADA ── */}
+      <div className="relative w-full" style={{ aspectRatio: '1/1', background: gradBg }}>
+        {fotos.length > 0 && fotos.map((url, i) => (
+          <img key={i} src={url} alt=""
+            className="absolute inset-0 w-full h-full object-cover"
+            style={{ display: i === idx ? 'block' : 'none' }} />
+        ))}
+
+        {aceitaOnline && (
+          <span className="absolute top-3 left-3 z-[3] text-[11.5px] font-semibold bg-white/95 text-[#030213] px-2.5 py-1 rounded-full whitespace-nowrap">
+            💬 Orça online
+          </span>
+        )}
+        {nota > 0 && (
+          <span className="absolute top-3 right-3 z-[3] flex items-center gap-1 bg-white/95 px-2.5 py-[5px] rounded-full text-[12.5px] font-bold">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="#030213"><path d="M12 2l2.9 6.3 6.9.6-5.2 4.6 1.6 6.8L12 17.3 5.8 20.9l1.6-6.8L2.2 8.9l6.9-.6z"/></svg>
+            {nota.toFixed(1)}
+          </span>
+        )}
+
+        {fotos.length > 1 && (
+          <>
+            <button onClick={prev}
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 z-[4] w-8 h-8 rounded-full border-none bg-white/92 shadow-[0_2px_8px_rgba(3,2,19,0.2)] cursor-pointer flex items-center justify-center">
+              <ChevronLeft className="w-4 h-4 text-[#030213]" />
+            </button>
+            <button onClick={next}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 z-[4] w-8 h-8 rounded-full border-none bg-white/92 shadow-[0_2px_8px_rgba(3,2,19,0.2)] cursor-pointer flex items-center justify-center">
+              <ChevronRight className="w-4 h-4 text-[#030213]" />
+            </button>
+            <div className="absolute inset-x-0 bottom-0 h-16 z-[2] bg-gradient-to-t from-black/35 to-transparent pointer-events-none" />
+            <div className="absolute inset-x-0 bottom-3 z-[3] flex justify-center gap-1.5">
+              {fotos.map((_, i) => (
+                <span key={i} className="h-1.5 rounded-full transition-all"
+                  style={{ width: i === idx ? 18 : 6, background: i === idx ? '#fff' : 'rgba(255,255,255,0.55)' }} />
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* ── DADOS ── */}
+      <div className="px-[18px] pb-[18px] relative">
+        {/* Foto do prestador por cima da galeria */}
+        <div className="absolute -top-7 left-[18px] w-14 h-14 rounded-[16px] border-[3px] border-white overflow-hidden bg-[#030213] z-[5]"
+          style={{ boxShadow: '0 6px 16px -6px rgba(3,2,19,0.4)' }}>
+          {s.prestadores?.foto_url
+            ? <img src={s.prestadores.foto_url} alt="" className="w-full h-full object-cover" />
+            : <div className="w-full h-full flex items-center justify-center text-white font-bold text-xl">
+                {getInitials(s.prestadores?.nome || '')}
+              </div>
+          }
+        </div>
+
+        <div className="mt-9">
+          <div className="text-[11px] font-bold uppercase text-[#717182] tracking-[0.04em] mb-0.5">
+            {s.categorias?.icone && <span className="mr-1">{s.categorias.icone}</span>}{catNome}
+          </div>
+          <h3 className="text-[15.5px] font-bold m-0 mb-1 leading-snug" style={{ color: '#030213' }}>{s.titulo}</h3>
+          <div className="flex items-center gap-1.5 mb-3">
+            <span className="text-[13px] text-[#717182]">{s.prestadores?.nome}</span>
+            {s.prestadores?.verificado && (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="oklch(0.6 0.118 184.704)">
+                <path d="M12 2l2.4 2.1 3.1-.6 1.1 3 2.8 1.4-1 3.1 1 3.1-2.8 1.4-1.1 3-3.1-.6L12 22l-2.4-2.1-3.1.6-1.1-3-2.8-1.4 1-3.1-1-3.1 2.8-1.4 1.1-3 3.1.6z"/>
+                <path d="M9 12l2 2 4-4" stroke="#fff" strokeWidth="2" fill="none"/>
+              </svg>
+            )}
+          </div>
+          <div className="flex items-center justify-between pt-3.5 border-t border-[rgba(0,0,0,0.07)]">
+            {price > 0 ? (
+              <span className="text-[15px] font-extrabold" style={{ color: 'oklch(0.45 0.1 184)' }}>
+                {formatCurrency(price)}
+              </span>
+            ) : (
+              <span className="text-[13px] text-[#717182]">Sob orçamento</span>
+            )}
+            <span className="text-[13px] font-bold">Ver detalhes →</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function Busca() {
   const [urlParams] = useSearchParams();
@@ -63,7 +165,7 @@ export function Busca() {
         .select(`
           id, titulo, descricao, tipo, valor_fixo, aceita_orcamento_online, criado_em,
           categorias(id, nome, icone),
-          prestadores(id, nome, foto_url, bio, verificado, cidade, nota_media, aceita_orcamento_online)
+          prestadores(id, nome, foto_url, bio, verificado, cidade, nota_media, aceita_orcamento_online, fotos_urls)
         `)
         .eq('ativo', true)
         .order('criado_em', { ascending: false });
@@ -179,20 +281,36 @@ export function Busca() {
           </div>
         </div>
 
-        {/* ── HEADER ROW 1.5 — cidade ── */}
-        <div className="px-4 py-2 flex items-center gap-2 border-t border-[rgba(0,0,0,0.06)]" style={{ background: 'oklch(0.985 0.001 0)' }}>
-          <MapPin className="h-3.5 w-3.5 text-[#94a3b8] flex-shrink-0" />
-          <span className="text-xs text-[#94a3b8] flex-shrink-0">Cidade:</span>
-          <select
-            value={cidade}
-            onChange={e => setCidade(e.target.value)}
-            className="text-xs font-bold text-[#030213] bg-transparent outline-none cursor-pointer"
-          >
-            {CIDADES.map(c => <option key={c}>{c}</option>)}
-          </select>
+        {/* ── ROW 1.5 — cidade + categoria ── */}
+        <div className="px-4 py-2 flex items-center gap-3 border-t border-[rgba(0,0,0,0.06)] flex-wrap" style={{ background: 'oklch(0.985 0.001 0)' }}>
+          <div className="flex items-center gap-1.5">
+            <MapPin className="h-3.5 w-3.5 text-[#94a3b8] flex-shrink-0" />
+            <span className="text-xs text-[#94a3b8]">Cidade:</span>
+            <select
+              value={cidade}
+              onChange={e => setCidade(e.target.value)}
+              className="text-xs font-bold text-[#030213] bg-transparent outline-none cursor-pointer"
+            >
+              {CIDADES.map(c => <option key={c}>{c}</option>)}
+            </select>
+          </div>
+          <div className="w-px h-4 bg-black/10 flex-shrink-0" />
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-[#94a3b8]">Categoria:</span>
+            <select
+              value={catAtiva}
+              onChange={e => setCatAtiva(e.target.value)}
+              className="text-xs font-bold text-[#030213] bg-transparent outline-none cursor-pointer"
+            >
+              <option value="">Todas</option>
+              {categorias.map((c: any) => (
+                <option key={c.id} value={c.nome}>{c.icone} {c.nome}</option>
+              ))}
+            </select>
+          </div>
         </div>
 
-        {/* ── HEADER ROW 2 — filtros principais (wrap) ── */}
+        {/* ── ROW 2 — filtros ── */}
         <div className="px-4 pt-2 pb-1 flex flex-wrap gap-2 border-t border-[rgba(0,0,0,0.06)]">
           <button onClick={() => setSoVerificados(!soVerificados)} className={soVerificados ? pillActiveTeal : pillInactive}>
             🤳 Verificados
@@ -217,21 +335,6 @@ export function Busca() {
             </button>
           )}
         </div>
-
-        {/* ── HEADER ROW 3 — categorias (scroll horizontal só se necessário) ── */}
-        {categorias.length > 0 && (
-          <div className="px-4 py-2 flex flex-wrap gap-2 border-t border-[rgba(0,0,0,0.04)]">
-            {categorias.map((c: any) => (
-              <button
-                key={c.id}
-                onClick={() => setCatAtiva(catAtiva === c.nome ? '' : c.nome)}
-                className={catAtiva === c.nome ? pillActiveDark : pillInactive}
-              >
-                <span className="mr-1">{c.icone}</span>{c.nome}
-              </button>
-            ))}
-          </div>
-        )}
       </header>
 
       {/* ── RESULTS ── */}
@@ -281,80 +384,9 @@ export function Busca() {
         {/* Grid */}
         {!loading && servicos.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {servicos.map((s: any) => {
-              const nota = calcNota(s);
-              const catNome: string = s.categorias?.nome || '';
-              const initials = getInitials(s.prestadores?.nome || '');
-              const price = s.tipo === 'fixo' && s.valor_fixo ? Number(s.valor_fixo) : 0;
-              const aceitaOnlineServico = s.aceita_orcamento_online || s.prestadores?.aceita_orcamento_online;
-
-              return (
-                <div
-                  key={s.id}
-                  onClick={() => setServicoAberto(s)}
-                  className="border border-[rgba(0,0,0,0.08)] rounded-[18px] overflow-hidden hover:shadow-[0_14px_40px_-18px_rgba(3,2,19,0.25)] hover:-translate-y-0.5 transition-all cursor-pointer bg-white"
-                >
-                  {/* Cover */}
-                  <div
-                    className="relative h-[120px]"
-                    style={{ background: categoryGradient(catNome) }}
-                  >
-                    {aceitaOnlineServico && (
-                      <span className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm text-[11px] font-bold px-2.5 py-1 rounded-full text-[#030213]">
-                        ⚡ Orça online
-                      </span>
-                    )}
-                    {nota > 0 && (
-                      <span className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm text-[11px] font-bold px-2.5 py-1 rounded-full text-[#030213]">
-                        ⭐ {nota.toFixed(1)}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Body */}
-                  <div className="px-4 pb-4">
-                    {/* Avatar + verified badge row */}
-                    <div className="flex items-end gap-3 -mt-7 mb-3">
-                      <div className="w-14 h-14 rounded-[15px] bg-[#030213] text-white flex items-center justify-center text-xl font-bold border-[3px] border-white flex-shrink-0">
-                        {initials}
-                      </div>
-                      {s.prestadores?.verificado && (
-                        <span
-                          className="mb-1 text-xs font-bold px-2 py-0.5 rounded-full"
-                          style={{ background: 'oklch(0.95 0.03 184)', color: 'oklch(0.45 0.1 184)' }}
-                        >
-                          ✓ Verificado
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="text-[11px] font-bold uppercase text-[#94a3b8] tracking-wider mb-1">
-                      {s.categorias?.icone && <span className="mr-1">{s.categorias.icone}</span>}
-                      {catNome}
-                    </div>
-
-                    <h3 className="font-bold text-[#030213] mb-1 leading-tight">{s.titulo}</h3>
-
-                    {s.descricao && (
-                      <p className="text-sm text-[#717182] leading-relaxed mb-3 line-clamp-2">{s.descricao}</p>
-                    )}
-
-                    <div className="flex items-center justify-between mt-3">
-                      {price > 0 ? (
-                        <span className="font-extrabold text-lg" style={{ color: 'oklch(0.45 0.1 184)' }}>
-                          {formatCurrency(price)}
-                        </span>
-                      ) : (
-                        <span className="text-sm text-[#94a3b8]">Sob consulta</span>
-                      )}
-                      <button className="text-sm font-semibold text-[#030213] hover:underline">
-                        Ver detalhes →
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+            {servicos.map((s: any) => (
+              <ServiceCard key={s.id} s={s} onClick={() => setServicoAberto(s)} />
+            ))}
           </div>
         )}
       </div>

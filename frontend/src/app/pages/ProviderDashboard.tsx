@@ -14,14 +14,14 @@ const TEAL_DARK_TEXT = 'oklch(0.45 0.1 184)';
 const PRIMARY = '#030213';
 
 const navItems = [
+  { id: 'perfil', label: 'Perfil', icon: User, badge: '📷' },
+  { id: 'servicos', label: 'Serviços', icon: Settings, badge: null },
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'leads', label: 'Meus ORCs', icon: ClipboardList },
   { id: 'conversas', label: 'Conversas', icon: MessageSquare },
   { id: 'chats', label: 'Contratos', icon: FileText },
-  { id: 'servicos', label: 'Serviços', icon: Settings },
   { id: 'avaliacoes', label: 'Avaliações', icon: Star },
   { id: 'financeiro', label: 'Financeiro', icon: DollarSign },
-  { id: 'perfil', label: 'Perfil', icon: User },
 ];
 
 function StatusBadge({ status }: { status: string }) {
@@ -90,6 +90,8 @@ export function ProviderDashboard() {
   const [uploadingDoc, setUploadingDoc] = useState<'selfie' | 'documento' | null>(null);
   const [solicitandoVerif, setSolicitandoVerif] = useState(false);
   const [uploadMsg, setUploadMsg] = useState<{ tipo: 'ok' | 'erro'; texto: string } | null>(null);
+  const [galeria, setGaleria] = useState<string[]>([]);
+  const [uploadingGaleria, setUploadingGaleria] = useState(false);
 
   function mostrarMsg(tipo: 'ok' | 'erro', texto: string) {
     setUploadMsg({ tipo, texto });
@@ -145,6 +147,37 @@ export function ProviderDashboard() {
     setSolicitandoVerif(false);
   }
 
+  async function uploadFotoGaleria(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !prestador) return;
+    if (galeria.length >= 6) { mostrarMsg('erro', 'Máximo de 6 fotos atingido.'); return; }
+    setUploadingGaleria(true);
+    try {
+      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+      const storagePath = `fotos/${prestador.id}/galeria_${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from('chat-arquivos').upload(storagePath, file, { upsert: false, contentType: file.type });
+      if (upErr) { mostrarMsg('erro', `Erro ao enviar foto: ${upErr.message}`); setUploadingGaleria(false); e.target.value = ''; return; }
+      const { data: urlData } = supabase.storage.from('chat-arquivos').getPublicUrl(storagePath);
+      const url = urlData.publicUrl;
+      const newGaleria = [...galeria, url];
+      const { error: dbErr } = await supabase.from('prestadores').update({ fotos_urls: newGaleria }).eq('id', prestador.id);
+      if (dbErr) { mostrarMsg('erro', `Erro ao salvar foto: ${dbErr.message}`); setUploadingGaleria(false); e.target.value = ''; return; }
+      setGaleria(newGaleria);
+      mostrarMsg('ok', 'Foto de portfólio adicionada!');
+    } catch (err: any) { mostrarMsg('erro', err.message || 'Erro desconhecido'); }
+    setUploadingGaleria(false);
+    e.target.value = '';
+  }
+
+  async function removerFotoGaleria(idx: number) {
+    if (!prestador) return;
+    const newGaleria = galeria.filter((_, i) => i !== idx);
+    const { error } = await supabase.from('prestadores').update({ fotos_urls: newGaleria }).eq('id', prestador.id);
+    if (error) { mostrarMsg('erro', 'Erro ao remover foto.'); return; }
+    setGaleria(newGaleria);
+    mostrarMsg('ok', 'Foto removida.');
+  }
+
   useEffect(() => {
     if (!prestador) { navigate('/auth'); return; }
     carregarTudo();
@@ -162,7 +195,10 @@ export function ProviderDashboard() {
     setLeads(lRes.data || []);
     setServicos(sRes.data || []);
     setAvaliacoes(avRes.data || []);
-    if (pRes.data?.[0]) setPerfil(pRes.data[0]);
+    if (pRes.data?.[0]) {
+      setPerfil(pRes.data[0]);
+      setGaleria(Array.isArray(pRes.data[0].fotos_urls) ? pRes.data[0].fotos_urls : []);
+    }
     if (cRes.data?.length) setCategorias(cRes.data);
 
     // Carregar avaliações feitas pelo prestador (avaliou clientes)
@@ -385,27 +421,37 @@ export function ProviderDashboard() {
 
       {/* Nav items */}
       <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
-        {navItems.map(({ id, label, icon: Icon }) => (
-          <button
-            key={id}
-            onClick={() => { setAba(id); setMobileMenu(false); }}
-            className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-[10px] text-sm font-semibold transition-all"
-            style={
-              aba === id
-                ? { background: 'rgba(3,2,19,0.08)', color: PRIMARY }
-                : { color: '#64748b' }
-            }
-            onMouseEnter={e => {
-              if (aba !== id) (e.currentTarget as HTMLButtonElement).style.background = 'rgba(3,2,19,0.04)';
-            }}
-            onMouseLeave={e => {
-              if (aba !== id) (e.currentTarget as HTMLButtonElement).style.background = '';
-            }}
-          >
-            <Icon className="h-4 w-4 flex-shrink-0" />
-            {label}
-          </button>
-        ))}
+        {navItems.map(({ id, label, icon: Icon, badge }) => {
+          const isPerfilOrServico = id === 'perfil' || id === 'servicos';
+          const activeStyle = id === 'perfil'
+            ? { background: 'oklch(0.95 0.03 184)', color: TEAL_DARK_TEXT }
+            : id === 'servicos'
+            ? { background: '#EEEDFE', color: '#26215C' }
+            : { background: 'rgba(3,2,19,0.08)', color: PRIMARY };
+          const inactiveStyle = id === 'perfil'
+            ? { color: TEAL_DARK_TEXT, fontWeight: 700 }
+            : id === 'servicos'
+            ? { color: '#534AB7', fontWeight: 700 }
+            : { color: '#64748b' };
+          return (
+            <button
+              key={id}
+              onClick={() => { setAba(id); setMobileMenu(false); }}
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-[10px] text-sm font-semibold transition-all"
+              style={aba === id ? activeStyle : inactiveStyle}
+              onMouseEnter={e => {
+                if (aba !== id) (e.currentTarget as HTMLButtonElement).style.background = isPerfilOrServico ? 'rgba(0,0,0,0.03)' : 'rgba(3,2,19,0.04)';
+              }}
+              onMouseLeave={e => {
+                if (aba !== id) (e.currentTarget as HTMLButtonElement).style.background = '';
+              }}
+            >
+              <Icon className="h-4 w-4 flex-shrink-0" />
+              {label}
+              {badge && <span className="ml-auto text-base">{badge}</span>}
+            </button>
+          );
+        })}
       </nav>
 
       {/* Logout */}
@@ -1174,6 +1220,54 @@ export function ProviderDashboard() {
                       </label>
                       <div className="text-xs text-[#94a3b8] mt-1.5">Esta foto aparece para os contratantes</div>
                     </div>
+                  </div>
+
+                  {/* ── GALERIA DE FOTOS DO TRABALHO ── */}
+                  <div className="border-t border-[#e2e8f0] pt-5">
+                    <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                      <div>
+                        <div className="font-bold text-sm" style={{ color: PRIMARY }}>📷 Fotos do seu trabalho</div>
+                        <div className="text-xs mt-0.5" style={{ color: '#94a3b8' }}>
+                          Aparecem nos cards de busca — mostre a qualidade do seu serviço ({galeria.length}/6)
+                        </div>
+                      </div>
+                      {galeria.length < 6 && (
+                        <label className="cursor-pointer inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-[10px] border border-[#e2e8f0] transition-colors hover:bg-[#f8fafc]"
+                          style={{ color: '#64748b' }}>
+                          {uploadingGaleria ? '⏳ Enviando...' : '+ Adicionar foto'}
+                          <input type="file" accept="image/*" className="hidden" onChange={uploadFotoGaleria} disabled={uploadingGaleria} />
+                        </label>
+                      )}
+                    </div>
+                    {galeria.length === 0 ? (
+                      <label className="cursor-pointer block border-2 border-dashed border-[#e2e8f0] rounded-[14px] py-12 text-center hover:border-[#030213] transition-colors group">
+                        <div className="text-4xl mb-2">📷</div>
+                        <div className="text-sm font-semibold text-[#64748b] mb-1">Nenhuma foto ainda</div>
+                        <div className="text-xs text-[#94a3b8]">Clique para adicionar fotos do seu trabalho</div>
+                        <input type="file" accept="image/*" className="hidden" onChange={uploadFotoGaleria} disabled={uploadingGaleria} />
+                      </label>
+                    ) : (
+                      <div className="grid grid-cols-3 gap-2">
+                        {galeria.map((url, i) => (
+                          <div key={i} className="relative group" style={{ aspectRatio: '1/1' }}>
+                            <img src={url} alt={`Foto ${i + 1}`} className="w-full h-full object-cover rounded-[10px]" />
+                            <button
+                              onClick={() => removerFotoGaleria(i)}
+                              className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                              title="Remover foto"
+                            >×</button>
+                          </div>
+                        ))}
+                        {galeria.length < 6 && (
+                          <label className="cursor-pointer border-2 border-dashed border-[#e2e8f0] rounded-[10px] flex flex-col items-center justify-center hover:border-[#030213] transition-colors"
+                            style={{ aspectRatio: '1/1' }}>
+                            <span className="text-2xl text-[#94a3b8]">+</span>
+                            <span className="text-[10.5px] text-[#94a3b8] mt-0.5">Adicionar</span>
+                            <input type="file" accept="image/*" className="hidden" onChange={uploadFotoGaleria} disabled={uploadingGaleria} />
+                          </label>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* Formulário de edição */}
