@@ -246,6 +246,21 @@ export function ProviderProfile() {
                   </div>
                 )}
 
+                {/* Portfólio / Galeria */}
+                {Array.isArray(prestador.fotos_urls) && prestador.fotos_urls.length > 0 && (
+                  <div className="mb-8">
+                    <h2 className="text-[17px] font-[700] text-[#030213] mb-3">Portfólio</h2>
+                    <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
+                      {(prestador.fotos_urls as string[]).map((url: string, i: number) => (
+                        <div key={i} className="rounded-[12px] overflow-hidden" style={{ aspectRatio: '1/1' }}>
+                          <img src={url} alt={`Foto ${i + 1}`} loading="lazy"
+                            className="w-full h-full object-cover" />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Serviços */}
                 {servicos.length > 0 && (
                   <div>

@@ -47,41 +47,38 @@ function ServiceCard({ s, onClick }: { s: any; onClick: () => void }) {
       onClick={onClick}
       className="border border-[rgba(0,0,0,0.08)] rounded-[18px] overflow-hidden hover:shadow-[0_16px_40px_-20px_rgba(3,2,19,0.3)] hover:-translate-y-0.5 transition-all cursor-pointer bg-white"
     >
-      {/* ── GALERIA QUADRADA ── */}
-      <div className="relative w-full" style={{ aspectRatio: '1/1', background: gradBg }}>
+      {/* ── GALERIA (65% da largura = 35% menor que quadrado) ── */}
+      <div className="relative w-full" style={{ aspectRatio: '20/13', background: gradBg }}>
         {fotos.length > 0 && fotos.map((url, i) => (
-          <img key={i} src={url} alt=""
+          <img key={i} src={url} alt="" loading="lazy"
             className="absolute inset-0 w-full h-full object-cover"
             style={{ display: i === idx ? 'block' : 'none' }} />
         ))}
 
-        {aceitaOnline && (
-          <span className="absolute top-3 left-3 z-[3] text-[11.5px] font-semibold bg-white/95 text-[#030213] px-2.5 py-1 rounded-full whitespace-nowrap">
-            💬 Orça online
-          </span>
-        )}
+        {/* Nota — topo direito */}
         {nota > 0 && (
-          <span className="absolute top-3 right-3 z-[3] flex items-center gap-1 bg-white/95 px-2.5 py-[5px] rounded-full text-[12.5px] font-bold">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="#030213"><path d="M12 2l2.9 6.3 6.9.6-5.2 4.6 1.6 6.8L12 17.3 5.8 20.9l1.6-6.8L2.2 8.9l6.9-.6z"/></svg>
+          <span className="absolute top-2.5 right-2.5 z-[3] flex items-center gap-1 bg-white/95 px-2.5 py-[5px] rounded-full text-[12px] font-bold">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="#030213"><path d="M12 2l2.9 6.3 6.9.6-5.2 4.6 1.6 6.8L12 17.3 5.8 20.9l1.6-6.8L2.2 8.9l6.9-.6z"/></svg>
             {nota.toFixed(1)}
           </span>
         )}
 
+        {/* Setas de navegação */}
         {fotos.length > 1 && (
           <>
             <button onClick={prev}
-              className="absolute left-2.5 top-1/2 -translate-y-1/2 z-[4] w-8 h-8 rounded-full border-none bg-white/92 shadow-[0_2px_8px_rgba(3,2,19,0.2)] cursor-pointer flex items-center justify-center">
-              <ChevronLeft className="w-4 h-4 text-[#030213]" />
+              className="absolute left-2 top-1/2 -translate-y-1/2 z-[4] w-7 h-7 rounded-full border-none bg-white/92 shadow-[0_2px_8px_rgba(3,2,19,0.2)] cursor-pointer flex items-center justify-center">
+              <ChevronLeft className="w-3.5 h-3.5 text-[#030213]" />
             </button>
             <button onClick={next}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 z-[4] w-8 h-8 rounded-full border-none bg-white/92 shadow-[0_2px_8px_rgba(3,2,19,0.2)] cursor-pointer flex items-center justify-center">
-              <ChevronRight className="w-4 h-4 text-[#030213]" />
+              className="absolute right-2 top-1/2 -translate-y-1/2 z-[4] w-7 h-7 rounded-full border-none bg-white/92 shadow-[0_2px_8px_rgba(3,2,19,0.2)] cursor-pointer flex items-center justify-center">
+              <ChevronRight className="w-3.5 h-3.5 text-[#030213]" />
             </button>
-            <div className="absolute inset-x-0 bottom-0 h-16 z-[2] bg-gradient-to-t from-black/35 to-transparent pointer-events-none" />
-            <div className="absolute inset-x-0 bottom-3 z-[3] flex justify-center gap-1.5">
+            <div className="absolute inset-x-0 bottom-0 h-12 z-[2] bg-gradient-to-t from-black/30 to-transparent pointer-events-none" />
+            <div className="absolute inset-x-0 bottom-2.5 z-[3] flex justify-center gap-1.5">
               {fotos.map((_, i) => (
                 <span key={i} className="h-1.5 rounded-full transition-all"
-                  style={{ width: i === idx ? 18 : 6, background: i === idx ? '#fff' : 'rgba(255,255,255,0.55)' }} />
+                  style={{ width: i === idx ? 16 : 5, background: i === idx ? '#fff' : 'rgba(255,255,255,0.55)' }} />
               ))}
             </div>
           </>
@@ -89,8 +86,8 @@ function ServiceCard({ s, onClick }: { s: any; onClick: () => void }) {
       </div>
 
       {/* ── DADOS ── */}
-      <div className="px-[18px] pb-[18px] relative">
-        {/* Foto do prestador por cima da galeria */}
+      <div className="px-[18px] pt-4 pb-[18px] relative">
+        {/* Foto do prestador na interseção galeria/corpo */}
         <div className="absolute -top-7 left-[18px] w-14 h-14 rounded-[16px] border-[3px] border-white overflow-hidden bg-[#030213] z-[5]"
           style={{ boxShadow: '0 6px 16px -6px rgba(3,2,19,0.4)' }}>
           {s.prestadores?.foto_url
@@ -101,11 +98,21 @@ function ServiceCard({ s, onClick }: { s: any; onClick: () => void }) {
           }
         </div>
 
-        <div className="mt-9">
+        {/* Orça online — canto direito inferior da foto */}
+        <div className="flex items-start justify-end" style={{ minHeight: 28 }}>
+          {aceitaOnline && (
+            <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full whitespace-nowrap"
+              style={{ background: 'oklch(0.95 0.03 184)', color: 'oklch(0.45 0.1 184)' }}>
+              💬 Orça online
+            </span>
+          )}
+        </div>
+
+        <div className="mt-[14px]">
           <div className="text-[11px] font-bold uppercase text-[#717182] tracking-[0.04em] mb-0.5">
             {s.categorias?.icone && <span className="mr-1">{s.categorias.icone}</span>}{catNome}
           </div>
-          <h3 className="text-[15.5px] font-bold m-0 mb-1 leading-snug" style={{ color: '#030213' }}>{s.titulo}</h3>
+          <h3 className="text-[15px] font-bold m-0 mb-1 leading-snug" style={{ color: '#030213' }}>{s.titulo}</h3>
           <div className="flex items-center gap-1.5 mb-3">
             <span className="text-[13px] text-[#717182]">{s.prestadores?.nome}</span>
             {s.prestadores?.verificado && (
@@ -115,7 +122,7 @@ function ServiceCard({ s, onClick }: { s: any; onClick: () => void }) {
               </svg>
             )}
           </div>
-          <div className="flex items-center justify-between pt-3.5 border-t border-[rgba(0,0,0,0.07)]">
+          <div className="flex items-center justify-between pt-3 border-t border-[rgba(0,0,0,0.07)]">
             {price > 0 ? (
               <span className="text-[15px] font-extrabold" style={{ color: 'oklch(0.45 0.1 184)' }}>
                 {formatCurrency(price)}
@@ -282,25 +289,26 @@ export function Busca() {
         </div>
 
         {/* ── ROW 1.5 — cidade + categoria ── */}
-        <div className="px-4 py-2 flex items-center gap-3 border-t border-[rgba(0,0,0,0.06)] flex-wrap" style={{ background: 'oklch(0.985 0.001 0)' }}>
-          <div className="flex items-center gap-1.5">
-            <MapPin className="h-3.5 w-3.5 text-[#94a3b8] flex-shrink-0" />
-            <span className="text-xs text-[#94a3b8]">Cidade:</span>
+        <div className="px-4 py-[9px] flex items-center gap-0 border-t-2 border-[rgba(0,0,0,0.09)] overflow-x-auto"
+          style={{ background: 'oklch(0.975 0.003 240)', scrollbarWidth: 'none' }}>
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <MapPin className="h-3.5 w-3.5 text-[#5b6070] flex-shrink-0" />
+            <span className="text-[12.5px] font-semibold text-[#5b6070]">Cidade</span>
             <select
               value={cidade}
               onChange={e => setCidade(e.target.value)}
-              className="text-xs font-bold text-[#030213] bg-transparent outline-none cursor-pointer"
+              className="text-[12.5px] font-bold text-[#030213] bg-transparent outline-none cursor-pointer max-w-[120px]"
             >
               {CIDADES.map(c => <option key={c}>{c}</option>)}
             </select>
           </div>
-          <div className="w-px h-4 bg-black/10 flex-shrink-0" />
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs text-[#94a3b8]">Categoria:</span>
+          <div className="w-px h-5 bg-black/15 flex-shrink-0 mx-3" />
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <span className="text-[12.5px] font-semibold text-[#5b6070]">Categoria</span>
             <select
               value={catAtiva}
               onChange={e => setCatAtiva(e.target.value)}
-              className="text-xs font-bold text-[#030213] bg-transparent outline-none cursor-pointer"
+              className="text-[12.5px] font-bold text-[#030213] bg-transparent outline-none cursor-pointer max-w-[140px]"
             >
               <option value="">Todas</option>
               {categorias.map((c: any) => (

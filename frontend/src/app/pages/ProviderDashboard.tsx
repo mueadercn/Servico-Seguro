@@ -147,15 +147,38 @@ export function ProviderDashboard() {
     setSolicitandoVerif(false);
   }
 
+  async function compressImage(file: File, maxWidth = 1200, quality = 0.78): Promise<File> {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (e) => {
+        const img = new Image();
+        img.src = e.target!.result as string;
+        img.onload = () => {
+          const scale = Math.min(1, maxWidth / Math.max(img.width, img.height));
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.round(img.width * scale);
+          canvas.height = Math.round(img.height * scale);
+          const ctx = canvas.getContext('2d')!;
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          canvas.toBlob(
+            (blob) => resolve(new File([blob!], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' })),
+            'image/jpeg', quality
+          );
+        };
+      };
+    });
+  }
+
   async function uploadFotoGaleria(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file || !prestador) return;
+    const rawFile = e.target.files?.[0];
+    if (!rawFile || !prestador) return;
     if (galeria.length >= 6) { mostrarMsg('erro', 'Máximo de 6 fotos atingido.'); return; }
     setUploadingGaleria(true);
     try {
-      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
-      const storagePath = `fotos/${prestador.id}/galeria_${Date.now()}.${ext}`;
-      const { error: upErr } = await supabase.storage.from('chat-arquivos').upload(storagePath, file, { upsert: false, contentType: file.type });
+      const file = await compressImage(rawFile);
+      const storagePath = `fotos/${prestador.id}/galeria_${Date.now()}.jpg`;
+      const { error: upErr } = await supabase.storage.from('chat-arquivos').upload(storagePath, file, { upsert: false, contentType: 'image/jpeg' });
       if (upErr) { mostrarMsg('erro', `Erro ao enviar foto: ${upErr.message}`); setUploadingGaleria(false); e.target.value = ''; return; }
       const { data: urlData } = supabase.storage.from('chat-arquivos').getPublicUrl(storagePath);
       const url = urlData.publicUrl;
