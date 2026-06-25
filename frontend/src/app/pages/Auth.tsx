@@ -181,6 +181,7 @@ export function Auth() {
   const labelCls = 'text-[11px] font-bold uppercase text-[#64748b] tracking-[0.04em] mb-1.5 block';
 
   return (
+    <>
     <div className="min-h-screen flex" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
 
       {/* ── LEFT PANEL ── */}
@@ -636,5 +637,6 @@ export function Auth() {
         </div>
       </div>
     )}
+    </>
   );
 }
