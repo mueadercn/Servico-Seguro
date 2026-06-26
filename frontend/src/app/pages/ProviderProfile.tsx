@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router';
-import { Shield, Share2 } from 'lucide-react';
+import { Shield, Share2, X, MapPin } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
+const WHATSAPP_NUMERO = '555591598658';
 const TEAL = 'oklch(0.6 0.118 184.704)';
 const TEAL_BG = 'oklch(0.94 0.04 184)';
 const TEAL_TEXT = 'oklch(0.38 0.1 184)';
@@ -38,6 +39,7 @@ export function ProviderProfile() {
   const [servicosFeitos, setServicosFeitos] = useState(0);
   const [loading, setLoading] = useState(true);
   const [linkCopiado, setLinkCopiado] = useState(false);
+  const [servicoSel, setServicoSel] = useState<any>(null);
 
   const compartilhar = async () => {
     const url = window.location.href;
@@ -93,7 +95,8 @@ export function ProviderProfile() {
   );
 
   const cats     = prestador._cats || [];
-  const notaNum  = Number(prestador.nota_media || 0);
+  const avgLista = avaliacoes.length ? avaliacoes.reduce((a: number, x: any) => a + (Number(x.nota) || 0), 0) / avaliacoes.length : 0;
+  const notaNum  = Number(prestador.nota_media || 0) || avgLista;
   const notaStr  = notaNum > 0 ? notaNum.toFixed(1).replace('.', ',') : null;
   const totalAv  = prestador.total_avaliacoes || avaliacoes.length || 0;
   const iniciais = (prestador.nome || '?').split(' ').map((x: string) => x[0]).slice(0,2).join('').toUpperCase();
@@ -129,31 +132,33 @@ export function ProviderProfile() {
         </div>
       </nav>
 
-      {/* BANNER */}
-      <div className="relative w-full" style={{ height: 210 }}>
-        {prestador.banner_url
-          ? <img src={prestador.banner_url} alt="Banner" className="w-full h-full object-cover"/>
-          : <div className="w-full h-full flex items-center justify-center flex-col gap-2"
-              style={{ background: 'linear-gradient(140deg,#dbd8d0 0%,#eae7df 60%,#d0cdc5 100%)' }}>
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#aaa8a0" strokeWidth="1.5">
-                <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
-                <polyline points="21 15 16 10 5 21"/>
-              </svg>
-              <span className="text-[12px] text-[#aaa8a0]">Foto de capa</span>
-            </div>
-        }
-        {tagline && (
-          <div className="absolute bottom-5 left-8 text-[15px] font-semibold leading-snug max-w-lg"
-            style={{ color: prestador.banner_url ? 'rgba(255,255,255,0.9)' : 'rgba(3,2,19,0.55)',
-              textShadow: prestador.banner_url ? '0 1px 3px rgba(0,0,0,0.4)' : 'none' }}>
-            {tagline}
-          </div>
-        )}
-      </div>
+      {/* CONTEÚDO — banner contido + perfil + corpo */}
+      <div className="max-w-[1040px] mx-auto px-6 pt-6">
 
-      {/* PROFILE CARD */}
-      <div className="max-w-[960px] mx-auto px-5">
-        <div className="relative bg-white rounded-[18px] px-6 pt-4 pb-5 -mt-14 mb-5"
+        {/* BANNER — card arredondado contido (não cobre a página toda) */}
+        <div className="relative w-full rounded-[20px] overflow-hidden" style={{ height: 230 }}>
+          {prestador.banner_url
+            ? <img src={prestador.banner_url} alt="Banner" className="w-full h-full object-cover"/>
+            : <div className="w-full h-full flex items-center justify-center flex-col gap-2"
+                style={{ background: 'linear-gradient(140deg,#dbd8d0 0%,#eae7df 60%,#d0cdc5 100%)' }}>
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#aaa8a0" strokeWidth="1.5">
+                  <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
+                  <polyline points="21 15 16 10 5 21"/>
+                </svg>
+                <span className="text-[12px] text-[#aaa8a0]">Foto de capa</span>
+              </div>
+          }
+          {tagline && (
+            <div className="absolute bottom-5 left-7 text-[15px] font-semibold leading-snug max-w-lg"
+              style={{ color: prestador.banner_url ? 'rgba(255,255,255,0.92)' : 'rgba(3,2,19,0.55)',
+                textShadow: prestador.banner_url ? '0 1px 3px rgba(0,0,0,0.4)' : 'none' }}>
+              {tagline}
+            </div>
+          )}
+        </div>
+
+        {/* PROFILE CARD — sobrepõe a base do banner */}
+        <div className="relative bg-white rounded-[18px] px-6 pt-4 pb-5 -mt-14 mb-5 mx-1"
           style={{ boxShadow: '0 4px 24px -8px rgba(3,2,19,0.12)', border: '1px solid rgba(0,0,0,0.07)' }}>
           <div className="flex items-end gap-5">
 
@@ -251,7 +256,8 @@ export function ProviderProfile() {
                       ? `R$ ${Number(s.valor_fixo).toLocaleString('pt-BR', { minimumFractionDigits: 0 })}`
                       : 'Sob orçamento';
                     return (
-                      <div key={s.id} className="flex items-center gap-3 p-3 rounded-[12px]"
+                      <div key={s.id} onClick={() => setServicoSel(s)}
+                        className="flex items-center gap-3 p-3 rounded-[12px] cursor-pointer transition-all hover:shadow-md hover:-translate-y-0.5"
                         style={{ border: '1px solid rgba(0,0,0,0.07)', background: '#fafafa' }}>
                         <div className="w-10 h-10 rounded-[10px] flex items-center justify-center text-xl flex-shrink-0"
                           style={{ background: ICON_COLORS[i % ICON_COLORS.length] }}>
@@ -529,7 +535,8 @@ export function ProviderProfile() {
                 ? `R$ ${Number(s.valor_fixo).toLocaleString('pt-BR', { minimumFractionDigits: 0 })}`
                 : 'Sob orçamento';
               return (
-                <div key={s.id} className="flex items-center gap-3 py-2.5 border-b last:border-b-0"
+                <div key={s.id} onClick={() => setServicoSel(s)}
+                  className="flex items-center gap-3 py-2.5 border-b last:border-b-0 cursor-pointer active:opacity-70"
                   style={{ borderColor: 'rgba(0,0,0,0.06)' }}>
                   <div className="w-9 h-9 rounded-[10px] flex items-center justify-center text-lg flex-shrink-0"
                     style={{ background: ICON_COLORS[i % ICON_COLORS.length] }}>
@@ -660,6 +667,100 @@ export function ProviderProfile() {
     <>
       <div className="lg:hidden"><Mobile /></div>
       <div className="hidden lg:block"><Desktop /></div>
+
+      {/* MODAL DE SERVIÇO — WhatsApp ou Chat */}
+      {servicoSel && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
+          style={{ background: 'rgba(3,2,19,0.55)', fontFamily: 'Plus Jakarta Sans, sans-serif' }}
+          onClick={e => { if (e.target === e.currentTarget) setServicoSel(null); }}>
+          <div className="bg-white w-full max-w-lg flex flex-col"
+            style={{ borderRadius: 20, maxHeight: '90vh', boxShadow: '0 24px 60px -24px rgba(3,2,19,0.45)' }}>
+
+            {/* Header */}
+            <div className="px-5 py-4 flex items-center justify-between border-b flex-shrink-0"
+              style={{ borderColor: 'rgba(0,0,0,0.07)', borderRadius: '20px 20px 0 0' }}>
+              <div>
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <span className="text-base">{servicoSel.categorias?.icone || '🔧'}</span>
+                  <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: '#94a3b8' }}>
+                    {servicoSel.categorias?.nome}
+                  </span>
+                </div>
+                <h3 className="font-bold text-base" style={{ color: '#030213' }}>{servicoSel.titulo}</h3>
+              </div>
+              <button onClick={() => setServicoSel(null)} className="p-2 rounded-[10px]" style={{ color: '#717182' }}>
+                <X className="h-5 w-5"/>
+              </button>
+            </div>
+
+            {/* Conteúdo */}
+            <div className="overflow-y-auto flex-1 p-5 space-y-4">
+              {servicoSel.descricao && (
+                <p className="text-sm leading-relaxed" style={{ color: '#717182' }}>{servicoSel.descricao}</p>
+              )}
+              {servicoSel.tipo === 'fixo' && servicoSel.valor_fixo ? (
+                <div className="rounded-[12px] p-4" style={{ background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
+                  <div className="text-xs mb-1" style={{ color: '#717182' }}>Valor do serviço</div>
+                  <div className="text-2xl font-bold" style={{ color: 'oklch(0.45 0.1 184)' }}>
+                    R$ {Number(servicoSel.valor_fixo).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-[12px] p-4 text-sm" style={{ background: '#fafafa', border: '1px solid rgba(0,0,0,0.08)', color: '#717182' }}>
+                  💬 Valor sob orçamento — o profissional avalia e envia a proposta.
+                </div>
+              )}
+
+              {/* Profissional */}
+              <div className="rounded-[12px] p-4" style={{ border: '1px solid rgba(0,0,0,0.08)' }}>
+                <div className="text-[11px] font-bold uppercase tracking-wider mb-3" style={{ color: '#94a3b8' }}>
+                  Profissional responsável
+                </div>
+                <div className="flex items-center gap-3">
+                  {prestador.foto_url
+                    ? <img src={prestador.foto_url} className="w-12 h-12 rounded-full object-cover flex-shrink-0" style={{ border: '2px solid rgba(3,2,19,0.08)' }}/>
+                    : <div className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg flex-shrink-0" style={{ background: '#030213' }}>{iniciais}</div>}
+                  <div>
+                    <div className="font-bold" style={{ color: '#030213' }}>{prestador.nome}</div>
+                    {prestador.cidade && (
+                      <div className="text-xs flex items-center gap-1 mt-0.5" style={{ color: '#717182' }}>
+                        <MapPin className="h-3 w-3"/>{prestador.cidade}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Ações */}
+            <div className="flex-shrink-0 p-4 border-t grid grid-cols-2 gap-3"
+              style={{ borderColor: 'rgba(0,0,0,0.07)', borderRadius: '0 0 20px 20px', background: '#fff' }}>
+              <a href={`https://wa.me/${WHATSAPP_NUMERO}?text=${encodeURIComponent(
+                  '#SERVICO:' + servicoSel.id +
+                  '|#PRESTADOR:' + (prestador.id || '') +
+                  '|#CAT:' + (servicoSel.categorias?.nome || '') +
+                  '\n\nOlá! 👋 Vim pelo site do *Serviço Seguro* e tenho interesse em:\n\n🔧 ' + servicoSel.titulo +
+                  '\n📂 Categoria: ' + (servicoSel.categorias?.nome || '') +
+                  '\n\nPode me ajudar com um orçamento?'
+                )}`}
+                target="_blank" rel="noopener noreferrer"
+                className="flex flex-col items-center gap-1.5 py-4 rounded-[12px] font-bold text-white text-center hover:opacity-90"
+                style={{ background: '#030213' }}>
+                <span className="text-xl">📱</span>
+                <span className="text-sm">Via WhatsApp</span>
+                <span className="text-xs" style={{ opacity: 0.7 }}>Atendimento imediato</span>
+              </a>
+              <a href={`/orcamento?servico=${servicoSel.id}&nome=${encodeURIComponent(servicoSel.titulo)}&cat=${encodeURIComponent(servicoSel.categorias?.nome || '')}&prestador=${prestador.id || ''}`}
+                className="flex flex-col items-center gap-1.5 py-4 rounded-[12px] font-bold text-center"
+                style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.1)', color: '#030213' }}>
+                <span className="text-xl">💬</span>
+                <span className="text-sm">Via Chat</span>
+                <span className="text-xs" style={{ color: '#94a3b8' }}>IA coleta os detalhes</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
