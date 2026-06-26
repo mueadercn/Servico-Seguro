@@ -66,7 +66,7 @@ export function ProviderProfile() {
       const [pcsRes, svsRes, avsRes, orcsRes] = await Promise.all([
         supabase.from('prestador_categorias').select('categorias(id,nome,icone)').eq('prestador_id', p.id),
         supabase.from('servicos').select('*,categorias(nome,icone)').eq('prestador_id', p.id).eq('ativo', true).order('criado_em', { ascending: false }),
-        supabase.from('avaliacoes').select('nota,comentario,criado_em,avaliador,servico_nome').eq('avaliado_id', p.id).order('criado_em', { ascending: false }).limit(10),
+        supabase.from('avaliacoes').select('*').eq('avaliado_id', p.id).order('criado_em', { ascending: false }).limit(10),
         supabase.from('orcs').select('id', { count: 'exact', head: true }).eq('prestador_id', p.id).eq('status', 'SERVIÇO CONCLUÍDO'),
       ]);
 
