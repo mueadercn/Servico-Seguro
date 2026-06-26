@@ -66,7 +66,7 @@ export function ProviderProfile() {
       const [pcsRes, svsRes, avsRes, orcsRes] = await Promise.all([
         supabase.from('prestador_categorias').select('categorias(id,nome,icone)').eq('prestador_id', p.id),
         supabase.from('servicos').select('*,categorias(nome,icone)').eq('prestador_id', p.id).eq('ativo', true).order('criado_em', { ascending: false }),
-        supabase.from('avaliacoes').select('nota,comentario,criado_em,avaliador,servico_nome').eq('avaliado_id', p.id).eq('avaliado_tipo', 'prestador').order('criado_em', { ascending: false }).limit(10),
+        supabase.from('avaliacoes').select('nota,comentario,criado_em,avaliador,servico_nome').eq('avaliado_id', p.id).order('criado_em', { ascending: false }).limit(10),
         supabase.from('orcs').select('id', { count: 'exact', head: true }).eq('prestador_id', p.id).eq('status', 'SERVIÇO CONCLUÍDO'),
       ]);
 
@@ -431,37 +431,32 @@ export function ProviderProfile() {
       </div>
 
       {/* BANNER */}
-      <div className="relative w-full" style={{ height: 180 }}>
+      <div className="relative w-full" style={{ height: 160 }}>
         {prestador.banner_url
           ? <img src={prestador.banner_url} alt="Banner" className="w-full h-full object-cover"/>
-          : <div className="w-full h-full flex items-center justify-center flex-col gap-2"
+          : <div className="w-full h-full flex items-center justify-center flex-col gap-1.5"
               style={{ background: 'linear-gradient(140deg,#dbd8d0 0%,#eae7df 60%,#d0cdc5 100%)' }}>
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#aaa8a0" strokeWidth="1.5">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#aaa8a0" strokeWidth="1.5">
                 <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
                 <polyline points="21 15 16 10 5 21"/>
               </svg>
-              <span className="text-[11px] text-[#aaa8a0]">Foto de capa</span>
+              <span className="text-[10px] text-[#aaa8a0]">Foto de capa</span>
             </div>
         }
-        {tagline && (
-          <div className="absolute bottom-3 left-4 right-4 text-[12.5px] font-semibold leading-snug"
-            style={{ color: prestador.banner_url ? 'rgba(255,255,255,0.88)' : 'rgba(3,2,19,0.5)',
-              textShadow: prestador.banner_url ? '0 1px 3px rgba(0,0,0,0.4)' : 'none' }}>
-            {tagline}
-          </div>
-        )}
       </div>
 
       {/* PROFILE CARD */}
-      <div className="mx-3 -mt-12 mb-4 bg-white rounded-[16px] p-4"
+      <div className="mx-3 -mt-10 mb-4 bg-white rounded-[16px] px-4 pt-3 pb-4"
         style={{ boxShadow: '0 4px 20px -8px rgba(3,2,19,0.14)', border: '1px solid rgba(0,0,0,0.07)' }}>
-        <div className="flex gap-3 items-end">
-          <div className="relative flex-shrink-0" style={{ marginTop: -40 }}>
+
+        {/* Foto + nome lado a lado */}
+        <div className="flex gap-3 items-start">
+          <div className="relative flex-shrink-0" style={{ marginTop: -38 }}>
             {prestador.foto_url
               ? <img src={prestador.foto_url} alt={prestador.nome}
-                  className="w-20 h-20 rounded-[14px] object-cover"
-                  style={{ border: '3px solid #fff', boxShadow: '0 6px 16px -6px rgba(3,2,19,0.35)' }}/>
-              : <div className="w-20 h-20 rounded-[14px] flex items-center justify-center font-extrabold text-2xl text-white"
+                  className="w-[72px] h-[72px] rounded-[12px] object-cover"
+                  style={{ border: '3px solid #fff', boxShadow: '0 4px 14px -4px rgba(3,2,19,0.35)' }}/>
+              : <div className="w-[72px] h-[72px] rounded-[12px] flex items-center justify-center font-extrabold text-2xl text-white"
                   style={{ background: '#030213', border: '3px solid #fff' }}>
                   {iniciais}
                 </div>
@@ -475,48 +470,55 @@ export function ProviderProfile() {
               </div>
             )}
           </div>
-          <div className="flex-1 min-w-0 pb-0.5">
-            <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
-              <h1 className="text-[18px] font-extrabold text-[#030213] leading-tight">{prestador.nome}</h1>
-            </div>
+
+          {/* Nome + verificado (ao lado da foto) */}
+          <div className="flex-1 min-w-0 pt-1">
+            <h1 className="text-[17px] font-extrabold text-[#030213] leading-tight">{prestador.nome}</h1>
             {prestador.verificado && (
-              <span className="inline-flex items-center gap-1 text-[10.5px] font-semibold px-2 py-0.5 rounded-full mb-1"
+              <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full mt-1"
                 style={{ background: TEAL_BG, color: TEAL_TEXT }}>
                 <Shield className="h-2.5 w-2.5"/> Verificado
               </span>
             )}
-            <p className="text-[12px] text-[#64748b] leading-tight">{localStr}</p>
           </div>
         </div>
 
-        {/* Stats */}
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-3 text-[12.5px]">
-          {notaStr && (
-            <>
-              <span className="flex items-center gap-1">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="#f59e0b">
-                  <path d="M12 2l2.9 6.3 6.9.6-5.2 4.6 1.6 6.8L12 17.3 5.8 20.9l1.6-6.8L2.2 8.9l6.9-.6z"/>
-                </svg>
-                <strong className="text-[#030213]">{notaStr}</strong>
-                <span className="text-[#94a3b8]">({totalAv})</span>
-              </span>
-              <span className="text-[#cbd5e1]">•</span>
-            </>
+        {/* Cidade + serviços — bem dentro do card, abaixo da foto */}
+        <div className="flex items-center gap-1.5 mt-3 text-[12px] flex-wrap">
+          {cidadeStr && <strong className="text-[#030213]">{cidadeStr}</strong>}
+          {cidadeStr && servicos.length > 0 && <span className="text-[#cbd5e1]">·</span>}
+          {servicos.length > 0 && (
+            <span className="text-[#64748b]"><strong className="text-[#030213]">{servicos.length}</strong> serviços oferecidos</span>
           )}
-          {servicosFeitos > 0 && (
-            <>
-              <span className="text-[#64748b]"><strong className="text-[#030213]">{servicosFeitos}+</strong> feitos</span>
-              <span className="text-[#cbd5e1]">•</span>
-            </>
-          )}
-          <span className="text-[#64748b]"><strong className="text-[#030213]">{servicos.length}</strong> serviços</span>
         </div>
+
+        {/* Stats — avaliação + serviços feitos */}
+        {(notaStr || servicosFeitos > 0) && (
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-2 text-[12px] pt-2"
+            style={{ borderTop: '1px solid rgba(0,0,0,0.06)' }}>
+            {notaStr && (
+              <>
+                <span className="flex items-center gap-1">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="#f59e0b">
+                    <path d="M12 2l2.9 6.3 6.9.6-5.2 4.6 1.6 6.8L12 17.3 5.8 20.9l1.6-6.8L2.2 8.9l6.9-.6z"/>
+                  </svg>
+                  <strong className="text-[#030213]">{notaStr}</strong>
+                  <span className="text-[#94a3b8]">({totalAv} avaliações)</span>
+                </span>
+                {servicosFeitos > 0 && <span className="text-[#cbd5e1]">·</span>}
+              </>
+            )}
+            {servicosFeitos > 0 && (
+              <span className="text-[#64748b]"><strong className="text-[#030213]">{servicosFeitos}+</strong> serviços feitos</span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* SOBRE */}
       {prestador.bio && (
         <div className="mx-3 mb-3 bg-white rounded-[14px] p-4" style={{ border: '1px solid rgba(0,0,0,0.07)' }}>
-          <p className="text-[10px] font-bold uppercase tracking-widest text-[#94a3b8] mb-2">SOBRE</p>
+          <p className="text-[11px] font-extrabold uppercase tracking-widest text-[#030213] mb-2">SOBRE</p>
           <p className="text-[13.5px] text-[#374151] leading-relaxed">{prestador.bio}</p>
         </div>
       )}
@@ -525,7 +527,7 @@ export function ProviderProfile() {
       {servicos.length > 0 && (
         <div className="mx-3 mb-3 bg-white rounded-[14px] p-4" style={{ border: '1px solid rgba(0,0,0,0.07)' }}>
           <div className="flex items-center justify-between mb-3">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-[#94a3b8]">SERVIÇOS OFERECIDOS</p>
+            <p className="text-[11px] font-extrabold uppercase tracking-widest text-[#030213]">SERVIÇOS OFERECIDOS</p>
             <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
               style={{ background: '#f1f5f9', color: '#64748b' }}>{servicos.length}</span>
           </div>

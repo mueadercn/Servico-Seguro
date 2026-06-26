@@ -413,7 +413,7 @@ router.delete('/orcs/:id', async (req, res) => {
 // POST /api/admin/avaliacoes/publica — avaliação pós-contrato (cliente ou prestador)
 router.post('/avaliacoes/publica', async (req, res) => {
   try {
-    const { orc_id, avaliado_id, avaliado_tipo, nota, comentario, avaliador_tipo } = req.body;
+    const { orc_id, avaliado_id, avaliado_tipo, nota, comentario, avaliador_tipo, avaliador_nome } = req.body;
     if (!orc_id || !avaliado_tipo || !nota) {
       return res.status(400).json({ ok: false, error: 'Campos obrigatórios: orc_id, avaliado_tipo, nota' });
     }
@@ -438,8 +438,8 @@ router.post('/avaliacoes/publica', async (req, res) => {
       .select('id').eq('orc_id', orc_id).eq('avaliado_tipo', avaliado_tipo).maybeSingle();
     if (existe) return res.status(409).json({ ok: false, error: 'Avaliação já registrada para este contrato' });
 
-    // avaliador deve ser 'cliente' ou 'prestador' (constraint no banco)
-    const avaliador = avaliador_tipo || (avaliado_tipo === 'prestador' ? 'cliente' : 'prestador');
+    // avaliador: nome do avaliador (para exibição) — fallback para tipo ('cliente'/'prestador')
+    const avaliador = avaliador_nome || avaliador_tipo || (avaliado_tipo === 'prestador' ? 'cliente' : 'prestador');
     const { data, error } = await supabase.from('avaliacoes')
       .insert({ orc_id, avaliado_id: avaliado_id_final, avaliado_tipo, nota, comentario, avaliador })
       .select().single();
