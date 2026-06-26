@@ -351,24 +351,29 @@ export function ProviderProfile() {
               </div>
             </div>
 
-            {/* AVALIAÇÕES */}
-            {avaliacoes.length > 0 && (
-              <div className="bg-white rounded-[16px] p-5" style={{ border: '1px solid rgba(0,0,0,0.07)' }}>
-                <div className="flex items-center justify-between mb-4">
-                  <p className="text-[10.5px] font-bold uppercase tracking-widest text-[#94a3b8]">AVALIAÇÕES</p>
-                  {notaStr && (
-                    <span className="flex items-center gap-1 text-[13px] font-bold text-[#030213]">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="#f59e0b">
-                        <path d="M12 2l2.9 6.3 6.9.6-5.2 4.6 1.6 6.8L12 17.3 5.8 20.9l1.6-6.8L2.2 8.9l6.9-.6z"/>
-                      </svg>
-                      {notaStr}
-                      <span className="font-normal text-[#94a3b8]">· {totalAv}</span>
-                    </span>
-                  )}
-                </div>
+            {/* AVALIAÇÕES — sempre visível */}
+            <div className="bg-white rounded-[16px] p-5" style={{ border: '1px solid rgba(0,0,0,0.07)' }}>
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-[10.5px] font-bold uppercase tracking-widest text-[#94a3b8]">AVALIAÇÕES</p>
+                {notaStr ? (
+                  <span className="flex items-center gap-1 text-[13px] font-bold text-[#030213]">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="#f59e0b">
+                      <path d="M12 2l2.9 6.3 6.9.6-5.2 4.6 1.6 6.8L12 17.3 5.8 20.9l1.6-6.8L2.2 8.9l6.9-.6z"/>
+                    </svg>
+                    {notaStr}
+                    <span className="font-normal text-[#94a3b8]">· {totalAv}</span>
+                  </span>
+                ) : (
+                  <span className="text-[11px] text-[#94a3b8]">Sem avaliações ainda</span>
+                )}
+              </div>
+              {avaliacoes.length > 0 ? (
                 <div className="space-y-4">
                   {avaliacoes.slice(0, 5).map((av: any, i: number) => {
-                    const ini = (av.avaliador || 'C').split(' ').map((x: string) => x[0]).slice(0,2).join('').toUpperCase();
+                    // nome real: pode vir como avaliador (nome) ou como 'cliente'/'prestador' (tipo)
+                    const nomeReal = (av.avaliador && !['cliente','prestador'].includes(av.avaliador.toLowerCase()))
+                      ? av.avaliador : 'Cliente';
+                    const ini = nomeReal.split(' ').map((x: string) => x[0]).slice(0,2).join('').toUpperCase();
                     const cor = AVATAR_COLORS[i % AVATAR_COLORS.length];
                     return (
                       <div key={i}>
@@ -378,7 +383,7 @@ export function ProviderProfile() {
                             style={{ background: cor }}>{ini}</div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between gap-1 flex-wrap">
-                              <span className="text-[13px] font-bold text-[#030213]">{av.avaliador || 'Cliente'}</span>
+                              <span className="text-[13px] font-bold text-[#030213]">{nomeReal}</span>
                               <StarsFilled nota={av.nota} size={12}/>
                             </div>
                             <p className="text-[11px] text-[#94a3b8] mb-1.5">
@@ -392,8 +397,14 @@ export function ProviderProfile() {
                     );
                   })}
                 </div>
-              </div>
-            )}
+              ) : (
+                <div className="text-center py-6">
+                  <div className="text-3xl mb-2">⭐</div>
+                  <p className="text-[12.5px] text-[#94a3b8]">Nenhuma avaliação recebida ainda.</p>
+                  <p className="text-[11.5px] text-[#cbd5e1] mt-1">As avaliações aparecem após serviços concluídos.</p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -615,23 +626,27 @@ export function ProviderProfile() {
         )}
       </div>
 
-      {/* AVALIAÇÕES */}
-      {avaliacoes.length > 0 && (
-        <div className="mx-3 mb-4 bg-white rounded-[14px] p-4" style={{ border: '1px solid rgba(0,0,0,0.07)' }}>
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-[#94a3b8]">AVALIAÇÕES</p>
-            {notaStr && (
-              <span className="flex items-center gap-1 text-[13px] font-bold text-[#030213]">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="#f59e0b">
-                  <path d="M12 2l2.9 6.3 6.9.6-5.2 4.6 1.6 6.8L12 17.3 5.8 20.9l1.6-6.8L2.2 8.9l6.9-.6z"/>
-                </svg>
-                {notaStr} <span className="font-normal text-[#94a3b8]">· {totalAv}</span>
-              </span>
-            )}
-          </div>
+      {/* AVALIAÇÕES — sempre visível */}
+      <div className="mx-3 mb-4 bg-white rounded-[14px] p-4" style={{ border: '1px solid rgba(0,0,0,0.07)' }}>
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-[#94a3b8]">AVALIAÇÕES</p>
+          {notaStr ? (
+            <span className="flex items-center gap-1 text-[13px] font-bold text-[#030213]">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="#f59e0b">
+                <path d="M12 2l2.9 6.3 6.9.6-5.2 4.6 1.6 6.8L12 17.3 5.8 20.9l1.6-6.8L2.2 8.9l6.9-.6z"/>
+              </svg>
+              {notaStr} <span className="font-normal text-[#94a3b8]">· {totalAv}</span>
+            </span>
+          ) : (
+            <span className="text-[11px] text-[#94a3b8]">Sem avaliações</span>
+          )}
+        </div>
+        {avaliacoes.length > 0 ? (
           <div className="space-y-4">
             {avaliacoes.slice(0,4).map((av: any, i: number) => {
-              const ini = (av.avaliador || 'C').split(' ').map((x: string) => x[0]).slice(0,2).join('').toUpperCase();
+              const nomeReal = (av.avaliador && !['cliente','prestador'].includes(av.avaliador.toLowerCase()))
+                ? av.avaliador : 'Cliente';
+              const ini = nomeReal.split(' ').map((x: string) => x[0]).slice(0,2).join('').toUpperCase();
               return (
                 <div key={i}>
                   {i > 0 && <div className="border-t border-[rgba(0,0,0,0.06)] mb-4"/>}
@@ -640,7 +655,7 @@ export function ProviderProfile() {
                       style={{ background: AVATAR_COLORS[i % AVATAR_COLORS.length] }}>{ini}</div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-0.5">
-                        <span className="text-[13px] font-bold text-[#030213]">{av.avaliador || 'Cliente'}</span>
+                        <span className="text-[13px] font-bold text-[#030213]">{nomeReal}</span>
                         <StarsFilled nota={av.nota} size={11}/>
                       </div>
                       <p className="text-[10.5px] text-[#94a3b8] mb-1">
@@ -654,8 +669,13 @@ export function ProviderProfile() {
               );
             })}
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="text-center py-5">
+            <div className="text-2xl mb-1.5">⭐</div>
+            <p className="text-[12px] text-[#94a3b8]">Nenhuma avaliação ainda.</p>
+          </div>
+        )}
+      </div>
 
       {/* FOOTER */}
       <div className="flex items-center justify-center gap-2 py-6 text-[11.5px] text-[#94a3b8]">

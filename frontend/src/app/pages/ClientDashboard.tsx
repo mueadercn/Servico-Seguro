@@ -202,71 +202,70 @@ export function ClientDashboard() {
 
   const page = pageTitles[aba] || pageTitles.dashboard;
 
+  const sidebarContent = (
+    <>
+      <div className="px-5 pt-6 pb-5">
+        <Link to="/" className="flex items-center gap-2.5">
+          <div style={{ background: '#fff', borderRadius: 11, padding: 4, width: 38, height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <img src="/logo-escudo.png" alt="Serviço Seguro" style={{ height: '100%', width: 'auto', display: 'block' }} />
+          </div>
+          <span className="font-extrabold text-[15px] text-white tracking-tight">Serviço Seguro</span>
+        </Link>
+      </div>
+      <div className="px-4 pb-5 border-b border-white/10">
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 rounded-full flex items-center justify-center font-bold text-lg flex-shrink-0"
+            style={{ background: 'oklch(0.92 0.05 184)', color: 'oklch(0.45 0.1 184)' }}>
+            {getInitials(contratante?.nome || '')}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="font-bold text-sm text-white truncate">{contratante?.nome}</div>
+            <div className="text-xs text-white/50">Contratante</div>
+          </div>
+        </div>
+      </div>
+      <nav className="flex-1 px-3 py-4 space-y-0.5">
+        {navItems.map(({ id, label, icon: Icon }) => (
+          <button key={id} onClick={() => { setAba(id); setMobileMenu(false); }}
+            className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-[10px] text-[14.5px] font-semibold transition-all text-left ${aba === id ? 'bg-[rgba(255,255,255,0.13)] text-white' : 'text-white/60 hover:bg-[rgba(255,255,255,0.07)] hover:text-white/90'}`}>
+            <Icon className="h-4 w-4 flex-shrink-0" />
+            {label}
+          </button>
+        ))}
+      </nav>
+      <div className="px-3 pb-5 border-t border-white/10 pt-3">
+        <button onClick={logout}
+          className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-[10px] text-[14.5px] font-semibold transition-all text-red-400/70 hover:text-red-400 hover:bg-[rgba(255,255,255,0.05)]">
+          <LogOut className="h-4 w-4 flex-shrink-0" />
+          Sair
+        </button>
+      </div>
+    </>
+  );
+
   return (
     <div className="flex min-h-screen" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
 
-      {/* DARK SIDEBAR */}
-      <aside className={`w-64 flex-shrink-0 bg-[#030213] text-white min-h-screen flex flex-col sticky top-0 fixed left-0 z-40 transition-transform lg:translate-x-0 ${mobileMenu ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
-        {/* Logo */}
-        <div className="px-5 pt-6 pb-5">
-          <Link to="/" className="flex items-center gap-2.5">
-            <div style={{ background: '#fff', borderRadius: 11, padding: 4, width: 38, height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <img src="/logo-escudo.png" alt="Serviço Seguro" style={{ height: '100%', width: 'auto', display: 'block' }} />
-            </div>
-            <span className="font-extrabold text-[15px] text-white tracking-tight">Serviço Seguro</span>
-          </Link>
-        </div>
-
-        {/* User block */}
-        <div className="px-4 pb-5 border-b border-white/10">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-full flex items-center justify-center font-bold text-lg mb-0 flex-shrink-0"
-              style={{ background: 'oklch(0.92 0.05 184)', color: 'oklch(0.45 0.1 184)' }}>
-              {getInitials(contratante?.nome || '')}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="font-bold text-sm text-white truncate">{contratante?.nome}</div>
-              <div className="text-xs text-white/50">Contratante</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Nav */}
-        <nav className="flex-1 px-3 py-4 space-y-0.5">
-          {navItems.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              onClick={() => { setAba(id); setMobileMenu(false); }}
-              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-[10px] text-[14.5px] font-semibold transition-all text-left ${aba === id ? 'bg-[rgba(255,255,255,0.13)] text-white' : 'text-white/60 hover:bg-[rgba(255,255,255,0.07)] hover:text-white/90'}`}
-            >
-              <Icon className="h-4 w-4 flex-shrink-0" />
-              {label}
-            </button>
-          ))}
-        </nav>
-
-        {/* Logout */}
-        <div className="px-3 pb-5 border-t border-white/10 pt-3">
-          <button
-            onClick={logout}
-            className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-[10px] text-[14.5px] font-semibold transition-all text-red-400/70 hover:text-red-400 hover:bg-[rgba(255,255,255,0.05)]"
-          >
-            <LogOut className="h-4 w-4 flex-shrink-0" />
-            Sair
-          </button>
-        </div>
+      {/* SIDEBAR — desktop (não aparece no mobile) */}
+      <aside className="w-64 flex-shrink-0 bg-[#030213] text-white min-h-screen sticky top-0 self-start hidden lg:flex flex-col" style={{ height: '100vh' }}>
+        {sidebarContent}
       </aside>
 
-      {/* Mobile overlay */}
+      {/* SIDEBAR — mobile overlay (só renderiza quando aberto) */}
       {mobileMenu && (
-        <div className="fixed inset-0 bg-black/40 z-30 lg:hidden" onClick={() => setMobileMenu(false)} />
+        <>
+          <div className="fixed inset-0 bg-black/40 z-40 lg:hidden" onClick={() => setMobileMenu(false)} />
+          <aside className="fixed left-0 top-0 h-full w-64 bg-[#030213] text-white z-50 flex flex-col lg:hidden shadow-[0_14px_40px_-18px_rgba(3,2,19,0.4)]">
+            {sidebarContent}
+          </aside>
+        </>
       )}
 
       {/* MAIN */}
-      <div className="flex-1 lg:ml-64 bg-[#f8fafc] min-h-screen flex flex-col">
+      <div className="flex-1 min-w-0 bg-[#f8fafc] min-h-screen flex flex-col">
 
         {/* Top bar */}
-        <div className="bg-white border-b border-[#e2e8f0] px-7 py-4 flex items-center justify-between sticky top-0 z-20">
+        <div className="bg-white border-b border-[#e2e8f0] px-4 lg:px-7 py-4 flex items-center justify-between sticky top-0 z-20">
           <div className="flex items-center gap-3">
             <button
               className="lg:hidden p-2 rounded-lg hover:bg-[#f1f5f9] transition-colors"
@@ -283,7 +282,7 @@ export function ClientDashboard() {
         </div>
 
         {/* Content */}
-        <div className="p-6 lg:p-8 flex-1">
+        <div className="p-4 lg:p-8 flex-1">
 
           {/* ── DASHBOARD ── */}
           {aba === 'dashboard' && (
