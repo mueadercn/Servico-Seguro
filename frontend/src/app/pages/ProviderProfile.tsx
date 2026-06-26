@@ -100,6 +100,10 @@ export function ProviderProfile() {
   const tagline  = prestador.bio_curta || (prestador.bio ? prestador.bio.slice(0,100) + (prestador.bio.length > 100 ? '…' : '') : '');
   const profissao = cats.map((c: any) => c.nome).join(' · ') || null;
   const localStr  = [profissao, prestador.cidade && `${prestador.cidade}${prestador.estado ? ', ' + prestador.estado : ''}`].filter(Boolean).join(' · ');
+  const cidadeStr = prestador.cidade ? `${prestador.cidade}${prestador.estado ? ', ' + prestador.estado : ''}` : null;
+  const desde     = prestador.criado_em
+    ? new Date(prestador.criado_em).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+    : null;
 
   // ── DESKTOP ───────────────────────────────────────────────────
   const Desktop = () => (
@@ -295,9 +299,55 @@ export function ProviderProfile() {
           {/* RIGHT SIDEBAR */}
           <div className="space-y-4">
 
+            {/* GARANTIAS / SEGURANÇA — substitui o antigo bloco de CTA */}
+            <div className="bg-white rounded-[16px] p-5" style={{ border: '1px solid rgba(0,0,0,0.07)' }}>
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-8 h-8 rounded-[10px] flex items-center justify-center"
+                  style={{ background: TEAL_BG }}>
+                  <Shield className="h-4 w-4" style={{ color: TEAL_TEXT }}/>
+                </div>
+                <p className="text-[13px] font-bold text-[#030213]">Contratação protegida</p>
+              </div>
+              <div className="space-y-2.5">
+                {[
+                  prestador.verificado && 'Identidade verificada pelo Serviço Seguro',
+                  'Contrato digital assinado pelas duas partes',
+                  'Histórico e acordos registrados (Lei 14.063/2020)',
+                  'Mediação da plataforma em caso de disputa',
+                ].filter(Boolean).map((txt, i) => (
+                  <div key={i} className="flex items-start gap-2">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={TEAL} strokeWidth="2.5"
+                      className="flex-shrink-0 mt-0.5"><path d="M20 6L9 17l-5-5"/></svg>
+                    <span className="text-[12.5px] text-[#374151] leading-snug">{txt}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-4 pt-4 space-y-2" style={{ borderTop: '1px solid rgba(0,0,0,0.07)' }}>
+                {servicosFeitos > 0 && (
+                  <div className="flex items-center justify-between text-[12.5px]">
+                    <span className="text-[#94a3b8]">Serviços concluídos</span>
+                    <strong className="text-[#030213]">{servicosFeitos}+</strong>
+                  </div>
+                )}
+                {cidadeStr && (
+                  <div className="flex items-center justify-between text-[12.5px]">
+                    <span className="text-[#94a3b8]">Atende em</span>
+                    <strong className="text-[#030213]">{cidadeStr}</strong>
+                  </div>
+                )}
+                {desde && (
+                  <div className="flex items-center justify-between text-[12.5px]">
+                    <span className="text-[#94a3b8]">Na plataforma desde</span>
+                    <strong className="text-[#030213] capitalize">{desde}</strong>
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* AVALIAÇÕES */}
             {avaliacoes.length > 0 && (
-              <div className="bg-white rounded-[16px] p-5 sticky top-[72px]" style={{ border: '1px solid rgba(0,0,0,0.07)' }}>
+              <div className="bg-white rounded-[16px] p-5" style={{ border: '1px solid rgba(0,0,0,0.07)' }}>
                 <div className="flex items-center justify-between mb-4">
                   <p className="text-[10.5px] font-bold uppercase tracking-widest text-[#94a3b8]">AVALIAÇÕES</p>
                   {notaStr && (
@@ -518,6 +568,43 @@ export function ProviderProfile() {
           </div>
         </div>
       )}
+
+      {/* GARANTIAS / SEGURANÇA */}
+      <div className="mx-3 mb-3 bg-white rounded-[14px] p-4" style={{ border: '1px solid rgba(0,0,0,0.07)' }}>
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-7 h-7 rounded-[9px] flex items-center justify-center" style={{ background: TEAL_BG }}>
+            <Shield className="h-3.5 w-3.5" style={{ color: TEAL_TEXT }}/>
+          </div>
+          <p className="text-[12.5px] font-bold text-[#030213]">Contratação protegida</p>
+        </div>
+        <div className="space-y-2">
+          {[
+            prestador.verificado && 'Identidade verificada pelo Serviço Seguro',
+            'Contrato digital assinado pelas duas partes',
+            'Mediação da plataforma em caso de disputa',
+          ].filter(Boolean).map((txt, i) => (
+            <div key={i} className="flex items-start gap-2">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={TEAL} strokeWidth="2.5"
+                className="flex-shrink-0 mt-0.5"><path d="M20 6L9 17l-5-5"/></svg>
+              <span className="text-[12px] text-[#374151] leading-snug">{txt}</span>
+            </div>
+          ))}
+        </div>
+        {(cidadeStr || desde) && (
+          <div className="mt-3 pt-3 space-y-1.5" style={{ borderTop: '1px solid rgba(0,0,0,0.07)' }}>
+            {cidadeStr && (
+              <div className="flex items-center justify-between text-[12px]">
+                <span className="text-[#94a3b8]">Atende em</span><strong className="text-[#030213]">{cidadeStr}</strong>
+              </div>
+            )}
+            {desde && (
+              <div className="flex items-center justify-between text-[12px]">
+                <span className="text-[#94a3b8]">Na plataforma desde</span><strong className="text-[#030213] capitalize">{desde}</strong>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* AVALIAÇÕES */}
       {avaliacoes.length > 0 && (

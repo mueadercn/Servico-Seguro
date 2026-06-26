@@ -26,7 +26,7 @@ function gerarPDF(dadosContrato) {
       assinadoCliente, assinadoPrestador, ipCliente, ipPrestador,
       timestampCliente, timestampPrestador,
       uaCliente, uaPrestador, geoCliente, geoPrestador, telCliente, telPrestador,
-      mensagensWhatsapp,
+      mensagensChat,
     } = dadosContrato;
 
     const tipoLabel = 'CONTRATO DE PRESTAÇÃO DE SERVIÇOS';
@@ -192,23 +192,31 @@ function gerarPDF(dadosContrato) {
       }
     }
 
-    // ── HISTÓRICO DA ANAMNESE (WhatsApp) ─────────────────────────────────────
-    if (mensagensWhatsapp && mensagensWhatsapp.length > 0) {
+    // ── HISTÓRICO DO CHAT (negociação) ─────────────────────────────────────
+    if (mensagensChat && mensagensChat.length > 0) {
       if (doc.y > 500) doc.addPage();
-      secao(doc, 'HISTÓRICO DA ANAMNESE (via WhatsApp)', AZUL);
-      const FONT_SIZE = 7;
-      const LINE_GAP = 1;
-      for (const msg of mensagensWhatsapp) {
+      secao(doc, 'HISTÓRICO DO CHAT (negociação entre as partes)', AZUL);
+      const FONT_SIZE = 8;
+      const LINE_GAP = 2;
+      for (const msg of mensagensChat) {
         if (doc.y > doc.page.height - 80) doc.addPage();
-        const quem = msg.remetente === 'cliente' ? 'Cliente' : msg.remetente === 'ia' ? 'IA' : 'Sistema';
-        const hora = new Date(msg.criado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-        // Skip image placeholders
-        if (msg.conteudo && msg.conteudo.startsWith('[IMG:')) continue;
-        const conteudo = (msg.conteudo || '').replace(/\[IMAGEM_ENVIADA\]/g, '[foto]').substring(0, 300);
-        doc.fillColor(msg.remetente === 'cliente' ? '#1B2F6E' : '#555')
-          .font(msg.remetente === 'cliente' ? 'Helvetica-Bold' : 'Helvetica')
-          .fontSize(FONT_SIZE)
-          .text(`[${hora}] ${quem}: ${conteudo}`, 50, doc.y, { width: doc.page.width - 100, lineGap: LINE_GAP });
+        const ehCliente = msg.remetente === 'cliente';
+        const quem = ehCliente ? 'Cliente' : msg.remetente === 'prestador' ? 'Prestador' : 'Sistema';
+        const hora = new Date(msg.criado_em).toLocaleString('pt-BR', {
+          day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
+        });
+        // Mensagens que não são texto (arquivos/imagens) viram referência
+        let conteudo;
+        if (msg.tipo && msg.tipo !== 'texto') {
+          conteudo = `[${msg.tipo === 'arquivo' || msg.tipo === 'imagem' ? 'arquivo anexado' : msg.tipo}]`;
+        } else {
+          conteudo = (msg.conteudo || '').substring(0, 400);
+        }
+        doc.fillColor(ehCliente ? '#1B2F6E' : '#1A7A4A')
+          .font('Helvetica-Bold').fontSize(FONT_SIZE)
+          .text(`[${hora}] ${quem}: `, { continued: true, lineGap: LINE_GAP });
+        doc.fillColor('#333').font('Helvetica').fontSize(FONT_SIZE)
+          .text(conteudo, { lineGap: LINE_GAP });
       }
       doc.moveDown(0.5);
     }

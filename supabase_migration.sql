@@ -248,3 +248,17 @@ ALTER TABLE prestadores ADD COLUMN IF NOT EXISTS bio_curta text;
 -- Slug único (case-insensitive, só permite a-z0-9-)
 CREATE UNIQUE INDEX IF NOT EXISTS idx_prestadores_slug ON prestadores (slug)
   WHERE slug IS NOT NULL;
+
+
+-- =====================================================
+-- MIGRAÇÃO 3: Evidências digitais no contrato
+-- (geolocalização, user-agent e telefone das partes)
+-- Rodar no Supabase SQL Editor
+-- =====================================================
+
+ALTER TABLE contratos ADD COLUMN IF NOT EXISTS ua_cliente text;
+ALTER TABLE contratos ADD COLUMN IF NOT EXISTS ua_prestador text;
+ALTER TABLE contratos ADD COLUMN IF NOT EXISTS geo_cliente jsonb;
+ALTER TABLE contratos ADD COLUMN IF NOT EXISTS geo_prestador jsonb;
+ALTER TABLE contratos ADD COLUMN IF NOT EXISTS tel_cliente text;
+ALTER TABLE contratos ADD COLUMN IF NOT EXISTS tel_prestador text;

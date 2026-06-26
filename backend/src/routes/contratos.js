@@ -73,13 +73,15 @@ router.post('/', async (req, res) => {
 // POST /api/contratos/:id/assinar
 router.post('/:id/assinar', async (req, res) => {
   try {
-    const { parte, ip, cpf_verificado, biometria_verificada } = req.body;
+    const { parte, ip, cpf_verificado, biometria_verificada, user_agent, geolocalizacao, telefone } = req.body;
     // parte: 'cliente' | 'prestador'
 
     const timestamp = new Date().toISOString();
     const update = parte === 'cliente'
-      ? { assinado_cliente: true, assinado_cliente_em: timestamp, ip_cliente: ip }
-      : { assinado_prestador: true, assinado_prestador_em: timestamp, ip_prestador: ip };
+      ? { assinado_cliente: true, assinado_cliente_em: timestamp, ip_cliente: ip,
+          ua_cliente: user_agent || null, geo_cliente: geolocalizacao || null, tel_cliente: telefone || null }
+      : { assinado_prestador: true, assinado_prestador_em: timestamp, ip_prestador: ip,
+          ua_prestador: user_agent || null, geo_prestador: geolocalizacao || null, tel_prestador: telefone || null };
 
     if (parte === 'cliente' && cpf_verificado !== undefined) {
       update.cpf_verificado = cpf_verificado;
@@ -215,16 +217,34 @@ router.get('/:id/pdf', async (req, res) => {
         ? new Date(contrato.assinado_cliente_em).toLocaleString('pt-BR') : null,
       timestampPrestador: contrato.assinado_prestador_em
         ? new Date(contrato.assinado_prestador_em).toLocaleString('pt-BR') : null,
+      // Evidências digitais — geolocalização, user-agent e telefone das partes
+      uaCliente: contrato.ua_cliente || null,
+      uaPrestador: contrato.ua_prestador || null,
+      geoCliente: contrato.geo_cliente || null,
+      geoPrestador: contrato.geo_prestador || null,
+      telCliente: contrato.tel_cliente || null,
+      telPrestador: contrato.tel_prestador || null,
     };
 
-    // Buscar mensagens do WhatsApp (anamnese)
-    const { data: msgsWhatsapp } = await supabase
-      .from('mensagens')
-      .select('remetente, conteudo, criado_em')
-      .eq('orc_id', orc?.id)
-      .order('criado_em', { ascending: true });
+    // Buscar mensagens do CHAT de negociação (o que realmente importa)
+    let mensagensChat = [];
+    if (orc?.id) {
+      const { data: chat } = await supabase
+        .from('chat_negociacao')
+        .select('id')
+        .eq('orc_id', orc.id)
+        .maybeSingle();
+      if (chat?.id) {
+        const { data: msgs } = await supabase
+          .from('chat_mensagens')
+          .select('remetente, tipo, conteudo, criado_em')
+          .eq('chat_id', chat.id)
+          .order('criado_em', { ascending: true });
+        mensagensChat = msgs || [];
+      }
+    }
 
-    dadosPDF.mensagensWhatsapp = msgsWhatsapp || [];
+    dadosPDF.mensagensChat = mensagensChat;
 
     const pdfBuffer = await gerarPDF(dadosPDF);
 
