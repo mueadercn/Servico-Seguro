@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { Search, Shield, MapPin, ChevronRight, X, LogOut, LayoutDashboard } from 'lucide-react';
+import { Search, Shield, MapPin, ChevronRight, X, LogOut, LayoutDashboard, Menu } from 'lucide-react';
 import { Logo } from '../components/Logo';
 import { ServiceCard } from '../components/ServiceCard';
 import { supabase, getPrestador, getContratante, logout } from '../../lib/supabase';
@@ -30,6 +30,7 @@ export function Home() {
   const [loading, setLoading] = useState(true);
   const [servicoSelecionado, setServicoSelecionado] = useState<any>(null);
   const [userMenuAberto, setUserMenuAberto] = useState(false);
+  const [menuMobile, setMenuMobile] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
   const prestador = getPrestador();
@@ -113,7 +114,7 @@ export function Home() {
             </span>
           </Link>
 
-          {/* Nav */}
+          {/* Nav desktop */}
           <div className="flex items-center gap-1">
             <Link to="/profissionais"
               className="hidden md:block text-sm px-3 py-2 rounded-[10px] transition-colors"
@@ -208,15 +209,106 @@ export function Home() {
                   Sou profissional
                 </Link>
                 <Link to="/auth"
-                  className="ml-2 text-sm font-bold px-4 py-2 rounded-[12px] text-white transition-opacity hover:opacity-90"
+                  className="hidden md:inline-flex ml-2 text-sm font-bold px-4 py-2 rounded-[12px] text-white transition-opacity hover:opacity-90"
                   style={{ background: '#030213' }}>
                   Entrar
                 </Link>
               </>
             )}
+
+            {/* Hambúrguer — só mobile */}
+            <button
+              onClick={() => setMenuMobile(v => !v)}
+              className="md:hidden ml-2 w-9 h-9 flex items-center justify-center rounded-[10px]"
+              style={{ background: 'rgba(3,2,19,0.06)' }}
+              aria-label="Menu">
+              <Menu className="w-5 h-5" style={{ color: '#030213' }}/>
+            </button>
           </div>
         </div>
       </header>
+
+      {/* ── DRAWER MOBILE ── */}
+      {menuMobile && (
+        <>
+          {/* overlay */}
+          <div className="fixed inset-0 z-[60] bg-black/40 md:hidden"
+            onClick={() => setMenuMobile(false)}/>
+          {/* painel */}
+          <div className="fixed top-0 right-0 bottom-0 z-[70] w-72 flex flex-col md:hidden"
+            style={{ background: '#fff', boxShadow: '-8px 0 32px -8px rgba(3,2,19,0.18)' }}>
+            {/* header do drawer */}
+            <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: 'rgba(0,0,0,0.08)' }}>
+              <Link to="/" onClick={() => setMenuMobile(false)} className="flex items-center gap-2">
+                <img src="/logo-escudo.png" alt="" style={{ height: 28 }}/>
+                <span className="font-extrabold text-[14px]" style={{ color: '#030213' }}>Serviço Seguro</span>
+              </Link>
+              <button onClick={() => setMenuMobile(false)} className="w-8 h-8 flex items-center justify-center rounded-[8px]"
+                style={{ background: 'rgba(3,2,19,0.06)' }}>
+                <X className="w-4 h-4" style={{ color: '#030213' }}/>
+              </button>
+            </div>
+
+            {/* links */}
+            <nav className="flex-1 overflow-y-auto p-4 space-y-1">
+              {[
+                { to: '/profissionais', label: 'Profissionais' },
+                { to: '/como-funciona', label: 'Como funciona' },
+                { to: '/contato', label: 'Contato' },
+              ].map(({ to, label }) => (
+                <Link key={to} to={to} onClick={() => setMenuMobile(false)}
+                  className="flex items-center justify-between w-full px-4 py-3 rounded-[12px] text-[15px] font-semibold transition-colors"
+                  style={{ color: '#030213' }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(3,2,19,0.04)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                  {label}
+                  <ChevronRight className="w-4 h-4" style={{ color: '#cbd5e1' }}/>
+                </Link>
+              ))}
+
+              {usuarioLogado && (
+                <>
+                  <div className="pt-3 pb-1 px-1">
+                    <div className="text-[11px] font-bold uppercase tracking-widest" style={{ color: '#94a3b8' }}>Minha conta</div>
+                  </div>
+                  <Link to={dashboardUrl} onClick={() => setMenuMobile(false)}
+                    className="flex items-center gap-3 w-full px-4 py-3 rounded-[12px] text-[15px] font-semibold"
+                    style={{ color: '#030213' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(3,2,19,0.04)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                    <LayoutDashboard className="w-5 h-5 opacity-60"/>
+                    Meu painel
+                  </Link>
+                  <button onClick={() => { setMenuMobile(false); logout(); }}
+                    className="flex items-center gap-3 w-full px-4 py-3 rounded-[12px] text-[15px] font-semibold text-left"
+                    style={{ color: '#b91c1c' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = '#fef2f2')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                    <LogOut className="w-5 h-5"/>
+                    Sair da conta
+                  </button>
+                </>
+              )}
+            </nav>
+
+            {/* rodapé do drawer — CTA */}
+            {!usuarioLogado && (
+              <div className="p-4 border-t space-y-2" style={{ borderColor: 'rgba(0,0,0,0.08)' }}>
+                <Link to="/auth?tipo=prestador" onClick={() => setMenuMobile(false)}
+                  className="flex items-center justify-center w-full py-3 rounded-[12px] text-[14px] font-semibold border"
+                  style={{ borderColor: 'rgba(0,0,0,0.12)', color: '#030213' }}>
+                  Sou profissional
+                </Link>
+                <Link to="/auth" onClick={() => setMenuMobile(false)}
+                  className="flex items-center justify-center w-full py-3 rounded-[12px] text-[14px] font-bold text-white"
+                  style={{ background: '#030213' }}>
+                  Entrar
+                </Link>
+              </div>
+            )}
+          </div>
+        </>
+      )}
 
       {/* ─── HERO ─── */}
       <section className="pt-32 pb-14 px-4">
