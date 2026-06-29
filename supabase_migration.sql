@@ -262,3 +262,53 @@ ALTER TABLE contratos ADD COLUMN IF NOT EXISTS geo_cliente jsonb;
 ALTER TABLE contratos ADD COLUMN IF NOT EXISTS geo_prestador jsonb;
 ALTER TABLE contratos ADD COLUMN IF NOT EXISTS tel_cliente text;
 ALTER TABLE contratos ADD COLUMN IF NOT EXISTS tel_prestador text;
+
+
+-- =====================================================
+-- MIGRAÇÃO 4: Níveis do prestador (BRONZE / PRATA / OURO)
+-- Sobe de nível conforme serviços concluídos (orcs com
+-- status 'SERVIÇO CONCLUÍDO' = contratos assinados/finalizados).
+-- Recalculado automaticamente por trigger. Rodar no SQL Editor.
+-- =====================================================
+
+ALTER TABLE prestadores ADD COLUMN IF NOT EXISTS nivel text NOT NULL DEFAULT 'BRONZE';
+
+-- Faixas (ajuste os limites aqui se quiser): OURO >= 30, PRATA >= 10, senão BRONZE
+CREATE OR REPLACE FUNCTION calc_nivel_prestador(qtd integer)
+RETURNS text AS $$
+BEGIN
+  IF qtd >= 30 THEN RETURN 'OURO';
+  ELSIF qtd >= 10 THEN RETURN 'PRATA';
+  ELSE RETURN 'BRONZE';
+  END IF;
+END;
+$$ LANGUAGE plpgsql IMMUTABLE;
+
+-- Recalcula o nível do prestador afetado quando um orc muda
+CREATE OR REPLACE FUNCTION atualizar_nivel_prestador()
+RETURNS trigger AS $$
+DECLARE
+  pid uuid;
+  qtd integer;
+BEGIN
+  pid := COALESCE(NEW.prestador_id, OLD.prestador_id);
+  IF pid IS NULL THEN RETURN COALESCE(NEW, OLD); END IF;
+  SELECT count(*) INTO qtd
+    FROM orcs
+   WHERE prestador_id = pid AND status = 'SERVIÇO CONCLUÍDO';
+  UPDATE prestadores SET nivel = calc_nivel_prestador(qtd) WHERE id = pid;
+  RETURN COALESCE(NEW, OLD);
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_nivel_prestador ON orcs;
+CREATE TRIGGER trg_nivel_prestador
+AFTER INSERT OR UPDATE OF status OR DELETE ON orcs
+FOR EACH ROW EXECUTE FUNCTION atualizar_nivel_prestador();
+
+-- Backfill: calcula o nível atual de todos os prestadores
+UPDATE prestadores p
+SET nivel = calc_nivel_prestador((
+  SELECT count(*) FROM orcs o
+   WHERE o.prestador_id = p.id AND o.status = 'SERVIÇO CONCLUÍDO'
+));

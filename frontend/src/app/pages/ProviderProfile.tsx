@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router';
 import {
   Shield, Share2, Heart, ArrowLeft, MessageCircle, ChevronLeft, ChevronRight,
-  ClipboardList, ClipboardCheck, Star as StarIcon, X,
+  ClipboardList, ClipboardCheck, Star as StarIcon, X, Info,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
@@ -36,6 +36,26 @@ const SOBRE_CHECKS = [
   'Materiais de qualidade',
   'Orçamento justo e transparente',
 ];
+
+// ── NÍVEIS (Bronze / Prata / Ouro) ──
+// Faixas iguais às do banco (calc_nivel_prestador): OURO>=30, PRATA>=10, senão BRONZE.
+const NIVEIS: Record<string, any> = {
+  BRONZE: {
+    label: 'BRONZE', titulo: 'Nível Bronze', sub: 'Em crescimento',
+    grad: 'linear-gradient(135deg,#cd7f32,#9c5a23)', border: '#cd7f32', soft: '#cd7f3222', text: '#a05a2c',
+  },
+  PRATA: {
+    label: 'PRATA', titulo: 'Nível Prata', sub: 'Profissional em destaque',
+    grad: 'linear-gradient(135deg,#c4c8d0,#8b9099)', border: '#9aa0aa', soft: '#9aa0aa22', text: '#5b6470',
+  },
+  OURO: {
+    label: 'OURO', titulo: 'Nível Ouro', sub: 'Referência na plataforma',
+    grad: 'linear-gradient(135deg,#f3cd54,#d4a017)', border: '#e0b400', soft: '#e0b40022', text: '#b8860b',
+  },
+};
+function getNivel(qtd: number): string {
+  return qtd >= 30 ? 'OURO' : qtd >= 10 ? 'PRATA' : 'BRONZE';
+}
 
 function StarsFilled({ nota, size = 13 }: { nota: number; size?: number }) {
   return (
@@ -155,6 +175,12 @@ export function ProviderProfile() {
   const anoDesde  = prestador.criado_em ? new Date(prestador.criado_em).getFullYear() : null;
   const fotos: string[] = Array.isArray(prestador.fotos_urls) ? prestador.fotos_urls : [];
 
+  // Nível: usa a coluna do banco se existir, senão deriva da contagem de serviços concluídos
+  const nivelKey = (prestador.nivel && NIVEIS[prestador.nivel]) ? prestador.nivel : getNivel(servicosFeitos);
+  const nv = NIVEIS[nivelKey];
+  // Contorno colorido nos cards do perfil (ênfase no nível)
+  const secStyle = { border: `1.5px solid ${nv.border}`, boxShadow: `0 6px 22px -14px ${nv.border}` };
+
   // ── Helpers de link por serviço ──
   const waLink = (s: any) => `https://wa.me/${WHATSAPP_NUMERO}?text=${encodeURIComponent(
     '#SERVICO:' + s.id +
@@ -201,6 +227,32 @@ export function ProviderProfile() {
     </div>
   );
 
+  // ── Badge de nível (escudo + ★) ──
+  const NivelBadge = ({ size = 'md' }: { size?: 'md' | 'sm' }) => {
+    const big = size === 'md';
+    return (
+      <div className={`inline-flex items-center gap-1.5 rounded-full text-white font-extrabold tracking-wide ${big ? 'pl-1.5 pr-3.5 py-1 text-[13px]' : 'pl-1 pr-2.5 py-0.5 text-[11px]'}`}
+        style={{ background: nv.grad, boxShadow: `0 4px 14px -4px ${nv.border}` }}>
+        <span className={`rounded-full flex items-center justify-center ${big ? 'w-6 h-6' : 'w-5 h-5'}`}
+          style={{ background: 'rgba(255,255,255,0.28)' }}>
+          <StarIcon className={big ? 'h-3.5 w-3.5' : 'h-3 w-3'} fill="#fff" stroke="#fff"/>
+        </span>
+        {nv.label}
+      </div>
+    );
+  };
+
+  // ── Texto "Nível X / subtítulo" + info ──
+  const NivelTag = ({ align = 'right' }: { align?: 'right' | 'left' }) => (
+    <div className={align === 'right' ? 'text-right' : 'text-left'}>
+      <div className="flex items-center gap-1 justify-end" style={{ justifyContent: align === 'right' ? 'flex-end' : 'flex-start' }}>
+        <span className="text-[13px] font-extrabold" style={{ color: nv.text }}>{nv.titulo}</span>
+        <Info className="h-3.5 w-3.5" style={{ color: '#94a3b8' }}/>
+      </div>
+      <div className="text-[12px] text-[#64748b] leading-tight">{nv.sub}</div>
+    </div>
+  );
+
   // ── DESKTOP ───────────────────────────────────────────────────
   const Desktop = () => (
     <div style={{ fontFamily: "Plus Jakarta Sans, sans-serif", background: '#f5f4f0', minHeight: '100vh' }}>
@@ -240,7 +292,12 @@ export function ProviderProfile() {
       <div className="max-w-[1100px] mx-auto px-6 py-6 space-y-5">
 
         {/* HEADER CARD */}
-        <div className="bg-white rounded-[18px] p-6" style={{ border: '1px solid rgba(0,0,0,0.07)', boxShadow: '0 4px 24px -12px rgba(3,2,19,0.12)' }}>
+        <div className="bg-white rounded-[18px] p-6" style={secStyle}>
+          {/* Faixa de nível */}
+          <div className="flex items-center justify-between mb-5">
+            <NivelBadge/>
+            <NivelTag/>
+          </div>
           <div className="flex gap-7">
             {/* Foto grande */}
             <div className="relative flex-shrink-0 rounded-[16px] overflow-hidden" style={{ width: 230, height: 260 }}>
@@ -300,7 +357,7 @@ export function ProviderProfile() {
 
         {/* TRABALHOS REALIZADOS */}
         {fotos.length > 0 && (
-          <div className="bg-white rounded-[18px] p-6" style={{ border: '1px solid rgba(0,0,0,0.07)' }}>
+          <div className="bg-white rounded-[18px] p-6" style={secStyle}>
             <p className="text-[15px] font-extrabold text-[#030213] mb-4">Trabalhos realizados</p>
             <div className="grid grid-cols-4 gap-3">
               {fotos.slice(0, 8).map((url, i) => (
@@ -326,7 +383,7 @@ export function ProviderProfile() {
         <div className="grid gap-5" style={{ gridTemplateColumns: '1.1fr 1fr 1fr' }}>
 
           {/* SERVIÇOS */}
-          <div className="bg-white rounded-[18px] p-5" style={{ border: '1px solid rgba(0,0,0,0.07)' }}>
+          <div className="bg-white rounded-[18px] p-5" style={secStyle}>
             <p className="text-[15px] font-extrabold text-[#030213] mb-4">Serviços que ofereço</p>
             {servicos.length > 0 ? (
               <div className="space-y-2.5">
@@ -346,7 +403,7 @@ export function ProviderProfile() {
           </div>
 
           {/* SOBRE MIM */}
-          <div className="bg-white rounded-[18px] p-5" style={{ border: '1px solid rgba(0,0,0,0.07)' }}>
+          <div className="bg-white rounded-[18px] p-5" style={secStyle}>
             <p className="text-[15px] font-extrabold text-[#030213] mb-3">Sobre mim</p>
             {prestador.bio
               ? <p className="text-[13.5px] text-[#4b5563] leading-[1.7] mb-4">{prestador.bio}</p>
@@ -362,7 +419,7 @@ export function ProviderProfile() {
           </div>
 
           {/* GARANTIAS */}
-          <div className="bg-white rounded-[18px] p-5" style={{ border: '1px solid rgba(0,0,0,0.07)' }}>
+          <div className="bg-white rounded-[18px] p-5" style={secStyle}>
             <p className="text-[15px] font-extrabold text-[#030213] mb-4 leading-tight">Garantias da contratação<br/>pelo Serviço Seguro</p>
             <div className="space-y-3.5">
               {GARANTIAS.map((g, i) => (
@@ -385,7 +442,7 @@ export function ProviderProfile() {
         </div>
 
         {/* AVALIAÇÕES */}
-        <div className="bg-white rounded-[18px] p-6" style={{ border: '1px solid rgba(0,0,0,0.07)' }}>
+        <div className="bg-white rounded-[18px] p-6" style={secStyle}>
           <p className="text-[15px] font-extrabold text-[#030213] mb-4">Avaliações de clientes</p>
           {avaliacoes.length > 0 ? (
             <>
@@ -476,10 +533,12 @@ export function ProviderProfile() {
       <div className="p-3 space-y-3">
 
         {/* FOTO GRANDE */}
-        <div className="relative w-full rounded-[16px] overflow-hidden bg-[#030213]" style={{ height: 260 }}>
+        <div className="relative w-full rounded-[16px] overflow-hidden bg-[#030213]" style={{ border: `1.5px solid ${nv.border}`, height: 260 }}>
           {prestador.foto_url
             ? <img src={prestador.foto_url} alt={prestador.nome} className="w-full h-full object-cover"/>
             : <div className="w-full h-full flex items-center justify-center text-white font-extrabold text-5xl">{iniciais}</div>}
+          {/* Badge de nível — topo direito sobre a foto */}
+          <div className="absolute top-3 right-3"><NivelBadge/></div>
           {prestador.verificado && (
             <div className="absolute bottom-3 left-3 flex items-center gap-1.5 px-2.5 py-1.5 rounded-[10px]"
               style={{ background: 'rgba(3,2,19,0.78)', backdropFilter: 'blur(4px)' }}>
@@ -490,7 +549,12 @@ export function ProviderProfile() {
         </div>
 
         {/* HEADER INFO */}
-        <div className="bg-white rounded-[16px] p-4" style={{ border: '1px solid rgba(0,0,0,0.07)' }}>
+        <div className="bg-white rounded-[16px] p-4" style={secStyle}>
+          {/* Dizeres do nível */}
+          <div className="flex items-center justify-between mb-2 pb-2" style={{ borderBottom: `1px solid ${nv.soft}` }}>
+            <span className="text-[13px] font-extrabold" style={{ color: nv.text }}>{nv.titulo}</span>
+            <span className="flex items-center gap-1 text-[12px] text-[#64748b]">{nv.sub}<Info className="h-3.5 w-3.5" style={{ color: '#94a3b8' }}/></span>
+          </div>
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <h1 className="text-[21px] font-extrabold text-[#030213] leading-tight">{prestador.nome}</h1>
@@ -527,7 +591,7 @@ export function ProviderProfile() {
 
         {/* SOBRE */}
         {prestador.bio && (
-          <div className="bg-white rounded-[16px] p-4" style={{ border: '1px solid rgba(0,0,0,0.07)' }}>
+          <div className="bg-white rounded-[16px] p-4" style={secStyle}>
             <p className="text-[15px] font-extrabold text-[#030213] mb-2">Sobre mim</p>
             <p className="text-[13.5px] text-[#4b5563] leading-relaxed">{prestador.bio}</p>
           </div>
@@ -535,7 +599,7 @@ export function ProviderProfile() {
 
         {/* TRABALHOS — scroll horizontal */}
         {fotos.length > 0 && (
-          <div className="bg-white rounded-[16px] p-4" style={{ border: '1px solid rgba(0,0,0,0.07)' }}>
+          <div className="bg-white rounded-[16px] p-4" style={secStyle}>
             <p className="text-[15px] font-extrabold text-[#030213] mb-3">Trabalhos realizados</p>
             <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
               {fotos.map((url, i) => (
@@ -550,7 +614,7 @@ export function ProviderProfile() {
 
         {/* SERVIÇOS */}
         {servicos.length > 0 && (
-          <div className="bg-white rounded-[16px] p-4" style={{ border: '1px solid rgba(0,0,0,0.07)' }}>
+          <div className="bg-white rounded-[16px] p-4" style={secStyle}>
             <p className="text-[15px] font-extrabold text-[#030213] mb-3">Serviços que ofereço</p>
             <div className="space-y-2.5">
               {servicos.map((s, i) => (
@@ -569,7 +633,7 @@ export function ProviderProfile() {
         )}
 
         {/* GARANTIAS — acordeão */}
-        <div className="bg-white rounded-[16px] p-4" style={{ border: '1px solid rgba(0,0,0,0.07)' }}>
+        <div className="bg-white rounded-[16px] p-4" style={secStyle}>
           <p className="text-[15px] font-extrabold text-[#030213] mb-3 leading-tight">Garantias da contratação<br/>pelo Serviço Seguro</p>
           <div className="space-y-1">
             {GARANTIAS.map((g, i) => {
@@ -590,7 +654,7 @@ export function ProviderProfile() {
         </div>
 
         {/* AVALIAÇÕES — scroll horizontal */}
-        <div className="bg-white rounded-[16px] p-4" style={{ border: '1px solid rgba(0,0,0,0.07)' }}>
+        <div className="bg-white rounded-[16px] p-4" style={secStyle}>
           <p className="text-[15px] font-extrabold text-[#030213] mb-3">Avaliações de clientes</p>
           {avaliacoes.length > 0 ? (
             <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
