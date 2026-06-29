@@ -1,21 +1,40 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router';
-import { Shield, Share2, X, MapPin } from 'lucide-react';
+import { useParams, Link, useNavigate } from 'react-router';
+import {
+  Shield, Share2, Heart, ArrowLeft, MessageCircle, ChevronLeft, ChevronRight,
+  ClipboardList, ClipboardCheck, Star as StarIcon, X,
+} from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 const WHATSAPP_NUMERO = '555591598658';
 const TEAL = 'oklch(0.6 0.118 184.704)';
 const TEAL_BG = 'oklch(0.94 0.04 184)';
 const TEAL_TEXT = 'oklch(0.38 0.1 184)';
+const AZUL = '#1f5fae';
 
 const ICON_COLORS = [
   '#FFF3E0','#E8F5E9','#E3F2FD','#F3E5F5','#FFF8E1','#E0F2F1',
   '#FCE4EC','#E8EAF6','#F1F8E9','#FBE9E7',
 ];
 
-// Iniciais coloridas para avaliadores
 const AVATAR_COLORS = [
   '#0C447C','#26215C','#065f46','#7c2d12','#1e3a5f','#4a1942',
+];
+
+// Garantias institucionais (estáticas)
+const GARANTIAS = [
+  { titulo: 'Conversa registrada', desc: 'Todo o atendimento fica registrado na plataforma.' },
+  { titulo: 'Orçamento documentado', desc: 'Orçamento gerado e salvo com todos os detalhes.' },
+  { titulo: 'Contrato digital', desc: 'Contrato com validade jurídica e cláusulas de garantia.' },
+  { titulo: 'Assinatura eletrônica', desc: 'Ambas as partes assinam digitalmente.' },
+  { titulo: 'Histórico protegido', desc: 'Tudo armazenado com segurança e criptografia.' },
+];
+
+const SOBRE_CHECKS = [
+  'Atendimento responsável',
+  'Serviço com garantia',
+  'Materiais de qualidade',
+  'Orçamento justo e transparente',
 ];
 
 function StarsFilled({ nota, size = 13 }: { nota: number; size?: number }) {
@@ -31,15 +50,33 @@ function StarsFilled({ nota, size = 13 }: { nota: number; size?: number }) {
   );
 }
 
+// Ícone WhatsApp (glifo)
+function WhatsIcon({ size = 18, color = '#fff' }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
+      <path d="M.057 24l1.687-6.163a11.867 11.867 0 01-1.587-5.946C.16 5.335 5.495 0 12.05 0a11.817 11.817 0 018.413 3.488 11.824 11.824 0 013.48 8.414c-.003 6.557-5.338 11.892-11.893 11.892a11.9 11.9 0 01-5.688-1.448L.057 24zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884a9.86 9.86 0 001.51 5.26l-.999 3.648 3.477-.917zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/>
+    </svg>
+  );
+}
+
 export function ProviderProfile() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [prestador, setPrestador] = useState<any>(null);
   const [servicos, setServicos]   = useState<any[]>([]);
   const [avaliacoes, setAvaliacoes] = useState<any[]>([]);
   const [servicosFeitos, setServicosFeitos] = useState(0);
   const [loading, setLoading] = useState(true);
   const [linkCopiado, setLinkCopiado] = useState(false);
-  const [servicoSel, setServicoSel] = useState<any>(null);
+  const [favorito, setFavorito] = useState(false);
+  const [fotoIdx, setFotoIdx] = useState<number | null>(null);
+  const [garantiaAberta, setGarantiaAberta] = useState<number | null>(null);
+  const [avPag, setAvPag] = useState(0);
+
+  const voltar = () => {
+    if (window.history.length > 1) navigate(-1);
+    else navigate('/');
+  };
 
   const compartilhar = async () => {
     const url = window.location.href;
@@ -78,6 +115,19 @@ export function ProviderProfile() {
     setLoading(false);
   }
 
+  // ── Lightbox: teclado ──
+  useEffect(() => {
+    if (fotoIdx === null) return;
+    const fotos: string[] = Array.isArray(prestador?.fotos_urls) ? prestador.fotos_urls : [];
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setFotoIdx(null);
+      else if (e.key === 'ArrowLeft') setFotoIdx(i => i === null ? i : (i - 1 + fotos.length) % fotos.length);
+      else if (e.key === 'ArrowRight') setFotoIdx(i => i === null ? i : (i + 1) % fotos.length);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [fotoIdx, prestador]);
+
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center" style={{ background: '#f5f4f0' }}>
       <div className="w-8 h-8 border-4 rounded-full animate-spin" style={{ borderColor:'#030213', borderTopColor:'transparent' }}/>
@@ -100,13 +150,56 @@ export function ProviderProfile() {
   const notaStr  = notaNum > 0 ? notaNum.toFixed(1).replace('.', ',') : null;
   const totalAv  = prestador.total_avaliacoes || avaliacoes.length || 0;
   const iniciais = (prestador.nome || '?').split(' ').map((x: string) => x[0]).slice(0,2).join('').toUpperCase();
-  const tagline  = prestador.bio_curta || (prestador.bio ? prestador.bio.slice(0,100) + (prestador.bio.length > 100 ? '…' : '') : '');
   const profissao = cats.map((c: any) => c.nome).join(' · ') || null;
-  const localStr  = [profissao, prestador.cidade && `${prestador.cidade}${prestador.estado ? ', ' + prestador.estado : ''}`].filter(Boolean).join(' · ');
   const cidadeStr = prestador.cidade ? `${prestador.cidade}${prestador.estado ? ', ' + prestador.estado : ''}` : null;
-  const desde     = prestador.criado_em
-    ? new Date(prestador.criado_em).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
-    : null;
+  const anoDesde  = prestador.criado_em ? new Date(prestador.criado_em).getFullYear() : null;
+  const fotos: string[] = Array.isArray(prestador.fotos_urls) ? prestador.fotos_urls : [];
+
+  // ── Helpers de link por serviço ──
+  const waLink = (s: any) => `https://wa.me/${WHATSAPP_NUMERO}?text=${encodeURIComponent(
+    '#SERVICO:' + s.id +
+    '|#PRESTADOR:' + (prestador.id || '') +
+    '|#CAT:' + (s.categorias?.nome || '') +
+    '\n\nOlá! 👋 Vim pelo site do *Serviço Seguro* e tenho interesse em:\n\n🔧 ' + s.titulo +
+    '\n📂 Categoria: ' + (s.categorias?.nome || '') +
+    '\n\nPode me ajudar com um orçamento?'
+  )}`;
+  const chatLink = (s: any) =>
+    `/orcamento?servico=${s.id}&nome=${encodeURIComponent(s.titulo)}&cat=${encodeURIComponent(s.categorias?.nome || '')}&prestador=${prestador.id || ''}`;
+
+  const precoStr = (s: any) => s.tipo === 'fixo' && s.valor_fixo
+    ? `R$ ${Number(s.valor_fixo).toLocaleString('pt-BR', { minimumFractionDigits: 0 })}`
+    : 'Sob orçamento';
+
+  // ── Indicador "Solicitar orçamento" (NÃO clicável) ──
+  const IndicadorOrcamento = ({ compact = false }: { compact?: boolean }) => (
+    <div className={`inline-flex items-center gap-2.5 ${compact ? '' : 'flex-col'}`}>
+      <div className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0"
+        style={{ background: AZUL, boxShadow: '0 6px 16px -6px rgba(31,95,174,0.6)' }}>
+        <WhatsIcon size={20}/>
+      </div>
+      <div className={`text-[12px] leading-tight ${compact ? 'text-left' : 'text-center'}`} style={{ color: '#64748b' }}>
+        Solicitar orçamento<br/>via WhatsApp ou Chat
+      </div>
+    </div>
+  );
+
+  // ── Botões de ação por serviço ──
+  const AcoesServico = ({ s, compact = false }: { s: any; compact?: boolean }) => (
+    <div className="flex items-center gap-2 flex-shrink-0">
+      <a href={waLink(s)} target="_blank" rel="noopener noreferrer"
+        title="Orçamento via WhatsApp"
+        className={`flex items-center justify-center gap-1.5 rounded-[10px] font-semibold text-white hover:opacity-90 transition-opacity ${compact ? 'w-9 h-9' : 'px-3 h-9 text-[12.5px]'}`}
+        style={{ background: '#25D366' }}>
+        <WhatsIcon size={15}/>{!compact && <span>WhatsApp</span>}
+      </a>
+      <a href={chatLink(s)} title="Orçamento via Chat"
+        className={`flex items-center justify-center gap-1.5 rounded-[10px] font-semibold hover:opacity-90 transition-opacity ${compact ? 'w-9 h-9' : 'px-3 h-9 text-[12.5px]'}`}
+        style={{ background: '#030213', color: '#fff' }}>
+        <MessageCircle size={15}/>{!compact && <span>Chat</span>}
+      </a>
+    </div>
+  );
 
   // ── DESKTOP ───────────────────────────────────────────────────
   const Desktop = () => (
@@ -115,303 +208,238 @@ export function ProviderProfile() {
       {/* NAV */}
       <nav className="sticky top-0 z-30 flex items-center justify-between px-8 py-3.5"
         style={{ background: '#fff', borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
-        <Link to="/" className="flex items-center gap-2">
-          <img src="/logo-escudo.png" alt="Serviço Seguro" style={{ height: 26 }}/>
-          <span className="font-bold text-[14px] text-[#030213]">Serviço Seguro</span>
-        </Link>
-        <div className="relative">
-          <button onClick={compartilhar}
+        <div className="flex items-center gap-4">
+          <button onClick={voltar}
             className="w-9 h-9 rounded-full flex items-center justify-center border transition-colors hover:bg-[#f8fafc]"
+            style={{ borderColor: 'rgba(0,0,0,0.13)' }} title="Voltar">
+            <ArrowLeft className="h-4 w-4 text-[#030213]"/>
+          </button>
+          <Link to="/" className="flex items-center gap-2">
+            <img src="/logo-escudo.png" alt="Serviço Seguro" style={{ height: 26 }}/>
+            <span className="font-bold text-[14px] text-[#030213]">Serviço Seguro</span>
+          </Link>
+        </div>
+        <div className="flex items-center gap-2 relative">
+          <button onClick={compartilhar}
+            className="flex items-center gap-2 px-3.5 h-9 rounded-full border text-[13px] font-semibold text-[#030213] transition-colors hover:bg-[#f8fafc]"
             style={{ borderColor: 'rgba(0,0,0,0.13)' }}>
-            <Share2 className="h-4 w-4 text-[#030213]"/>
+            <Share2 className="h-4 w-4"/> Compartilhar
+          </button>
+          <button onClick={() => setFavorito(v => !v)}
+            className="flex items-center gap-2 px-3.5 h-9 rounded-full border text-[13px] font-semibold transition-colors hover:bg-[#f8fafc]"
+            style={{ borderColor: 'rgba(0,0,0,0.13)', color: favorito ? '#e11d48' : '#030213' }}>
+            <Heart className="h-4 w-4" fill={favorito ? '#e11d48' : 'none'}/> Favoritar
           </button>
           {linkCopiado && (
-            <div className="absolute top-11 right-0 px-3 py-1.5 rounded-[10px] text-xs font-semibold text-white shadow-lg whitespace-nowrap"
+            <div className="absolute top-11 right-0 px-3 py-1.5 rounded-[10px] text-xs font-semibold text-white shadow-lg whitespace-nowrap z-10"
               style={{ background: '#030213' }}>Link copiado!</div>
           )}
         </div>
       </nav>
 
-      {/* CONTEÚDO — banner contido + perfil + corpo */}
-      <div className="max-w-[1040px] mx-auto px-6 pt-6">
+      <div className="max-w-[1100px] mx-auto px-6 py-6 space-y-5">
 
-        {/* BANNER — card arredondado contido (não cobre a página toda) */}
-        <div className="relative w-full rounded-[20px] overflow-hidden" style={{ height: 230 }}>
-          {prestador.banner_url
-            ? <img src={prestador.banner_url} alt="Banner" className="w-full h-full object-cover"/>
-            : <div className="w-full h-full flex items-center justify-center flex-col gap-2"
-                style={{ background: 'linear-gradient(140deg,#dbd8d0 0%,#eae7df 60%,#d0cdc5 100%)' }}>
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#aaa8a0" strokeWidth="1.5">
-                  <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
-                  <polyline points="21 15 16 10 5 21"/>
-                </svg>
-                <span className="text-[12px] text-[#aaa8a0]">Foto de capa</span>
-              </div>
-          }
-          {tagline && (
-            <div className="absolute bottom-5 left-7 text-[15px] font-semibold leading-snug max-w-lg"
-              style={{ color: prestador.banner_url ? 'rgba(255,255,255,0.92)' : 'rgba(3,2,19,0.55)',
-                textShadow: prestador.banner_url ? '0 1px 3px rgba(0,0,0,0.4)' : 'none' }}>
-              {tagline}
-            </div>
-          )}
-        </div>
-
-        {/* PROFILE CARD — sobrepõe a base do banner */}
-        <div className="relative bg-white rounded-[18px] px-6 pt-4 pb-5 -mt-14 mb-5 mx-1"
-          style={{ boxShadow: '0 4px 24px -8px rgba(3,2,19,0.12)', border: '1px solid rgba(0,0,0,0.07)' }}>
-          <div className="flex items-end gap-5">
-
-            {/* Foto quadrada sobrepondo o banner */}
-            <div className="relative flex-shrink-0" style={{ marginTop: -56 }}>
+        {/* HEADER CARD */}
+        <div className="bg-white rounded-[18px] p-6" style={{ border: '1px solid rgba(0,0,0,0.07)', boxShadow: '0 4px 24px -12px rgba(3,2,19,0.12)' }}>
+          <div className="flex gap-7">
+            {/* Foto grande */}
+            <div className="relative flex-shrink-0 rounded-[16px] overflow-hidden" style={{ width: 230, height: 260 }}>
               {prestador.foto_url
-                ? <img src={prestador.foto_url} alt={prestador.nome}
-                    className="w-28 h-28 rounded-[16px] object-cover"
-                    style={{ border: '4px solid #fff', boxShadow: '0 8px 20px -8px rgba(3,2,19,0.38)' }}/>
-                : <div className="w-28 h-28 rounded-[16px] flex items-center justify-center text-white font-extrabold text-3xl"
-                    style={{ background: '#030213', border: '4px solid #fff', boxShadow: '0 8px 20px -8px rgba(3,2,19,0.38)' }}>
-                    {iniciais}
-                  </div>
-              }
+                ? <img src={prestador.foto_url} alt={prestador.nome} className="w-full h-full object-cover"/>
+                : <div className="w-full h-full flex items-center justify-center text-white font-extrabold text-5xl" style={{ background: '#030213' }}>{iniciais}</div>}
               {prestador.verificado && (
-                <div className="absolute -bottom-1.5 -right-1.5 w-7 h-7 rounded-full flex items-center justify-center"
-                  style={{ background: TEAL, border: '2.5px solid #fff' }}>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3">
-                    <path d="M5 13l4 4L19 7"/>
-                  </svg>
+                <div className="absolute bottom-3 left-3 flex items-center gap-1.5 px-2.5 py-1.5 rounded-[10px]"
+                  style={{ background: 'rgba(3,2,19,0.78)', backdropFilter: 'blur(4px)' }}>
+                  <Shield className="h-3.5 w-3.5 text-white" fill="rgba(255,255,255,0.18)"/>
+                  <span className="text-[10px] font-bold text-white uppercase tracking-wide leading-tight">Verificado pela<br/>plataforma</span>
                 </div>
               )}
             </div>
 
             {/* Info */}
-            <div className="flex-1 min-w-0 pb-1">
-              <div className="flex items-center gap-2.5 mb-0.5 flex-wrap">
-                <h1 className="text-[22px] font-extrabold text-[#030213]">{prestador.nome}</h1>
-                {prestador.verificado && (
-                  <span className="inline-flex items-center gap-1 text-[11.5px] font-semibold px-2.5 py-1 rounded-full"
-                    style={{ background: TEAL_BG, color: TEAL_TEXT, border: `1px solid ${TEAL}30` }}>
-                    <Shield className="h-3 w-3"/> Verificado pelo Serviço Seguro
-                  </span>
-                )}
-              </div>
-              <p className="text-[13px] text-[#64748b] mb-2">{localStr}</p>
-
-              {/* Stats inline — igual à referência */}
-              <div className="flex items-center gap-2 text-[13px] flex-wrap">
-                {notaStr && (
-                  <>
-                    <span className="flex items-center gap-1">
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="#f59e0b">
-                        <path d="M12 2l2.9 6.3 6.9.6-5.2 4.6 1.6 6.8L12 17.3 5.8 20.9l1.6-6.8L2.2 8.9l6.9-.6z"/>
-                      </svg>
-                      <strong className="text-[#030213]">{notaStr}</strong>
-                      <span className="text-[#64748b]">({totalAv} avaliações)</span>
-                    </span>
-                    <span className="text-[#cbd5e1]">•</span>
-                  </>
-                )}
-                {servicosFeitos > 0 && (
-                  <>
-                    <span className="text-[#64748b]">
-                      <strong className="text-[#030213]">{servicosFeitos}+</strong> serviços feitos
-                    </span>
-                    <span className="text-[#cbd5e1]">•</span>
-                  </>
-                )}
-                {servicos.length > 0 && (
-                  <span className="text-[#64748b]">
-                    <strong className="text-[#030213]">{servicos.length}</strong> serviços oferecidos
-                  </span>
-                )}
-              </div>
+            <div className="flex-1 min-w-0 flex flex-col">
+              <h1 className="text-[28px] font-extrabold text-[#030213] leading-tight">{prestador.nome}</h1>
+              {profissao && <p className="text-[15px] font-semibold mb-2" style={{ color: AZUL }}>{profissao}</p>}
+              {notaStr && (
+                <div className="flex items-center gap-2 mb-3">
+                  <StarsFilled nota={Math.round(notaNum)} size={16}/>
+                  <strong className="text-[16px] text-[#030213]">{notaStr}</strong>
+                  <span className="text-[13px] text-[#64748b]">({totalAv} avaliações)</span>
+                </div>
+              )}
+              {prestador.bio && <p className="text-[14px] text-[#4b5563] leading-[1.65] max-w-xl">{prestador.bio}</p>}
             </div>
+
+            {/* Indicador orçamento (não clicável) */}
+            <div className="flex-shrink-0 flex flex-col items-center justify-start pt-1">
+              <IndicadorOrcamento/>
+            </div>
+          </div>
+
+          {/* Stats — 3 boxes */}
+          <div className="grid grid-cols-3 gap-3 mt-6">
+            {[
+              { label: 'Na plataforma desde', valor: anoDesde || '—' },
+              { label: 'Serviços finalizados', valor: servicosFeitos },
+              { label: 'Avaliações recebidas', valor: totalAv },
+            ].map((b, i) => (
+              <div key={i} className="flex items-center gap-3 p-3.5 rounded-[12px]" style={{ border: '1px solid rgba(0,0,0,0.08)' }}>
+                <div className="w-9 h-9 rounded-[10px] flex items-center justify-center flex-shrink-0" style={{ background: '#f1f5f9' }}>
+                  {i === 0 ? <ClipboardList className="h-4 w-4" style={{ color: AZUL }}/>
+                    : i === 1 ? <ClipboardCheck className="h-4 w-4" style={{ color: '#16a34a' }}/>
+                    : <StarIcon className="h-4 w-4" style={{ color: '#f59e0b' }} fill="#f59e0b"/>}
+                </div>
+                <div>
+                  <div className="text-[11.5px] text-[#64748b] leading-tight">{b.label}</div>
+                  <div className="text-[18px] font-extrabold text-[#030213] leading-tight">{b.valor}</div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* BODY 2-COL */}
-        <div className="grid gap-5 pb-10" style={{ gridTemplateColumns: '1fr 300px' }}>
-
-          {/* LEFT */}
-          <div className="space-y-4">
-
-            {/* SOBRE */}
-            {prestador.bio && (
-              <div className="bg-white rounded-[16px] p-5" style={{ border: '1px solid rgba(0,0,0,0.07)' }}>
-                <p className="text-[10.5px] font-bold uppercase tracking-widest text-[#94a3b8] mb-3">SOBRE</p>
-                <p className="text-[14px] text-[#374151] leading-[1.7]">{prestador.bio}</p>
-              </div>
-            )}
-
-            {/* SERVIÇOS */}
-            {servicos.length > 0 && (
-              <div className="bg-white rounded-[16px] p-5" style={{ border: '1px solid rgba(0,0,0,0.07)' }}>
-                <div className="flex items-center justify-between mb-4">
-                  <p className="text-[10.5px] font-bold uppercase tracking-widest text-[#94a3b8]">SERVIÇOS OFERECIDOS</p>
-                  <span className="text-[11.5px] font-semibold px-2.5 py-1 rounded-full"
-                    style={{ background: '#f1f5f9', color: '#64748b' }}>{servicos.length} serviços</span>
-                </div>
-                <div className="grid grid-cols-2 gap-2.5">
-                  {servicos.map((s, i) => {
-                    const preco = s.tipo === 'fixo' && s.valor_fixo
-                      ? `R$ ${Number(s.valor_fixo).toLocaleString('pt-BR', { minimumFractionDigits: 0 })}`
-                      : 'Sob orçamento';
-                    return (
-                      <div key={s.id} onClick={() => setServicoSel(s)}
-                        className="flex items-center gap-3 p-3 rounded-[12px] cursor-pointer transition-all hover:shadow-md hover:-translate-y-0.5"
-                        style={{ border: '1px solid rgba(0,0,0,0.07)', background: '#fafafa' }}>
-                        <div className="w-10 h-10 rounded-[10px] flex items-center justify-center text-xl flex-shrink-0"
-                          style={{ background: ICON_COLORS[i % ICON_COLORS.length] }}>
-                          {s.categorias?.icone || '🔧'}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="font-semibold text-[13px] text-[#030213] leading-tight">{s.titulo}</div>
-                          <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                            <span className="text-[12.5px] font-bold"
-                              style={{ color: s.tipo === 'fixo' ? TEAL_TEXT : '#94a3b8' }}>{preco}</span>
-                            {s.aceita_orcamento_online && (
-                              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
-                                style={{ background: TEAL_BG, color: TEAL_TEXT }}>💬 online</span>
-                            )}
-                          </div>
-                          {Array.isArray(s.tags) && s.tags.length > 0 && (
-                            <p className="text-[10.5px] text-[#94a3b8] truncate mt-0.5">{s.tags.join(' · ')}</p>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* TRABALHOS RECENTES */}
-            {Array.isArray(prestador.fotos_urls) && prestador.fotos_urls.length > 0 && (
-              <div className="bg-white rounded-[16px] p-5" style={{ border: '1px solid rgba(0,0,0,0.07)' }}>
-                <div className="flex items-center justify-between mb-4">
-                  <p className="text-[10.5px] font-bold uppercase tracking-widest text-[#94a3b8]">TRABALHOS RECENTES</p>
-                  <span className="text-[12px] font-semibold" style={{ color: TEAL_TEXT }}>Ver todos</span>
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  {(prestador.fotos_urls as string[]).slice(0, 6).map((url: string, i: number) => (
-                    <div key={i} className="rounded-[10px] overflow-hidden bg-[#f1f5f9]" style={{ aspectRatio: '1/1' }}>
-                      <img src={url} alt={`Foto ${i+1}`} loading="lazy" className="w-full h-full object-cover"/>
-                    </div>
-                  ))}
-                </div>
+        {/* TRABALHOS REALIZADOS */}
+        {fotos.length > 0 && (
+          <div className="bg-white rounded-[18px] p-6" style={{ border: '1px solid rgba(0,0,0,0.07)' }}>
+            <p className="text-[15px] font-extrabold text-[#030213] mb-4">Trabalhos realizados</p>
+            <div className="grid grid-cols-4 gap-3">
+              {fotos.slice(0, 8).map((url, i) => (
+                <button key={i} onClick={() => setFotoIdx(i)}
+                  className="relative rounded-[12px] overflow-hidden bg-[#f1f5f9] group" style={{ aspectRatio: '1/1' }}>
+                  <img src={url} alt={`Trabalho ${i+1}`} loading="lazy"
+                    className="w-full h-full object-cover transition-transform group-hover:scale-105"/>
+                  <div className="absolute inset-0 transition-colors group-hover:bg-black/10"/>
+                </button>
+              ))}
+            </div>
+            {fotos.length > 8 && (
+              <div className="flex justify-center mt-4">
+                <button onClick={() => setFotoIdx(0)}
+                  className="px-5 h-9 rounded-[10px] text-[13px] font-semibold border hover:bg-[#f8fafc]"
+                  style={{ borderColor: 'rgba(0,0,0,0.13)', color: AZUL }}>Ver mais trabalhos</button>
               </div>
             )}
           </div>
+        )}
 
-          {/* RIGHT SIDEBAR */}
-          <div className="space-y-4">
+        {/* 3 COLUNAS: Serviços | Sobre | Garantias */}
+        <div className="grid gap-5" style={{ gridTemplateColumns: '1.1fr 1fr 1fr' }}>
 
-            {/* GARANTIAS / SEGURANÇA — substitui o antigo bloco de CTA */}
-            <div className="bg-white rounded-[16px] p-5" style={{ border: '1px solid rgba(0,0,0,0.07)' }}>
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-8 h-8 rounded-[10px] flex items-center justify-center"
-                  style={{ background: TEAL_BG }}>
-                  <Shield className="h-4 w-4" style={{ color: TEAL_TEXT }}/>
-                </div>
-                <p className="text-[13px] font-bold text-[#030213]">Contratação protegida</p>
-              </div>
+          {/* SERVIÇOS */}
+          <div className="bg-white rounded-[18px] p-5" style={{ border: '1px solid rgba(0,0,0,0.07)' }}>
+            <p className="text-[15px] font-extrabold text-[#030213] mb-4">Serviços que ofereço</p>
+            {servicos.length > 0 ? (
               <div className="space-y-2.5">
-                {[
-                  prestador.verificado && 'Identidade verificada pelo Serviço Seguro',
-                  'Contrato digital assinado pelas duas partes',
-                  'Histórico e acordos registrados (Lei 14.063/2020)',
-                  'Mediação da plataforma em caso de disputa',
-                ].filter(Boolean).map((txt, i) => (
-                  <div key={i} className="flex items-start gap-2">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={TEAL} strokeWidth="2.5"
-                      className="flex-shrink-0 mt-0.5"><path d="M20 6L9 17l-5-5"/></svg>
-                    <span className="text-[12.5px] text-[#374151] leading-snug">{txt}</span>
+                {servicos.map((s, i) => (
+                  <div key={s.id} className="flex items-center gap-2.5 p-2.5 rounded-[12px]" style={{ border: '1px solid rgba(0,0,0,0.07)' }}>
+                    <div className="w-9 h-9 rounded-[10px] flex items-center justify-center text-lg flex-shrink-0"
+                      style={{ background: ICON_COLORS[i % ICON_COLORS.length] }}>{s.categorias?.icone || '🔧'}</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-[13px] text-[#030213] leading-tight truncate">{s.titulo}</div>
+                      <div className="text-[12px] font-bold mt-0.5" style={{ color: s.tipo === 'fixo' ? TEAL_TEXT : '#94a3b8' }}>{precoStr(s)}</div>
+                    </div>
+                    <AcoesServico s={s} compact/>
                   </div>
                 ))}
               </div>
+            ) : <p className="text-[13px] text-[#94a3b8]">Nenhum serviço cadastrado ainda.</p>}
+          </div>
 
-              <div className="mt-4 pt-4 space-y-2" style={{ borderTop: '1px solid rgba(0,0,0,0.07)' }}>
-                {servicosFeitos > 0 && (
-                  <div className="flex items-center justify-between text-[12.5px]">
-                    <span className="text-[#94a3b8]">Serviços concluídos</span>
-                    <strong className="text-[#030213]">{servicosFeitos}+</strong>
-                  </div>
-                )}
-                {cidadeStr && (
-                  <div className="flex items-center justify-between text-[12.5px]">
-                    <span className="text-[#94a3b8]">Atende em</span>
-                    <strong className="text-[#030213]">{cidadeStr}</strong>
-                  </div>
-                )}
-                {desde && (
-                  <div className="flex items-center justify-between text-[12.5px]">
-                    <span className="text-[#94a3b8]">Na plataforma desde</span>
-                    <strong className="text-[#030213] capitalize">{desde}</strong>
-                  </div>
-                )}
-              </div>
+          {/* SOBRE MIM */}
+          <div className="bg-white rounded-[18px] p-5" style={{ border: '1px solid rgba(0,0,0,0.07)' }}>
+            <p className="text-[15px] font-extrabold text-[#030213] mb-3">Sobre mim</p>
+            {prestador.bio
+              ? <p className="text-[13.5px] text-[#4b5563] leading-[1.7] mb-4">{prestador.bio}</p>
+              : <p className="text-[13px] text-[#94a3b8] mb-4">Profissional cadastrado no Serviço Seguro.</p>}
+            <div className="pt-4 space-y-2.5" style={{ borderTop: '1px solid rgba(0,0,0,0.07)' }}>
+              {SOBRE_CHECKS.map((t, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={TEAL} strokeWidth="2.5" className="flex-shrink-0"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></svg>
+                  <span className="text-[13px] text-[#374151]">{t}</span>
+                </div>
+              ))}
             </div>
+          </div>
 
-            {/* AVALIAÇÕES — sempre visível */}
-            <div className="bg-white rounded-[16px] p-5" style={{ border: '1px solid rgba(0,0,0,0.07)' }}>
-              <div className="flex items-center justify-between mb-4">
-                <p className="text-[10.5px] font-bold uppercase tracking-widest text-[#94a3b8]">AVALIAÇÕES</p>
-                {notaStr ? (
-                  <span className="flex items-center gap-1 text-[13px] font-bold text-[#030213]">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="#f59e0b">
-                      <path d="M12 2l2.9 6.3 6.9.6-5.2 4.6 1.6 6.8L12 17.3 5.8 20.9l1.6-6.8L2.2 8.9l6.9-.6z"/>
-                    </svg>
-                    {notaStr}
-                    <span className="font-normal text-[#94a3b8]">· {totalAv}</span>
-                  </span>
-                ) : (
-                  <span className="text-[11px] text-[#94a3b8]">Sem avaliações ainda</span>
-                )}
+          {/* GARANTIAS */}
+          <div className="bg-white rounded-[18px] p-5" style={{ border: '1px solid rgba(0,0,0,0.07)' }}>
+            <p className="text-[15px] font-extrabold text-[#030213] mb-4 leading-tight">Garantias da contratação<br/>pelo Serviço Seguro</p>
+            <div className="space-y-3.5">
+              {GARANTIAS.map((g, i) => (
+                <div key={i} className="flex items-start gap-2.5">
+                  <div className="w-7 h-7 rounded-[9px] flex items-center justify-center flex-shrink-0" style={{ background: TEAL_BG }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={TEAL_TEXT} strokeWidth="2"><path d="M20 6L9 17l-5-5"/></svg>
+                  </div>
+                  <div>
+                    <div className="text-[13px] font-bold text-[#030213] leading-tight">{g.titulo}</div>
+                    <div className="text-[11.5px] text-[#64748b] leading-snug mt-0.5">{g.desc}</div>
+                  </div>
+                </div>
+              ))}
+              <div className="flex items-center gap-2 pt-3" style={{ borderTop: '1px solid rgba(0,0,0,0.07)' }}>
+                <Shield className="h-4 w-4 flex-shrink-0" style={{ color: TEAL_TEXT }}/>
+                <span className="text-[12px] font-semibold text-[#030213]">Segurança para cliente e prestador.</span>
               </div>
-              {avaliacoes.length > 0 ? (
-                <div className="space-y-4">
-                  {avaliacoes.slice(0, 5).map((av: any, i: number) => {
-                    // nome real: pode vir como avaliador (nome) ou como 'cliente'/'prestador' (tipo)
-                    const nomeReal = (av.avaliador && !['cliente','prestador'].includes(av.avaliador.toLowerCase()))
-                      ? av.avaliador : 'Cliente';
-                    const ini = nomeReal.split(' ').map((x: string) => x[0]).slice(0,2).join('').toUpperCase();
-                    const cor = AVATAR_COLORS[i % AVATAR_COLORS.length];
-                    return (
-                      <div key={i}>
-                        {i > 0 && <div className="border-t border-[rgba(0,0,0,0.06)] mb-4"/>}
-                        <div className="flex items-start gap-2.5">
-                          <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
-                            style={{ background: cor }}>{ini}</div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between gap-1 flex-wrap">
-                              <span className="text-[13px] font-bold text-[#030213]">{nomeReal}</span>
-                              <StarsFilled nota={av.nota} size={12}/>
-                            </div>
-                            <p className="text-[11px] text-[#94a3b8] mb-1.5">
-                              {av.servico_nome ? `${av.servico_nome} · ` : ''}
-                              {new Date(av.criado_em).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric' })}
-                            </p>
-                            {av.comentario && <p className="text-[13px] text-[#374151] leading-relaxed">{av.comentario}</p>}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="text-center py-6">
-                  <div className="text-3xl mb-2">⭐</div>
-                  <p className="text-[12.5px] text-[#94a3b8]">Nenhuma avaliação recebida ainda.</p>
-                  <p className="text-[11.5px] text-[#cbd5e1] mt-1">As avaliações aparecem após serviços concluídos.</p>
-                </div>
-              )}
             </div>
           </div>
         </div>
 
-        {/* FOOTER */}
-        <div className="flex items-center justify-center gap-2 py-6 text-[12px] text-[#94a3b8]">
-          <Shield className="h-3.5 w-3.5"/>
-          <span>Perfil oficial no Serviço Seguro</span>
+        {/* AVALIAÇÕES */}
+        <div className="bg-white rounded-[18px] p-6" style={{ border: '1px solid rgba(0,0,0,0.07)' }}>
+          <p className="text-[15px] font-extrabold text-[#030213] mb-4">Avaliações de clientes</p>
+          {avaliacoes.length > 0 ? (
+            <>
+              <div className="grid grid-cols-3 gap-4">
+                {avaliacoes.slice(avPag * 3, avPag * 3 + 3).map((av: any, i: number) => {
+                  const nomeReal = (av.avaliador && !['cliente','prestador'].includes(av.avaliador.toLowerCase())) ? av.avaliador : 'Cliente';
+                  const ini = nomeReal.split(' ').map((x: string) => x[0]).slice(0,2).join('').toUpperCase();
+                  return (
+                    <div key={i} className="rounded-[14px] p-4" style={{ border: '1px solid rgba(0,0,0,0.07)', background: '#fafafa' }}>
+                      <div className="flex items-center gap-2.5 mb-2">
+                        <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
+                          style={{ background: AVATAR_COLORS[(avPag * 3 + i) % AVATAR_COLORS.length] }}>{ini}</div>
+                        <div>
+                          <div className="text-[13px] font-bold text-[#030213]">{nomeReal}</div>
+                          <StarsFilled nota={av.nota} size={12}/>
+                        </div>
+                      </div>
+                      {av.comentario && <p className="text-[13px] text-[#374151] leading-relaxed mb-2">{av.comentario}</p>}
+                      <p className="text-[11px] text-[#94a3b8]">{new Date(av.criado_em).toLocaleDateString('pt-BR')}</p>
+                    </div>
+                  );
+                })}
+              </div>
+              {avaliacoes.length > 3 && (
+                <div className="flex items-center justify-center gap-2 mt-5">
+                  {Array.from({ length: Math.ceil(avaliacoes.length / 3) }).map((_, p) => (
+                    <button key={p} onClick={() => setAvPag(p)}
+                      className="rounded-full transition-all"
+                      style={{ width: p === avPag ? 22 : 8, height: 8, background: p === avPag ? AZUL : '#cbd5e1' }}/>
+                  ))}
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="text-center py-8">
+              <div className="text-3xl mb-2">⭐</div>
+              <p className="text-[13px] text-[#94a3b8]">Nenhuma avaliação recebida ainda.</p>
+            </div>
+          )}
+        </div>
+
+        {/* BANNER INFERIOR (institucional, não clicável) */}
+        <div className="rounded-[18px] px-7 py-5 flex items-center justify-between gap-4" style={{ background: '#0d1b3e' }}>
+          <div className="flex items-center gap-4">
+            <Shield className="h-9 w-9 flex-shrink-0" style={{ color: '#f59e0b' }} fill="rgba(245,158,11,0.18)"/>
+            <div>
+              <div className="text-white font-bold text-[16px]">Contrate com segurança e tranquilidade</div>
+              <div className="text-white/70 text-[13px] mt-0.5">Todo o processo é documentado e protegido pela plataforma para garantir segurança para você e para o profissional.</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2.5 flex-shrink-0">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: AZUL }}><WhatsIcon size={18}/></div>
+            <div className="text-white text-[13px] font-semibold leading-tight">Solicitar orçamento<br/>via WhatsApp ou Chat</div>
+          </div>
         </div>
       </div>
     </div>
@@ -424,263 +452,187 @@ export function ProviderProfile() {
       {/* NAV */}
       <div className="sticky top-0 z-30 flex items-center justify-between px-4 py-3"
         style={{ background: '#fff', borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
-        <div className="flex items-center gap-2 min-w-0">
-          <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
-            style={{ background: '#030213' }}>{iniciais}</div>
-          <span className="font-bold text-[14px] text-[#030213] truncate">{prestador.nome}</span>
-        </div>
-        <div className="relative">
-          <button onClick={compartilhar} className="w-8 h-8 rounded-full flex items-center justify-center border"
-            style={{ borderColor: 'rgba(0,0,0,0.13)' }}>
-            <Share2 className="h-3.5 w-3.5 text-[#030213]"/>
+        <button onClick={voltar} className="w-9 h-9 -ml-1 rounded-full flex items-center justify-center" title="Voltar">
+          <ArrowLeft className="h-5 w-5 text-[#030213]"/>
+        </button>
+        <Link to="/" className="flex items-center gap-1.5">
+          <img src="/logo-escudo.png" alt="Serviço Seguro" style={{ height: 22 }}/>
+          <span className="font-bold text-[13px] text-[#030213]">Serviço Seguro</span>
+        </Link>
+        <div className="flex items-center gap-1 relative">
+          <button onClick={compartilhar} className="w-9 h-9 rounded-full flex items-center justify-center">
+            <Share2 className="h-4 w-4 text-[#030213]"/>
+          </button>
+          <button onClick={() => setFavorito(v => !v)} className="w-9 h-9 rounded-full flex items-center justify-center">
+            <Heart className="h-4 w-4" style={{ color: favorito ? '#e11d48' : '#030213' }} fill={favorito ? '#e11d48' : 'none'}/>
           </button>
           {linkCopiado && (
-            <div className="absolute top-10 right-0 px-3 py-1.5 rounded-[10px] text-xs font-semibold text-white shadow-lg whitespace-nowrap"
+            <div className="absolute top-10 right-0 px-3 py-1.5 rounded-[10px] text-xs font-semibold text-white shadow-lg whitespace-nowrap z-10"
               style={{ background: '#030213' }}>Link copiado!</div>
           )}
         </div>
       </div>
 
-      {/* BANNER */}
-      <div className="relative w-full" style={{ height: 160 }}>
-        {prestador.banner_url
-          ? <img src={prestador.banner_url} alt="Banner" className="w-full h-full object-cover"/>
-          : <div className="w-full h-full flex items-center justify-center flex-col gap-1.5"
-              style={{ background: 'linear-gradient(140deg,#dbd8d0 0%,#eae7df 60%,#d0cdc5 100%)' }}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#aaa8a0" strokeWidth="1.5">
-                <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
-                <polyline points="21 15 16 10 5 21"/>
-              </svg>
-              <span className="text-[10px] text-[#aaa8a0]">Foto de capa</span>
+      <div className="p-3 space-y-3">
+
+        {/* FOTO GRANDE */}
+        <div className="relative w-full rounded-[16px] overflow-hidden bg-[#030213]" style={{ height: 260 }}>
+          {prestador.foto_url
+            ? <img src={prestador.foto_url} alt={prestador.nome} className="w-full h-full object-cover"/>
+            : <div className="w-full h-full flex items-center justify-center text-white font-extrabold text-5xl">{iniciais}</div>}
+          {prestador.verificado && (
+            <div className="absolute bottom-3 left-3 flex items-center gap-1.5 px-2.5 py-1.5 rounded-[10px]"
+              style={{ background: 'rgba(3,2,19,0.78)', backdropFilter: 'blur(4px)' }}>
+              <Shield className="h-3.5 w-3.5 text-white" fill="rgba(255,255,255,0.18)"/>
+              <span className="text-[10px] font-bold text-white uppercase tracking-wide leading-tight">Verificado pela<br/>plataforma</span>
             </div>
-        }
-      </div>
-
-      {/* PROFILE CARD */}
-      <div className="mx-3 -mt-10 mb-4 bg-white rounded-[16px] px-4 pt-3 pb-4"
-        style={{ boxShadow: '0 4px 20px -8px rgba(3,2,19,0.14)', border: '1px solid rgba(0,0,0,0.07)' }}>
-
-        {/* Foto + nome lado a lado */}
-        <div className="flex gap-3 items-start">
-          <div className="relative flex-shrink-0" style={{ marginTop: -38 }}>
-            {prestador.foto_url
-              ? <img src={prestador.foto_url} alt={prestador.nome}
-                  className="w-[72px] h-[72px] rounded-[12px] object-cover"
-                  style={{ border: '3px solid #fff', boxShadow: '0 4px 14px -4px rgba(3,2,19,0.35)' }}/>
-              : <div className="w-[72px] h-[72px] rounded-[12px] flex items-center justify-center font-extrabold text-2xl text-white"
-                  style={{ background: '#030213', border: '3px solid #fff' }}>
-                  {iniciais}
-                </div>
-            }
-            {prestador.verificado && (
-              <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center"
-                style={{ background: TEAL, border: '2px solid #fff' }}>
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3">
-                  <path d="M5 13l4 4L19 7"/>
-                </svg>
-              </div>
-            )}
-          </div>
-
-          {/* Nome + verificado (ao lado da foto) */}
-          <div className="flex-1 min-w-0 pt-1">
-            <h1 className="text-[17px] font-extrabold text-[#030213] leading-tight">{prestador.nome}</h1>
-            {prestador.verificado && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full mt-1"
-                style={{ background: TEAL_BG, color: TEAL_TEXT }}>
-                <Shield className="h-2.5 w-2.5"/> Verificado
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Cidade + serviços — bem dentro do card, abaixo da foto */}
-        <div className="flex items-center gap-1.5 mt-3 text-[12px] flex-wrap">
-          {cidadeStr && <strong className="text-[#030213]">{cidadeStr}</strong>}
-          {cidadeStr && servicos.length > 0 && <span className="text-[#cbd5e1]">·</span>}
-          {servicos.length > 0 && (
-            <span className="text-[#64748b]"><strong className="text-[#030213]">{servicos.length}</strong> serviços oferecidos</span>
           )}
         </div>
 
-        {/* Stats — avaliação + serviços feitos */}
-        {(notaStr || servicosFeitos > 0) && (
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-2 text-[12px] pt-2"
-            style={{ borderTop: '1px solid rgba(0,0,0,0.06)' }}>
-            {notaStr && (
-              <>
-                <span className="flex items-center gap-1">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="#f59e0b">
-                    <path d="M12 2l2.9 6.3 6.9.6-5.2 4.6 1.6 6.8L12 17.3 5.8 20.9l1.6-6.8L2.2 8.9l6.9-.6z"/>
-                  </svg>
-                  <strong className="text-[#030213]">{notaStr}</strong>
-                  <span className="text-[#94a3b8]">({totalAv} avaliações)</span>
-                </span>
-                {servicosFeitos > 0 && <span className="text-[#cbd5e1]">·</span>}
-              </>
-            )}
-            {servicosFeitos > 0 && (
-              <span className="text-[#64748b]"><strong className="text-[#030213]">{servicosFeitos}+</strong> serviços feitos</span>
-            )}
+        {/* HEADER INFO */}
+        <div className="bg-white rounded-[16px] p-4" style={{ border: '1px solid rgba(0,0,0,0.07)' }}>
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h1 className="text-[21px] font-extrabold text-[#030213] leading-tight">{prestador.nome}</h1>
+              {profissao && <p className="text-[14px] font-semibold" style={{ color: AZUL }}>{profissao}</p>}
+            </div>
+            <div className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0"
+              style={{ background: AZUL, boxShadow: '0 6px 16px -6px rgba(31,95,174,0.6)' }}>
+              <WhatsIcon size={19}/>
+            </div>
           </div>
-        )}
-      </div>
+          {notaStr && (
+            <div className="flex items-center gap-2 mt-2">
+              <StarsFilled nota={Math.round(notaNum)} size={15}/>
+              <strong className="text-[15px] text-[#030213]">{notaStr}</strong>
+              <span className="text-[12px] text-[#64748b]">({totalAv} avaliações)</span>
+            </div>
+          )}
 
-      {/* SOBRE */}
-      {prestador.bio && (
-        <div className="mx-3 mb-3 bg-white rounded-[14px] p-4" style={{ border: '1px solid rgba(0,0,0,0.07)' }}>
-          <p className="text-[11px] font-extrabold uppercase tracking-widest text-[#030213] mb-2">SOBRE</p>
-          <p className="text-[13.5px] text-[#374151] leading-relaxed">{prestador.bio}</p>
-        </div>
-      )}
-
-      {/* SERVIÇOS */}
-      {servicos.length > 0 && (
-        <div className="mx-3 mb-3 bg-white rounded-[14px] p-4" style={{ border: '1px solid rgba(0,0,0,0.07)' }}>
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-[11px] font-extrabold uppercase tracking-widest text-[#030213]">SERVIÇOS OFERECIDOS</p>
-            <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
-              style={{ background: '#f1f5f9', color: '#64748b' }}>{servicos.length}</span>
-          </div>
-          <div className="space-y-2">
-            {servicos.map((s, i) => {
-              const preco = s.tipo === 'fixo' && s.valor_fixo
-                ? `R$ ${Number(s.valor_fixo).toLocaleString('pt-BR', { minimumFractionDigits: 0 })}`
-                : 'Sob orçamento';
-              return (
-                <div key={s.id} onClick={() => setServicoSel(s)}
-                  className="flex items-center gap-3 py-2.5 border-b last:border-b-0 cursor-pointer active:opacity-70"
-                  style={{ borderColor: 'rgba(0,0,0,0.06)' }}>
-                  <div className="w-9 h-9 rounded-[10px] flex items-center justify-center text-lg flex-shrink-0"
-                    style={{ background: ICON_COLORS[i % ICON_COLORS.length] }}>
-                    {s.categorias?.icone || '🔧'}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-[13px] text-[#030213]">{s.titulo}</div>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <span className="text-[12px] font-bold" style={{ color: s.tipo === 'fixo' ? TEAL_TEXT : '#94a3b8' }}>{preco}</span>
-                      {s.aceita_orcamento_online && (
-                        <span className="text-[9.5px] font-semibold px-1.5 py-0.5 rounded-full"
-                          style={{ background: TEAL_BG, color: TEAL_TEXT }}>💬 online</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* TRABALHOS */}
-      {Array.isArray(prestador.fotos_urls) && prestador.fotos_urls.length > 0 && (
-        <div className="mx-3 mb-3 bg-white rounded-[14px] p-4" style={{ border: '1px solid rgba(0,0,0,0.07)' }}>
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-[#94a3b8]">TRABALHOS RECENTES</p>
-            <span className="text-[12px] font-semibold" style={{ color: TEAL_TEXT }}>Ver todos</span>
-          </div>
-          <div className="grid grid-cols-3 gap-1.5">
-            {(prestador.fotos_urls as string[]).slice(0,6).map((url: string, i: number) => (
-              <div key={i} className="rounded-[8px] overflow-hidden bg-[#f1f5f9]" style={{ aspectRatio:'1/1' }}>
-                <img src={url} alt={`Foto ${i+1}`} loading="lazy" className="w-full h-full object-cover"/>
+          {/* Stats em lista */}
+          <div className="mt-3 pt-3 space-y-2.5" style={{ borderTop: '1px solid rgba(0,0,0,0.07)' }}>
+            {[
+              { Icon: ClipboardList, color: AZUL, label: 'Na plataforma desde', valor: anoDesde || '—' },
+              { Icon: ClipboardCheck, color: '#16a34a', label: 'Serviços finalizados', valor: servicosFeitos },
+              { Icon: StarIcon, color: '#f59e0b', label: 'Avaliações recebidas', valor: totalAv },
+            ].map((b, i) => (
+              <div key={i} className="flex items-center gap-2.5">
+                <b.Icon className="h-4 w-4 flex-shrink-0" style={{ color: b.color }} fill={i === 2 ? '#f59e0b' : 'none'}/>
+                <span className="text-[13px] text-[#374151] flex-1">{b.label}</span>
+                <strong className="text-[14px] text-[#030213]">{b.valor}</strong>
               </div>
             ))}
           </div>
         </div>
-      )}
 
-      {/* GARANTIAS / SEGURANÇA */}
-      <div className="mx-3 mb-3 bg-white rounded-[14px] p-4" style={{ border: '1px solid rgba(0,0,0,0.07)' }}>
-        <div className="flex items-center gap-2 mb-3">
-          <div className="w-7 h-7 rounded-[9px] flex items-center justify-center" style={{ background: TEAL_BG }}>
-            <Shield className="h-3.5 w-3.5" style={{ color: TEAL_TEXT }}/>
-          </div>
-          <p className="text-[12.5px] font-bold text-[#030213]">Contratação protegida</p>
-        </div>
-        <div className="space-y-2">
-          {[
-            prestador.verificado && 'Identidade verificada pelo Serviço Seguro',
-            'Contrato digital assinado pelas duas partes',
-            'Mediação da plataforma em caso de disputa',
-          ].filter(Boolean).map((txt, i) => (
-            <div key={i} className="flex items-start gap-2">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={TEAL} strokeWidth="2.5"
-                className="flex-shrink-0 mt-0.5"><path d="M20 6L9 17l-5-5"/></svg>
-              <span className="text-[12px] text-[#374151] leading-snug">{txt}</span>
-            </div>
-          ))}
-        </div>
-        {(cidadeStr || desde) && (
-          <div className="mt-3 pt-3 space-y-1.5" style={{ borderTop: '1px solid rgba(0,0,0,0.07)' }}>
-            {cidadeStr && (
-              <div className="flex items-center justify-between text-[12px]">
-                <span className="text-[#94a3b8]">Atende em</span><strong className="text-[#030213]">{cidadeStr}</strong>
-              </div>
-            )}
-            {desde && (
-              <div className="flex items-center justify-between text-[12px]">
-                <span className="text-[#94a3b8]">Na plataforma desde</span><strong className="text-[#030213] capitalize">{desde}</strong>
-              </div>
-            )}
+        {/* SOBRE */}
+        {prestador.bio && (
+          <div className="bg-white rounded-[16px] p-4" style={{ border: '1px solid rgba(0,0,0,0.07)' }}>
+            <p className="text-[15px] font-extrabold text-[#030213] mb-2">Sobre mim</p>
+            <p className="text-[13.5px] text-[#4b5563] leading-relaxed">{prestador.bio}</p>
           </div>
         )}
-      </div>
 
-      {/* AVALIAÇÕES — sempre visível */}
-      <div className="mx-3 mb-4 bg-white rounded-[14px] p-4" style={{ border: '1px solid rgba(0,0,0,0.07)' }}>
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-[#94a3b8]">AVALIAÇÕES</p>
-          {notaStr ? (
-            <span className="flex items-center gap-1 text-[13px] font-bold text-[#030213]">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="#f59e0b">
-                <path d="M12 2l2.9 6.3 6.9.6-5.2 4.6 1.6 6.8L12 17.3 5.8 20.9l1.6-6.8L2.2 8.9l6.9-.6z"/>
-              </svg>
-              {notaStr} <span className="font-normal text-[#94a3b8]">· {totalAv}</span>
-            </span>
-          ) : (
-            <span className="text-[11px] text-[#94a3b8]">Sem avaliações</span>
-          )}
-        </div>
-        {avaliacoes.length > 0 ? (
-          <div className="space-y-4">
-            {avaliacoes.slice(0,4).map((av: any, i: number) => {
-              const nomeReal = (av.avaliador && !['cliente','prestador'].includes(av.avaliador.toLowerCase()))
-                ? av.avaliador : 'Cliente';
-              const ini = nomeReal.split(' ').map((x: string) => x[0]).slice(0,2).join('').toUpperCase();
-              return (
-                <div key={i}>
-                  {i > 0 && <div className="border-t border-[rgba(0,0,0,0.06)] mb-4"/>}
-                  <div className="flex items-start gap-2.5">
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0"
-                      style={{ background: AVATAR_COLORS[i % AVATAR_COLORS.length] }}>{ini}</div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-0.5">
-                        <span className="text-[13px] font-bold text-[#030213]">{nomeReal}</span>
-                        <StarsFilled nota={av.nota} size={11}/>
-                      </div>
-                      <p className="text-[10.5px] text-[#94a3b8] mb-1">
-                        {av.servico_nome ? `${av.servico_nome} · ` : ''}
-                        {new Date(av.criado_em).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric' })}
-                      </p>
-                      {av.comentario && <p className="text-[13px] text-[#374151] leading-relaxed">{av.comentario}</p>}
-                    </div>
+        {/* TRABALHOS — scroll horizontal */}
+        {fotos.length > 0 && (
+          <div className="bg-white rounded-[16px] p-4" style={{ border: '1px solid rgba(0,0,0,0.07)' }}>
+            <p className="text-[15px] font-extrabold text-[#030213] mb-3">Trabalhos realizados</p>
+            <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+              {fotos.map((url, i) => (
+                <button key={i} onClick={() => setFotoIdx(i)}
+                  className="flex-shrink-0 rounded-[12px] overflow-hidden bg-[#f1f5f9]" style={{ width: 130, height: 130 }}>
+                  <img src={url} alt={`Trabalho ${i+1}`} loading="lazy" className="w-full h-full object-cover"/>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* SERVIÇOS */}
+        {servicos.length > 0 && (
+          <div className="bg-white rounded-[16px] p-4" style={{ border: '1px solid rgba(0,0,0,0.07)' }}>
+            <p className="text-[15px] font-extrabold text-[#030213] mb-3">Serviços que ofereço</p>
+            <div className="space-y-2.5">
+              {servicos.map((s, i) => (
+                <div key={s.id} className="flex items-center gap-2.5 py-2 border-b last:border-b-0" style={{ borderColor: 'rgba(0,0,0,0.06)' }}>
+                  <div className="w-9 h-9 rounded-[10px] flex items-center justify-center text-lg flex-shrink-0"
+                    style={{ background: ICON_COLORS[i % ICON_COLORS.length] }}>{s.categorias?.icone || '🔧'}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-[13px] text-[#030213] leading-tight">{s.titulo}</div>
+                    <div className="text-[12px] font-bold mt-0.5" style={{ color: s.tipo === 'fixo' ? TEAL_TEXT : '#94a3b8' }}>{precoStr(s)}</div>
                   </div>
+                  <AcoesServico s={s} compact/>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* GARANTIAS — acordeão */}
+        <div className="bg-white rounded-[16px] p-4" style={{ border: '1px solid rgba(0,0,0,0.07)' }}>
+          <p className="text-[15px] font-extrabold text-[#030213] mb-3 leading-tight">Garantias da contratação<br/>pelo Serviço Seguro</p>
+          <div className="space-y-1">
+            {GARANTIAS.map((g, i) => {
+              const aberta = garantiaAberta === i;
+              return (
+                <div key={i} className="border-b last:border-b-0" style={{ borderColor: 'rgba(0,0,0,0.06)' }}>
+                  <button onClick={() => setGarantiaAberta(aberta ? null : i)}
+                    className="w-full flex items-center gap-2.5 py-3 text-left">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={TEAL_TEXT} strokeWidth="2" className="flex-shrink-0"><path d="M20 6L9 17l-5-5"/></svg>
+                    <span className="text-[13.5px] font-semibold text-[#030213] flex-1">{g.titulo}</span>
+                    <ChevronRight className="h-4 w-4 text-[#94a3b8] transition-transform flex-shrink-0" style={{ transform: aberta ? 'rotate(90deg)' : 'none' }}/>
+                  </button>
+                  {aberta && <p className="text-[12.5px] text-[#64748b] leading-snug pb-3 pl-[26px]">{g.desc}</p>}
                 </div>
               );
             })}
           </div>
-        ) : (
-          <div className="text-center py-5">
-            <div className="text-2xl mb-1.5">⭐</div>
-            <p className="text-[12px] text-[#94a3b8]">Nenhuma avaliação ainda.</p>
-          </div>
-        )}
-      </div>
+        </div>
 
-      {/* FOOTER */}
-      <div className="flex items-center justify-center gap-2 py-6 text-[11.5px] text-[#94a3b8]">
-        <Shield className="h-3.5 w-3.5"/>
-        <span>Perfil oficial no Serviço Seguro</span>
+        {/* AVALIAÇÕES — scroll horizontal */}
+        <div className="bg-white rounded-[16px] p-4" style={{ border: '1px solid rgba(0,0,0,0.07)' }}>
+          <p className="text-[15px] font-extrabold text-[#030213] mb-3">Avaliações de clientes</p>
+          {avaliacoes.length > 0 ? (
+            <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+              {avaliacoes.map((av: any, i: number) => {
+                const nomeReal = (av.avaliador && !['cliente','prestador'].includes(av.avaliador.toLowerCase())) ? av.avaliador : 'Cliente';
+                const ini = nomeReal.split(' ').map((x: string) => x[0]).slice(0,2).join('').toUpperCase();
+                return (
+                  <div key={i} className="flex-shrink-0 rounded-[14px] p-3.5" style={{ width: 250, border: '1px solid rgba(0,0,0,0.07)', background: '#fafafa' }}>
+                    <div className="flex items-center gap-2.5 mb-2">
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0"
+                        style={{ background: AVATAR_COLORS[i % AVATAR_COLORS.length] }}>{ini}</div>
+                      <div>
+                        <div className="text-[13px] font-bold text-[#030213]">{nomeReal}</div>
+                        <StarsFilled nota={av.nota} size={11}/>
+                      </div>
+                    </div>
+                    {av.comentario && <p className="text-[12.5px] text-[#374151] leading-relaxed mb-1.5">{av.comentario}</p>}
+                    <p className="text-[10.5px] text-[#94a3b8]">{new Date(av.criado_em).toLocaleDateString('pt-BR')}</p>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-center py-6">
+              <div className="text-2xl mb-1.5">⭐</div>
+              <p className="text-[12.5px] text-[#94a3b8]">Nenhuma avaliação ainda.</p>
+            </div>
+          )}
+        </div>
+
+        {/* BANNER INFERIOR (não clicável) */}
+        <div className="rounded-[16px] p-4" style={{ background: '#0d1b3e' }}>
+          <div className="flex items-center gap-3 mb-3">
+            <Shield className="h-7 w-7 flex-shrink-0" style={{ color: '#f59e0b' }} fill="rgba(245,158,11,0.18)"/>
+            <div className="text-white font-bold text-[14px] leading-tight">Contrate com segurança e tranquilidade</div>
+          </div>
+          <p className="text-white/70 text-[12px] leading-snug mb-3">Todo o processo é documentado e protegido pela plataforma.</p>
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: AZUL }}><WhatsIcon size={17}/></div>
+            <div className="text-white text-[12.5px] font-semibold leading-tight">Solicitar orçamento via WhatsApp ou Chat</div>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -690,97 +642,41 @@ export function ProviderProfile() {
       <div className="lg:hidden"><Mobile /></div>
       <div className="hidden lg:block"><Desktop /></div>
 
-      {/* MODAL DE SERVIÇO — WhatsApp ou Chat */}
-      {servicoSel && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
-          style={{ background: 'rgba(3,2,19,0.55)', fontFamily: 'Plus Jakarta Sans, sans-serif' }}
-          onClick={e => { if (e.target === e.currentTarget) setServicoSel(null); }}>
-          <div className="bg-white w-full max-w-lg flex flex-col"
-            style={{ borderRadius: 20, maxHeight: '90vh', boxShadow: '0 24px 60px -24px rgba(3,2,19,0.45)' }}>
+      {/* LIGHTBOX de trabalhos */}
+      {fotoIdx !== null && fotos.length > 0 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(3,2,19,0.92)' }}
+          onClick={e => { if (e.target === e.currentTarget) setFotoIdx(null); }}>
 
-            {/* Header */}
-            <div className="px-5 py-4 flex items-center justify-between border-b flex-shrink-0"
-              style={{ borderColor: 'rgba(0,0,0,0.07)', borderRadius: '20px 20px 0 0' }}>
-              <div>
-                <div className="flex items-center gap-1.5 mb-0.5">
-                  <span className="text-base">{servicoSel.categorias?.icone || '🔧'}</span>
-                  <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: '#94a3b8' }}>
-                    {servicoSel.categorias?.nome}
-                  </span>
-                </div>
-                <h3 className="font-bold text-base" style={{ color: '#030213' }}>{servicoSel.titulo}</h3>
-              </div>
-              <button onClick={() => setServicoSel(null)} className="p-2 rounded-[10px]" style={{ color: '#717182' }}>
-                <X className="h-5 w-5"/>
-              </button>
-            </div>
+          <button onClick={() => setFotoIdx(null)}
+            className="absolute top-4 right-4 w-10 h-10 rounded-full flex items-center justify-center text-white"
+            style={{ background: 'rgba(255,255,255,0.12)' }}>
+            <X className="h-5 w-5"/>
+          </button>
 
-            {/* Conteúdo */}
-            <div className="overflow-y-auto flex-1 p-5 space-y-4">
-              {servicoSel.descricao && (
-                <p className="text-sm leading-relaxed" style={{ color: '#717182' }}>{servicoSel.descricao}</p>
-              )}
-              {servicoSel.tipo === 'fixo' && servicoSel.valor_fixo ? (
-                <div className="rounded-[12px] p-4" style={{ background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
-                  <div className="text-xs mb-1" style={{ color: '#717182' }}>Valor do serviço</div>
-                  <div className="text-2xl font-bold" style={{ color: 'oklch(0.45 0.1 184)' }}>
-                    R$ {Number(servicoSel.valor_fixo).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </div>
-                </div>
-              ) : (
-                <div className="rounded-[12px] p-4 text-sm" style={{ background: '#fafafa', border: '1px solid rgba(0,0,0,0.08)', color: '#717182' }}>
-                  💬 Valor sob orçamento — o profissional avalia e envia a proposta.
-                </div>
-              )}
+          {fotos.length > 1 && (
+            <button onClick={() => setFotoIdx(i => i === null ? i : (i - 1 + fotos.length) % fotos.length)}
+              className="absolute left-3 sm:left-6 w-11 h-11 rounded-full flex items-center justify-center text-white"
+              style={{ background: 'rgba(255,255,255,0.12)' }}>
+              <ChevronLeft className="h-6 w-6"/>
+            </button>
+          )}
 
-              {/* Profissional */}
-              <div className="rounded-[12px] p-4" style={{ border: '1px solid rgba(0,0,0,0.08)' }}>
-                <div className="text-[11px] font-bold uppercase tracking-wider mb-3" style={{ color: '#94a3b8' }}>
-                  Profissional responsável
-                </div>
-                <div className="flex items-center gap-3">
-                  {prestador.foto_url
-                    ? <img src={prestador.foto_url} className="w-12 h-12 rounded-full object-cover flex-shrink-0" style={{ border: '2px solid rgba(3,2,19,0.08)' }}/>
-                    : <div className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg flex-shrink-0" style={{ background: '#030213' }}>{iniciais}</div>}
-                  <div>
-                    <div className="font-bold" style={{ color: '#030213' }}>{prestador.nome}</div>
-                    {prestador.cidade && (
-                      <div className="text-xs flex items-center gap-1 mt-0.5" style={{ color: '#717182' }}>
-                        <MapPin className="h-3 w-3"/>{prestador.cidade}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Ações */}
-            <div className="flex-shrink-0 p-4 border-t grid grid-cols-2 gap-3"
-              style={{ borderColor: 'rgba(0,0,0,0.07)', borderRadius: '0 0 20px 20px', background: '#fff' }}>
-              <a href={`https://wa.me/${WHATSAPP_NUMERO}?text=${encodeURIComponent(
-                  '#SERVICO:' + servicoSel.id +
-                  '|#PRESTADOR:' + (prestador.id || '') +
-                  '|#CAT:' + (servicoSel.categorias?.nome || '') +
-                  '\n\nOlá! 👋 Vim pelo site do *Serviço Seguro* e tenho interesse em:\n\n🔧 ' + servicoSel.titulo +
-                  '\n📂 Categoria: ' + (servicoSel.categorias?.nome || '') +
-                  '\n\nPode me ajudar com um orçamento?'
-                )}`}
-                target="_blank" rel="noopener noreferrer"
-                className="flex flex-col items-center gap-1.5 py-4 rounded-[12px] font-bold text-white text-center hover:opacity-90"
-                style={{ background: '#030213' }}>
-                <span className="text-xl">📱</span>
-                <span className="text-sm">Via WhatsApp</span>
-                <span className="text-xs" style={{ opacity: 0.7 }}>Atendimento imediato</span>
-              </a>
-              <a href={`/orcamento?servico=${servicoSel.id}&nome=${encodeURIComponent(servicoSel.titulo)}&cat=${encodeURIComponent(servicoSel.categorias?.nome || '')}&prestador=${prestador.id || ''}`}
-                className="flex flex-col items-center gap-1.5 py-4 rounded-[12px] font-bold text-center"
-                style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.1)', color: '#030213' }}>
-                <span className="text-xl">💬</span>
-                <span className="text-sm">Via Chat</span>
-                <span className="text-xs" style={{ color: '#94a3b8' }}>IA coleta os detalhes</span>
-              </a>
-            </div>
+          <div className="max-w-[90vw] max-h-[85vh] flex flex-col items-center gap-3">
+            <img src={fotos[fotoIdx]} alt={`Trabalho ${fotoIdx + 1}`}
+              className="max-w-full max-h-[80vh] object-contain rounded-[12px]"/>
+            {fotos.length > 1 && (
+              <span className="text-white/70 text-[13px] font-semibold">{fotoIdx + 1} / {fotos.length}</span>
+            )}
           </div>
+
+          {fotos.length > 1 && (
+            <button onClick={() => setFotoIdx(i => i === null ? i : (i + 1) % fotos.length)}
+              className="absolute right-3 sm:right-6 w-11 h-11 rounded-full flex items-center justify-center text-white"
+              style={{ background: 'rgba(255,255,255,0.12)' }}>
+              <ChevronRight className="h-6 w-6"/>
+            </button>
+          )}
         </div>
       )}
     </>
