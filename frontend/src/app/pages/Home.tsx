@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { Search, Shield, MapPin, ChevronRight, Star, CheckCircle2, X, LogOut, LayoutDashboard } from 'lucide-react';
+import { Search, Shield, MapPin, ChevronRight, X, LogOut, LayoutDashboard } from 'lucide-react';
 import { Logo } from '../components/Logo';
+import { ServiceCard } from '../components/ServiceCard';
 import { supabase, getPrestador, getContratante, logout } from '../../lib/supabase';
 
 const CIDADE_PADRAO = 'Santa Maria';
@@ -18,21 +19,6 @@ const CATEGORIAS_FIXAS = [
   { nome: 'Marcenaria', icone: '🪚' },
   { nome: 'Tecnologia', icone: '💻' },
 ];
-
-const CATEGORY_COLORS: Record<string, string> = {
-  'Elétrica': '#f59e0b',
-  'Encanamento': '#3b82f6',
-  'Gesso': '#8b5cf6',
-  'Pintura': '#ec4899',
-  'Reforma': '#f97316',
-  'Limpeza': '#06b6d4',
-  'Marcenaria': '#a16207',
-  'Tecnologia': '#6366f1',
-};
-
-function getCategoryColor(nome: string): string {
-  return CATEGORY_COLORS[nome] ?? '#030213';
-}
 
 export function Home() {
   const navigate = useNavigate();
@@ -388,81 +374,9 @@ export function Home() {
           ) : (
             <>
               <div className="grid md:grid-cols-3 gap-5">
-                {servicos.map((s: any) => {
-                  const catColor = getCategoryColor(s.categorias?.nome || '');
-                  return (
-                    <button
-                      key={s.id}
-                      onClick={() => setServicoSelecionado(s)}
-                      className="text-left w-full overflow-hidden rounded-[16px] transition-all duration-200 cursor-pointer flex flex-col"
-                      style={{
-                        background: '#fff',
-                        border: '1px solid rgba(0,0,0,0.08)',
-                        boxShadow: 'none',
-                      }}
-                      onMouseEnter={e => {
-                        (e.currentTarget as HTMLElement).style.boxShadow = '0 14px 40px -18px rgba(3,2,19,0.25)';
-                        (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)';
-                      }}
-                      onMouseLeave={e => {
-                        (e.currentTarget as HTMLElement).style.boxShadow = 'none';
-                        (e.currentTarget as HTMLElement).style.transform = 'translateY(0)';
-                      }}>
-                      {/* Category color bar */}
-                      <div className="h-1.5 w-full flex-shrink-0" style={{ background: catColor }} />
-
-                      {/* Body */}
-                      <div className="p-4 flex-1">
-                        <div className="text-[11px] font-bold uppercase tracking-wider mb-1.5" style={{ color: '#94a3b8' }}>
-                          {s.categorias?.icone} {s.categorias?.nome}
-                        </div>
-                        <h3 className="font-[700] text-sm leading-snug mb-1.5 line-clamp-2" style={{ color: '#030213' }}>
-                          {s.titulo}
-                        </h3>
-                        {s.descricao && (
-                          <p className="text-xs line-clamp-2 mb-3" style={{ color: '#717182' }}>{s.descricao}</p>
-                        )}
-
-                        {s.prestadores?.nota_media > 0 && (
-                          <div className="flex items-center gap-1 mb-2">
-                            <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
-                            <span className="text-xs font-semibold" style={{ color: '#030213' }}>
-                              {Number(s.prestadores.nota_media).toFixed(1)}
-                            </span>
-                          </div>
-                        )}
-
-                        {s.tipo === 'fixo' && s.valor_fixo ? (
-                          <div className="text-sm font-bold" style={{ color: 'oklch(0.45 0.1 184)' }}>
-                            R$ {Number(s.valor_fixo).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                          </div>
-                        ) : (
-                          <div className="text-sm" style={{ color: '#94a3b8' }}>Sob orçamento</div>
-                        )}
-                      </div>
-
-                      {/* Footer */}
-                      <div className="px-4 py-2.5 flex items-center gap-2 border-t"
-                        style={{ background: 'oklch(0.985 0.001 0)', borderColor: 'rgba(0,0,0,0.07)' }}>
-                        {s.prestadores?.foto_url ? (
-                          <img src={s.prestadores.foto_url} alt={s.prestadores.nome}
-                            className="w-5 h-5 rounded-full object-cover flex-shrink-0" />
-                        ) : (
-                          <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0"
-                            style={{ background: '#030213' }}>
-                            {s.prestadores?.nome?.charAt(0) || '?'}
-                          </div>
-                        )}
-                        <span className="text-xs truncate flex-1" style={{ color: '#717182' }}>
-                          {s.prestadores?.nome}
-                        </span>
-                        {s.prestadores?.verificado && (
-                          <CheckCircle2 className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'oklch(0.6 0.118 184.704)' }} />
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
+                {servicos.map((s: any) => (
+                  <ServiceCard key={s.id} s={s} onClick={() => setServicoSelecionado(s)} />
+                ))}
               </div>
               <div className="text-center mt-8">
                 <Link to={`/busca?cidade=${encodeURIComponent(cidade)}`}

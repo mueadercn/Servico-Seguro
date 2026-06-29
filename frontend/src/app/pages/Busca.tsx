@@ -1,20 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router';
-import { Search, X, MapPin, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, X, MapPin } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { ServiceCard } from '../components/ServiceCard';
 
 const NOTAS = [3, 3.5, 4, 4.5, 5];
 const WHATSAPP_NUMERO = '555591598658';
-
-function categoryGradient(catNome: string): string {
-  const n = (catNome || '').toLowerCase();
-  if (n.includes('elétric') || n.includes('instala')) return 'linear-gradient(135deg, oklch(0.92 0.06 85), oklch(0.97 0.03 85))';
-  if (n.includes('encanamento') || n.includes('hidráulic')) return 'linear-gradient(135deg, oklch(0.91 0.05 220), oklch(0.96 0.03 220))';
-  if (n.includes('pintura')) return 'linear-gradient(135deg, oklch(0.92 0.06 25), oklch(0.97 0.03 25))';
-  if (n.includes('reforma') || n.includes('constru')) return 'linear-gradient(135deg, oklch(0.91 0.05 264), oklch(0.96 0.03 264))';
-  if (n.includes('limpeza')) return 'linear-gradient(135deg, oklch(0.92 0.06 184), oklch(0.97 0.03 184))';
-  return 'linear-gradient(135deg, oklch(0.92 0.05 264), oklch(0.97 0.03 264))';
-}
 
 function formatCurrency(value: number): string {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -28,125 +19,6 @@ function getInitials(nome: string): string {
 }
 
 const CIDADES = ['Santa Maria', 'Passo Fundo', 'Porto Alegre', 'Pelotas', 'Caxias do Sul'];
-
-function ServiceCard({ s, onClick }: { s: any; onClick: () => void }) {
-  const [idx, setIdx] = useState(0);
-  const fotos: string[] = Array.isArray(s.prestadores?.fotos_urls) ? s.prestadores.fotos_urls : [];
-  const catNome: string = s.categorias?.nome || '';
-  const nota = Number(s.prestadores?.nota_media || 0);
-  const aceitaOnline = s.aceita_orcamento_online || s.prestadores?.aceita_orcamento_online;
-  const price = s.tipo === 'fixo' && s.valor_fixo ? Number(s.valor_fixo) : 0;
-
-  function prev(e: React.MouseEvent) { e.stopPropagation(); setIdx(i => (i - 1 + fotos.length) % fotos.length); }
-  function next(e: React.MouseEvent) { e.stopPropagation(); setIdx(i => (i + 1) % fotos.length); }
-
-  const gradBg = categoryGradient(catNome);
-
-  return (
-    <div
-      onClick={onClick}
-      className="border border-[rgba(0,0,0,0.08)] rounded-[18px] overflow-hidden hover:shadow-[0_16px_40px_-20px_rgba(3,2,19,0.3)] hover:-translate-y-0.5 transition-all cursor-pointer bg-white"
-    >
-      {/* ── GALERIA (65% da largura = 35% menor que quadrado) ── */}
-      <div className="relative w-full" style={{ aspectRatio: '20/13', background: gradBg }}>
-        {fotos.length > 0 && fotos.map((url, i) => (
-          <img key={i} src={url} alt="" loading="lazy"
-            className="absolute inset-0 w-full h-full object-cover"
-            style={{ display: i === idx ? 'block' : 'none' }} />
-        ))}
-
-        {/* Nota — topo direito */}
-        {nota > 0 && (
-          <span className="absolute top-2.5 right-2.5 z-[3] flex items-center gap-1 bg-white/95 px-2.5 py-[5px] rounded-full text-[12px] font-bold">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="#030213"><path d="M12 2l2.9 6.3 6.9.6-5.2 4.6 1.6 6.8L12 17.3 5.8 20.9l1.6-6.8L2.2 8.9l6.9-.6z"/></svg>
-            {nota.toFixed(1)}
-          </span>
-        )}
-
-        {/* Setas de navegação */}
-        {fotos.length > 1 && (
-          <>
-            <button onClick={prev}
-              className="absolute left-2 top-1/2 -translate-y-1/2 z-[4] w-7 h-7 rounded-full border-none bg-white/92 shadow-[0_2px_8px_rgba(3,2,19,0.2)] cursor-pointer flex items-center justify-center">
-              <ChevronLeft className="w-3.5 h-3.5 text-[#030213]" />
-            </button>
-            <button onClick={next}
-              className="absolute right-2 top-1/2 -translate-y-1/2 z-[4] w-7 h-7 rounded-full border-none bg-white/92 shadow-[0_2px_8px_rgba(3,2,19,0.2)] cursor-pointer flex items-center justify-center">
-              <ChevronRight className="w-3.5 h-3.5 text-[#030213]" />
-            </button>
-            <div className="absolute inset-x-0 bottom-0 h-12 z-[2] bg-gradient-to-t from-black/30 to-transparent pointer-events-none" />
-            <div className="absolute inset-x-0 bottom-2.5 z-[3] flex justify-center gap-1.5">
-              {fotos.map((_, i) => (
-                <span key={i} className="h-1.5 rounded-full transition-all"
-                  style={{ width: i === idx ? 16 : 5, background: i === idx ? '#fff' : 'rgba(255,255,255,0.55)' }} />
-              ))}
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* ── DADOS ── */}
-      <div className="px-[18px] pt-4 pb-[18px] relative">
-        {/* Foto do prestador na interseção galeria/corpo */}
-        <div className="absolute -top-7 left-[18px] w-14 h-14 rounded-[16px] border-[3px] border-white overflow-hidden bg-[#030213] z-[5]"
-          style={{ boxShadow: '0 6px 16px -6px rgba(3,2,19,0.4)' }}>
-          {s.prestadores?.foto_url
-            ? <img src={s.prestadores.foto_url} alt="" className="w-full h-full object-cover" />
-            : <div className="w-full h-full flex items-center justify-center text-white font-bold text-xl">
-                {getInitials(s.prestadores?.nome || '')}
-              </div>
-          }
-        </div>
-
-        {/* Orça online — canto direito inferior da foto */}
-        <div className="flex items-start justify-end" style={{ minHeight: 28 }}>
-          {aceitaOnline && (
-            <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full whitespace-nowrap"
-              style={{ background: 'oklch(0.95 0.03 184)', color: 'oklch(0.45 0.1 184)' }}>
-              💬 Orça online
-            </span>
-          )}
-        </div>
-
-        <div className="mt-[14px]">
-          <div className="text-[11px] font-bold uppercase text-[#717182] tracking-[0.04em] mb-0.5">
-            {s.categorias?.icone && <span className="mr-1">{s.categorias.icone}</span>}{catNome}
-          </div>
-          <h3 className="text-[15px] font-bold m-0 mb-1 leading-snug" style={{ color: '#030213' }}>{s.titulo}</h3>
-          <div className="flex items-center gap-1.5 mb-1.5">
-            <span className="text-[13px] text-[#717182]">{s.prestadores?.nome}</span>
-            {s.prestadores?.verificado && (
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="oklch(0.6 0.118 184.704)">
-                <path d="M12 2l2.4 2.1 3.1-.6 1.1 3 2.8 1.4-1 3.1 1 3.1-2.8 1.4-1.1 3-3.1-.6L12 22l-2.4-2.1-3.1.6-1.1-3-2.8-1.4 1-3.1-1-3.1 2.8-1.4 1.1-3 3.1.6z"/>
-                <path d="M9 12l2 2 4-4" stroke="#fff" strokeWidth="2" fill="none"/>
-              </svg>
-            )}
-          </div>
-          {Array.isArray(s.tags) && s.tags.length > 0 && (
-            <div className="flex flex-wrap gap-1 mb-2">
-              {s.tags.map((t: string) => (
-                <span key={t} className="text-[10.5px] font-medium px-2 py-0.5 rounded-full"
-                  style={{ background: 'rgba(3,2,19,0.06)', color: '#45454f' }}>
-                  {t}
-                </span>
-              ))}
-            </div>
-          )}
-          <div className="flex items-center justify-between pt-3 border-t border-[rgba(0,0,0,0.07)]">
-            {price > 0 ? (
-              <span className="text-[15px] font-extrabold" style={{ color: 'oklch(0.45 0.1 184)' }}>
-                {formatCurrency(price)}
-              </span>
-            ) : (
-              <span className="text-[13px] text-[#717182]">Sob orçamento</span>
-            )}
-            <span className="text-[13px] font-bold">Ver detalhes →</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export function Busca() {
   const [urlParams] = useSearchParams();
