@@ -7,11 +7,11 @@ const supabase = require('../services/supabase');
 // POST /api/ia/anamnese
 router.post('/anamnese', async (req, res) => {
   try {
-    const { mensagem, historico = [], cat_nome, servico_nome, orc_id } = req.body;
+    const { mensagem, historico = [], cat_nome, servico_nome, orc_id, prestador_nome = '' } = req.body;
 
     const novoHistorico = [...historico, { role: 'user', content: mensagem }];
 
-    const resultado = await conduzirAnamnese(novoHistorico, cat_nome, servico_nome);
+    const resultado = await conduzirAnamnese(novoHistorico, cat_nome, servico_nome, prestador_nome);
 
     if (!resultado.ok) {
       return res.status(500).json({ ok: false, error: resultado.error });

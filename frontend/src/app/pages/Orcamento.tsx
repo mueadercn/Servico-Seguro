@@ -9,6 +9,7 @@ export function Orcamento() {
   const servicoNome = params.get('nome') || 'Serviço';
   const catNome = params.get('cat') || '';
   const prestadorId = params.get('prestador') || '';
+  const prestadorNome = params.get('prestador_nome') || '';
 
   const [msgs, setMsgs] = useState<any[]>([]);
   const [input, setInput] = useState('');
@@ -29,6 +30,37 @@ export function Orcamento() {
     setMsgs(prev => [...prev, { role, content, ...extra }]);
   }
 
+  async function iniciarAnamnese(orcIdLocal: string) {
+    setLoading(true);
+    addMsg('typing', '');
+    try {
+      const result = await apiCall('/api/ia/anamnese', {
+        method: 'POST',
+        body: {
+          mensagem: 'INICIAR_ATENDIMENTO',
+          historico: [],
+          cat_nome: catNome,
+          servico_nome: servicoNome,
+          prestador_nome: prestadorNome,
+          orc_id: orcIdLocal,
+        },
+      });
+      setMsgs(prev => prev.filter(m => m.role !== 'typing'));
+      if (result.concluida) {
+        await concluirAnamnese(result.resumo);
+      } else {
+        setHistorico(result.historico);
+        addMsg('ia', result.resposta);
+      }
+    } catch (e) {
+      setMsgs(prev => prev.filter(m => m.role !== 'typing'));
+      const fallback = `Olá! 😊\n\nVi que tem interesse em: **${servicoNome}**\n\nMe conta o que você precisa para organizar as informações e encaminhar ao profissional.`;
+      addMsg('ia', fallback);
+      setHistorico([{ role: 'assistant', content: fallback }]);
+    }
+    setLoading(false);
+  }
+
   async function iniciar() {
     if (contratante) {
       const nome = contratante.nome;
@@ -37,10 +69,8 @@ export function Orcamento() {
       setTelefone(tel);
       const orc = await criarOrc(nome, tel);
       if (orc) {
-        const h = [{ role: 'assistant', content: `Olá, ${nome}! Me conta o que você precisa para ${servicoNome}.` }];
-        setHistorico(h);
-        addMsg('ia', `Olá, **${nome}**! 😊\n\nVi que tem interesse em: **${servicoNome}**\n\nMe conta o que exatamente você precisa?`);
         setEtapa('anamnese');
+        await iniciarAnamnese(orc.id);
       }
     } else {
       setEtapa('nome');
@@ -87,10 +117,8 @@ export function Orcamento() {
       setTelefone(txt);
       const orc = await criarOrc(nomeCliente, txt);
       if (orc) {
-        const h = [{ role: 'assistant', content: `Ótimo! Me conta o que você precisa para ${servicoNome}.` }];
-        setHistorico(h);
-        addMsg('ia', `Ótimo! Agora me conta o que você precisa para **${servicoNome}**?`);
         setEtapa('anamnese');
+        await iniciarAnamnese(orc.id);
       } else {
         addMsg('ia', 'Houve um problema ao registrar. Tente novamente ou entre em contato via WhatsApp.');
       }

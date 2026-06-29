@@ -214,16 +214,26 @@ async function iniciarSessao(numero, texto, ids) {
 
   console.log(`[SESSÃO] Criada para ${numero} — serviço: ${servicoNome}`);
 
-  // Boas-vindas
-  const boasVindas =
-    `Olá! 😊 Sou a assistente do *Serviço Seguro*.\n\n` +
-    `Vi que você tem interesse em: *${servicoNome}*\n\n` +
-    `Vou te fazer algumas perguntas rápidas para preparar o melhor orçamento. Pode ser?`;
+  // Buscar nome do prestador para a saudação personalizada
+  let prestadorNome = 'o profissional';
+  if (prestadorId) {
+    const { data: prest } = await supabase
+      .from('prestadores').select('nome').eq('id', prestadorId).limit(1);
+    if (prest?.[0]?.nome) prestadorNome = prest[0].nome;
+  }
 
-  await enviarMensagem(numero, boasVindas);
+  // Gerar mensagem inicial via IA (saudação PROMPT GERAL + todas as perguntas em bloco)
+  const triggerHistorico = [{ role: 'user', content: 'INICIAR_ATENDIMENTO' }];
+  const resultadoInicial = await conduzirAnamnese(triggerHistorico, categoriaNome, servicoNome, prestadorNome);
 
-  // Salvar no histórico
-  await atualizarHistorico(numero, [], 'assistant', boasVindas);
+  const mensagemInicial = (resultadoInicial.ok && resultadoInicial.resposta)
+    ? resultadoInicial.resposta
+    : `Olá! 😊 Sou a assistente do *Serviço Seguro*.\n\nVi que você tem interesse em: *${servicoNome}*\n\nMe conta o que você precisa para eu organizar as informações e encaminhar ao profissional.`;
+
+  await enviarMensagem(numero, mensagemInicial);
+
+  // Salvar trigger + resposta da IA no histórico
+  await atualizarHistorico(numero, triggerHistorico, 'assistant', mensagemInicial);
 }
 
 // ── CONDUZIR ANAMNESE ─────────────────────────────────────────

@@ -191,7 +191,7 @@ export function ProviderProfile() {
     '\n\nPode me ajudar com um orçamento?'
   )}`;
   const chatLink = (s: any) =>
-    `/orcamento?servico=${s.id}&nome=${encodeURIComponent(s.titulo)}&cat=${encodeURIComponent(s.categorias?.nome || '')}&prestador=${prestador.id || ''}`;
+    `/orcamento?servico=${s.id}&nome=${encodeURIComponent(s.titulo)}&cat=${encodeURIComponent(s.categorias?.nome || '')}&prestador=${prestador.id || ''}&prestador_nome=${encodeURIComponent(prestador.nome || '')}`;
 
   const precoStr = (s: any) => s.tipo === 'fixo' && s.valor_fixo
     ? `R$ ${Number(s.valor_fixo).toLocaleString('pt-BR', { minimumFractionDigits: 0 })}`
