@@ -274,7 +274,7 @@ ALTER TABLE contratos ADD COLUMN IF NOT EXISTS tel_prestador text;
 ALTER TABLE prestadores ADD COLUMN IF NOT EXISTS nivel text NOT NULL DEFAULT 'BRONZE';
 
 -- Faixas (ajuste os limites aqui se quiser): OURO >= 30, PRATA >= 10, senão BRONZE
-CREATE OR REPLACE FUNCTION calc_nivel_prestador(qtd integer)
+CREATE OR REPLACE FUNCTION calc_nivel_prestador(qtd bigint)
 RETURNS text AS $$
 BEGIN
   IF qtd >= 30 THEN RETURN 'OURO';
@@ -289,7 +289,7 @@ CREATE OR REPLACE FUNCTION atualizar_nivel_prestador()
 RETURNS trigger AS $$
 DECLARE
   pid uuid;
-  qtd integer;
+  qtd bigint;
 BEGIN
   pid := COALESCE(NEW.prestador_id, OLD.prestador_id);
   IF pid IS NULL THEN RETURN COALESCE(NEW, OLD); END IF;
