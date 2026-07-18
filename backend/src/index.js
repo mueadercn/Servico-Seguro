@@ -18,6 +18,8 @@ const categoriasRoutes = require('./routes/categorias');
 const adminRoutes = require('./routes/admin');
 const chatRoutes = require('./routes/chat');
 const avaliarRoutes = require('./routes/avaliar');
+const blindadoRoutes = require('./routes/blindado');
+const blindadoPagamentos = require('./routes/blindado-pagamentos');
 
 // Jobs
 const { iniciarJobs } = require('./jobs');
@@ -29,6 +31,12 @@ const PORT = process.env.PORT || 3001;
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors({ origin: '*', credentials: true }));
 app.use(morgan('dev'));
+
+// Webhook Stripe: precisa do body RAW p/ validar assinatura — montar ANTES do express.json
+app.post('/api/blindado/pagamentos/webhook',
+  express.raw({ type: 'application/json' }),
+  blindadoPagamentos.webhookHandler);
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -65,6 +73,8 @@ app.use('/api/categorias', categoriasRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/avaliar', avaliarRoutes);
+app.use('/api/blindado/pagamentos', blindadoPagamentos.router);
+app.use('/api/blindado', blindadoRoutes);
 
 // ── ERROR HANDLER ─────────────────────────────────────────────
 app.use((err, req, res, next) => {

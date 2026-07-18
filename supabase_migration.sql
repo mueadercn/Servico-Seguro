@@ -312,3 +312,296 @@ SET nivel = calc_nivel_prestador((
   SELECT count(*) FROM orcs o
    WHERE o.prestador_id = p.id AND o.status = 'SERVIÇO CONCLUÍDO'
 ));
+
+
+-- =====================================================
+-- MIGRAÇÃO 5: Pré-popular prompts de IA por categoria
+-- Os prompts ficam visíveis e editáveis em /admin/prompts.
+-- O REGRAS_BASE é sempre adicionado pelo backend — aqui
+-- ficam apenas as perguntas específicas de cada categoria.
+-- ON CONFLICT DO NOTHING: não sobrescreve edições do admin.
+-- =====================================================
+
+INSERT INTO configuracoes (chave, valor, atualizado_em) VALUES
+('system_prompt_geral',
+'Para facilitar a análise do profissional, informe, se possível:
+
+🔧 Qual serviço você precisa?
+📍 Onde o serviço será realizado? (bairro ou endereço aproximado)
+📐 Consegue descrever melhor o que precisa ser feito?
+⏰ É urgente ou tem prazo desejado?
+📅 Quais dias e horários você tem disponibilidade?
+📷 Se possível, envie fotos ou qualquer referência que ajude o profissional.
+📝 Alguma informação importante que o profissional deva saber?', now()),
+
+('system_prompt_eletrica',
+'Para facilitar a análise do profissional, informe, se possível:
+
+⚡ Qual serviço deseja realizar? (ex: instalação, reparo, tomada, disjuntor, iluminação)
+🏠 O local é residência, apartamento, comércio ou empresa?
+📍 Qual o bairro ou endereço aproximado?
+⏰ É urgente? Há risco de curto ou sem energia em algum cômodo?
+📅 Quais dias e horários você tem disponibilidade?
+📷 Se possível, envie fotos do local ou do quadro de energia.
+📝 Alguma informação importante que o profissional deva saber?', now()),
+
+('system_prompt_encanamento',
+'Para facilitar a análise do profissional, informe, se possível:
+
+🚿 Qual serviço deseja? (ex: vazamento, entupimento, instalação, troca de torneira/vaso)
+🏠 O local é residência, apartamento, comércio ou empresa?
+📍 Qual o bairro ou endereço aproximado?
+💧 O vazamento está visível? Há dano em parede, teto ou piso?
+⏰ É urgente? Há água acumulando ou risco de dano maior?
+📅 Quais dias e horários você tem disponibilidade?
+📷 Se possível, envie fotos do local com problema.
+📝 Alguma informação importante que o profissional deva saber?', now()),
+
+('system_prompt_gesso',
+'Para facilitar a análise do profissional, informe, se possível:
+
+🪨 Qual serviço deseja? (ex: forro, sanca, drywall, moldura, reparo)
+🏠 Em quais cômodos será o serviço?
+📐 Tem ideia da área aproximada em m²?
+🎨 Já tem referências ou modelo em mente?
+📅 Quais dias e horários você tem disponibilidade?
+📷 Se possível, envie fotos do ambiente e referências do que deseja.
+📝 Alguma informação importante que o profissional deva saber?', now()),
+
+('system_prompt_pintura',
+'Para facilitar a análise do profissional, informe, se possível:
+
+🎨 O serviço é interno, externo ou ambos?
+🏠 Quais cômodos ou áreas serão pintadas?
+📐 Tem ideia da área aproximada em m²?
+🖌️ Vai precisar de massa corrida, textura ou apenas tinta?
+🎨 Já tem cor ou tinta escolhida, ou precisa de indicação?
+📅 Quais dias e horários você tem disponibilidade?
+📷 Se possível, envie fotos do ambiente atual.
+📝 Alguma informação importante que o profissional deva saber?', now()),
+
+('system_prompt_construcao',
+'Para facilitar a análise do profissional, informe, se possível:
+
+🏗️ Qual serviço deseja? (ex: reforma, ampliação, demolição, alvenaria, fundação)
+📐 Tem ideia da área envolvida em m²?
+🧱 Os materiais serão fornecidos por você ou pelo profissional?
+📋 Tem projeto, planta ou referências do que deseja?
+📅 Qual o prazo desejado para início ou conclusão?
+📍 Qual o bairro ou endereço aproximado?
+📷 Se possível, envie fotos do local.
+📝 Alguma informação importante que o profissional deva saber?', now()),
+
+('system_prompt_acabamentos',
+'Para facilitar a análise do profissional, informe, se possível:
+
+🧱 Qual serviço deseja? (ex: revestimento, piso, rejunte, rodapé, textura, detalhes finais)
+🏠 Em quais cômodos ou áreas?
+📐 Tem ideia da área aproximada em m²?
+🎨 Já tem o material escolhido ou precisa de indicação?
+📅 Quais dias e horários você tem disponibilidade?
+📷 Se possível, envie fotos do ambiente e referências do acabamento desejado.
+📝 Alguma informação importante que o profissional deva saber?', now()),
+
+('system_prompt_marcenaria',
+'Para facilitar a análise do profissional, informe, se possível:
+
+🪵 Qual serviço deseja? (ex: móvel planejado, armário, bancada, reparo, marcenaria geral)
+🏠 Em qual cômodo ou ambiente?
+📐 Tem as medidas do espaço disponível?
+🪵 Tem preferência de material? (MDF, madeira maciça, compensado...)
+🎨 Tem referências de cor, estilo ou modelo em mente?
+📅 Quais dias e horários você tem disponibilidade?
+📷 Se possível, envie fotos do espaço e referências do que deseja.
+📝 Alguma informação importante que o profissional deva saber?', now()),
+
+('system_prompt_serralheria',
+'Para facilitar a análise do profissional, informe, se possível:
+
+🔩 Qual serviço deseja? (ex: portão, grade, estrutura metálica, guarda-corpo, reparo)
+🏠 O local é residência, comércio ou empresa?
+📐 Tem as medidas ou dimensões aproximadas?
+🔧 Tem preferência de material? (ferro, alumínio, aço inox...)
+📅 Quais dias e horários você tem disponibilidade?
+📷 Se possível, envie fotos do local e referências do que deseja.
+📝 Alguma informação importante que o profissional deva saber?', now()),
+
+('system_prompt_vidros',
+'Para facilitar a análise do profissional, informe, se possível:
+
+🪟 Qual serviço deseja? (ex: box, janela, porta de vidro, espelho, reparo, substituição)
+🏠 O local é residência, apartamento, comércio ou empresa?
+📐 Tem as medidas ou dimensões aproximadas?
+🔧 O serviço é instalação nova ou substituição/reparo de algo existente?
+📅 Quais dias e horários você tem disponibilidade?
+📷 Se possível, envie fotos do local e do que precisa ser feito.
+📝 Alguma informação importante que o profissional deva saber?', now()),
+
+('system_prompt_seguranca',
+'Para facilitar a análise do profissional, informe, se possível:
+
+🔐 Qual serviço deseja? (ex: câmeras, alarme, controle de acesso, cerca elétrica, interfone)
+🏠 O local é residência, apartamento, comércio ou empresa?
+📍 Qual o bairro ou endereço aproximado?
+📐 Quantos pontos ou câmeras aproximadamente você precisa?
+⏰ É urgente?
+📅 Quais dias e horários você tem disponibilidade?
+📷 Se possível, envie fotos do local onde será instalado.
+📝 Alguma informação importante que o profissional deva saber?', now()),
+
+('system_prompt_tecnologia',
+'Para facilitar a análise do profissional, informe, se possível:
+
+💻 Qual serviço deseja? (ex: rede, suporte, formatação, instalação, automação, câmeras IP)
+🖥️ Qual equipamento ou sistema está envolvido?
+🏠 O local é residência, apartamento, comércio ou empresa?
+⏰ É urgente? O equipamento está sem funcionar?
+📅 Quais dias e horários você tem disponibilidade?
+📷 Se possível, envie fotos ou print do problema.
+📝 Alguma informação importante que o profissional deva saber?', now()),
+
+('system_prompt_limpeza',
+'Para facilitar a análise do profissional, informe, se possível:
+
+🧹 Qual serviço deseja? (ex: limpeza residencial, pós-obra, vidros, dedetização, fossa)
+🏠 O local é residência, apartamento, comércio ou empresa?
+📐 Qual o tamanho aproximado do espaço em m²?
+🔄 A limpeza será única ou recorrente? (se recorrente, qual a frequência desejada?)
+🐾 Tem animais de estimação no local?
+🧴 Prefere que o profissional leve os produtos ou você fornecerá?
+📅 Quais dias e horários você tem disponibilidade?
+📝 Alguma informação importante que o profissional deva saber?', now()),
+
+('system_prompt_jardinagem',
+'Para facilitar a análise do profissional, informe, se possível:
+
+🌳 Qual serviço deseja? (ex: poda, paisagismo, manutenção, plantio, irrigação, gramado)
+🏠 O local é residência, comércio ou empresa?
+📐 Qual o tamanho aproximado da área em m²?
+🔄 O serviço será único ou recorrente? (se recorrente, qual a frequência?)
+📅 Quais dias e horários você tem disponibilidade?
+📷 Se possível, envie fotos do jardim ou área.
+📝 Alguma informação importante que o profissional deva saber?', now()),
+
+('system_prompt_piscinas',
+'Para facilitar a análise do profissional, informe, se possível:
+
+🏊 Qual serviço deseja? (ex: limpeza, manutenção, reforma, construção, deck, área gourmet)
+📐 Qual o tamanho aproximado da piscina ou área em m²?
+🔄 O serviço será único ou recorrente?
+🏠 O local é residência, condomínio ou clube?
+📅 Quais dias e horários você tem disponibilidade?
+📷 Se possível, envie fotos da piscina ou área externa.
+📝 Alguma informação importante que o profissional deva saber?', now()),
+
+('system_prompt_fretes',
+'Para facilitar a análise do profissional, informe, se possível:
+
+🚚 Qual serviço deseja? (ex: mudança completa, frete, carreto, montagem de móveis)
+📍 Qual o endereço de origem e destino?
+📦 O que precisa ser transportado? (quantidade de móveis, caixas, eletrodomésticos...)
+🏢 Os locais têm elevador ou escadas? Quantos andares?
+📅 Qual a data desejada para o serviço?
+📷 Se possível, envie fotos dos itens que serão transportados.
+📝 Alguma informação importante que o profissional deva saber?', now()),
+
+('system_prompt_automotivo',
+'Para facilitar a análise do profissional, informe, se possível:
+
+🚗 Qual serviço deseja? (ex: mecânica, elétrica, funilaria, higienização, troca de peças)
+🚘 Qual o veículo? (marca, modelo e ano aproximado)
+🔧 Qual o problema ou o que precisa ser feito?
+📍 O serviço será no seu endereço ou levará o veículo à oficina?
+⏰ É urgente? O veículo está parado?
+📅 Quais dias e horários você tem disponibilidade?
+📷 Se possível, envie fotos do problema ou do veículo.
+📝 Alguma informação importante que o profissional deva saber?', now()),
+
+('system_prompt_pets',
+'Para facilitar a análise do profissional, informe, se possível:
+
+🐾 Qual serviço deseja? (ex: banho e tosa, consulta veterinária, adestramento, hospedagem, passeio)
+🐶 Qual o animal? (espécie, raça e porte aproximado)
+🏠 O serviço será no seu endereço ou você levará o animal?
+💉 O animal tem alguma necessidade especial, alergia ou condição de saúde?
+📅 Quais dias e horários você tem disponibilidade?
+📝 Alguma informação importante que o profissional deva saber?', now()),
+
+('system_prompt_saude',
+'Para facilitar a análise do profissional, informe, se possível:
+
+💪 Qual serviço deseja? (ex: fisioterapia, personal trainer, nutrição, massagem, estética)
+🏠 O atendimento será no seu endereço ou em consultório/estúdio?
+👤 O serviço é para você ou para outra pessoa? (informe a faixa etária, se quiser)
+🩺 Tem alguma condição de saúde, restrição ou objetivo específico que o profissional deva saber?
+⏰ É urgente ou tem preferência de prazo para início?
+📅 Quais dias e horários você tem disponibilidade?
+📝 Alguma informação importante que o profissional deva saber?', now()),
+
+('system_prompt_educacao',
+'Para facilitar a análise do profissional, informe, se possível:
+
+📚 Qual serviço deseja? (ex: aulas particulares, reforço escolar, idiomas, música, curso)
+👤 As aulas são para você ou para outra pessoa? (informe a faixa etária e série/nível, se quiser)
+🏠 O atendimento será presencial (no seu endereço ou outro local) ou online?
+🎯 Qual o objetivo ou dificuldade principal?
+⏰ Quantas horas por semana aproximadamente?
+📅 Quais dias e horários você tem disponibilidade?
+📝 Alguma informação importante que o profissional deva saber?', now()),
+
+('system_prompt_eventos',
+'Para facilitar a análise do profissional, informe, se possível:
+
+🎉 Qual serviço deseja? (ex: decoração, buffet, fotografia, DJ, animação, organização)
+👥 Qual o tipo de evento e o número aproximado de convidados?
+📍 Qual o local do evento? (já definido ou precisa de indicação?)
+📅 Qual a data do evento?
+💰 Tem um orçamento aproximado em mente?
+📷 Se possível, envie referências do estilo ou tema desejado.
+📝 Alguma informação importante que o profissional deva saber?', now()),
+
+('system_prompt_locacoes',
+'Para facilitar a análise do profissional, informe, se possível:
+
+🏠 O que deseja locar? (ex: imóvel residencial, comercial, equipamento, estrutura para evento)
+📍 Qual a localização desejada ou onde o item será usado?
+📅 Qual o período ou prazo desejado?
+💰 Tem um valor de referência em mente?
+📝 Alguma informação importante que o profissional deva saber?', now()),
+
+('system_prompt_empresarial',
+'Para facilitar a análise do profissional, informe, se possível:
+
+🏢 Qual serviço deseja? (ex: manutenção predial, limpeza comercial, consultoria, infraestrutura)
+🏠 Qual o tipo de estabelecimento? (escritório, loja, galpão, indústria...)
+📍 Qual o bairro ou endereço aproximado?
+📐 Qual o porte aproximado? (tamanho da área, número de funcionários, etc.)
+⏰ É urgente ou tem prazo definido?
+📅 Quais dias e horários você tem disponibilidade?
+📷 Se possível, envie fotos do local.
+📝 Alguma informação importante que o profissional deva saber?', now()),
+
+('system_prompt_rural',
+'Para facilitar a análise do profissional, informe, se possível:
+
+🚜 Qual serviço deseja? (ex: terraplanagem, cerca, irrigação, limpeza de terreno, plantio)
+📍 Qual a localização da propriedade?
+📐 Qual o tamanho aproximado da área em hectares ou m²?
+🔧 Tem maquinário disponível ou precisa que o profissional traga?
+📅 Qual o prazo desejado para início ou conclusão?
+📷 Se possível, envie fotos da área.
+📝 Alguma informação importante que o profissional deva saber?', now()),
+
+('system_prompt_predial',
+'Para facilitar a análise do profissional, informe, se possível:
+
+🏘️ Qual serviço deseja? (ex: zeladoria, reparo geral, pintura predial, portão, áreas comuns)
+🏢 Qual o tipo de edificação? (residencial, comercial, condomínio, número de andares...)
+📍 Qual o bairro ou endereço aproximado?
+🔧 O serviço é pontual ou de manutenção recorrente?
+⏰ É urgente?
+📅 Quais dias e horários você tem disponibilidade?
+📷 Se possível, envie fotos do que precisa ser feito.
+📝 Alguma informação importante que o profissional deva saber?', now())
+
+ON CONFLICT (chave) DO NOTHING;

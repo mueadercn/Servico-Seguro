@@ -16,6 +16,13 @@ import { ProviderProfile } from "./pages/ProviderProfile"
 import { Profissionais } from "./pages/Profissionais";
 import { Contato as ContatoPage } from "./pages/Contato";
 import { NotFound } from "./pages/NotFound";
+import { BlindadoLayout } from "./pages/blindado/BlindadoLayout";
+import { BlindadoLanding } from "./pages/blindado/BlindadoLanding";
+import { BlindadoDashboard } from "./pages/blindado/BlindadoDashboard";
+import { BlindadoNovo } from "./pages/blindado/BlindadoNovo";
+import { BlindadoCreditos } from "./pages/blindado/BlindadoCreditos";
+import { BlindadoContrato } from "./pages/blindado/BlindadoContrato";
+import { BlindadoAcesso } from "./pages/blindado/BlindadoAcesso";
 
 export const router = createBrowserRouter([
   {
@@ -39,6 +46,19 @@ export const router = createBrowserRouter([
       { path: "chat/:token", Component: Chat },
       { path: "avaliar/:token", Component: Avaliar },
       { path: "*", Component: NotFound },
+    ],
+  },
+  {
+    path: "/blindado",
+    Component: BlindadoLayout,
+    children: [
+      { index: true, Component: BlindadoLanding },
+      { path: "painel", Component: BlindadoDashboard },
+      { path: "novo", Component: BlindadoNovo },
+      { path: "novo/:id", Component: BlindadoNovo },
+      { path: "creditos", Component: BlindadoCreditos },
+      { path: "c/:token", Component: BlindadoContrato },
+      { path: "acesso", Component: BlindadoAcesso },
     ],
   },
 ]);
