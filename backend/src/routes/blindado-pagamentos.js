@@ -72,15 +72,25 @@ router.post('/checkout', async (req, res) => {
     const pacote = PACOTES.find(p => p.id === pacote_id);
     if (!pacote) return res.status(400).json({ error: 'Pacote inválido' });
 
-    // PIX exige billing_details.name — busca nome/email do usuário no banco
+    // PIX exige billing_details com name e tax_id (CPF/CNPJ) — busca do cadastro
     const tabela = user_tipo === 'prestador' ? 'prestadores' : 'usuarios';
     const { data: pessoa } = await supabase
       .from(tabela)
-      .select('nome, email')
+      .select('nome, email, cpf')
       .eq('id', user_id)
       .maybeSingle();
 
-    const billing = { name: (pessoa && pessoa.nome) || 'Cliente Serviço Seguro' };
+    const cpfDigits = ((pessoa && pessoa.cpf) || '').replace(/\D/g, '');
+    if (!cpfDigits) {
+      return res.status(400).json({
+        error: 'Seu cadastro não tem CPF/CNPJ preenchido — complete seu perfil para pagar via PIX.'
+      });
+    }
+
+    const billing = {
+      name: (pessoa && pessoa.nome) || 'Cliente Serviço Seguro',
+      tax_id: cpfDigits,
+    };
     if (pessoa && pessoa.email) billing.email = pessoa.email;
 
     const pi = await stripe.paymentIntents.create({
