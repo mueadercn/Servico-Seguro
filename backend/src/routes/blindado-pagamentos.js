@@ -108,8 +108,10 @@ router.post('/checkout', async (req, res) => {
       valor_centavos: pacote.valor_centavos,
     });
   } catch (err) {
-    console.error('[Blindado Pagamentos] Erro no checkout:', err.message);
-    res.status(500).json({ error: 'Erro ao gerar cobrança PIX' });
+    // Erros da Stripe trazem a causa real em err.raw.message (ex.: PIX não ativado na conta)
+    const detalhe = (err && err.raw && err.raw.message) || err.message || 'erro desconhecido';
+    console.error('[Blindado Pagamentos] Erro no checkout:', detalhe);
+    res.status(500).json({ error: `Erro ao gerar cobrança PIX: ${detalhe}` });
   }
 });
 

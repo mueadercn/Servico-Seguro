@@ -10,7 +10,8 @@ const { gerarPDFBlindado, gerarHash } = require('../services/pdf-blindado');
 
 const BUCKET = 'blindado-anexos';
 const SIGNED_URL_TTL = 3600; // 1h
-const FRONTEND_URL = process.env.FRONTEND_URL || 'https://classy-cucurucho-4e3455.netlify.app';
+// Barras finais removidas para evitar links com "//" (quebra o roteamento do SPA)
+const FRONTEND_URL = (process.env.FRONTEND_URL || 'https://servico-seguro.netlify.app').replace(/\/+$/, '');
 
 // ── HELPERS ───────────────────────────────────────────────────
 
