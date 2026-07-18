@@ -72,11 +72,22 @@ router.post('/checkout', async (req, res) => {
     const pacote = PACOTES.find(p => p.id === pacote_id);
     if (!pacote) return res.status(400).json({ error: 'Pacote inválido' });
 
+    // PIX exige billing_details.name — busca nome/email do usuário no banco
+    const tabela = user_tipo === 'prestador' ? 'prestadores' : 'usuarios';
+    const { data: pessoa } = await supabase
+      .from(tabela)
+      .select('nome, email')
+      .eq('id', user_id)
+      .maybeSingle();
+
+    const billing = { name: (pessoa && pessoa.nome) || 'Cliente Serviço Seguro' };
+    if (pessoa && pessoa.email) billing.email = pessoa.email;
+
     const pi = await stripe.paymentIntents.create({
       amount: pacote.valor_centavos,
       currency: 'brl',
       payment_method_types: ['pix'],
-      payment_method_data: { type: 'pix' },
+      payment_method_data: { type: 'pix', billing_details: billing },
       confirm: true,
       metadata: {
         produto: 'contrato_blindado',
